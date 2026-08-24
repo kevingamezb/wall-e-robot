@@ -38,7 +38,7 @@ class Comunicacion:
         """
         
         self.conexion = socket.socket(socket.AF_INET,     # Definimos 'con quién nos comunicamos' (Dirección ip + puerto)
-                                    socket.SOCK_STREAM) # Definimos 'cómo nos comunicamos'          (Protocolo TCP)
+                                    socket.SOCK_STREAM)   # Definimos 'cómo nos comunicamos'          (Protocolo TCP)
         self.conexion.connect((ip, puerto))               # Pasamos una tupla (ip, puerto) al socket para conectarnos con el ESP32.
         self.conexion.setblocking(False)                  # No Bloqueante ...
         # Si el programa fuese bloqueante [self.socket.setblocking(True)], recv() congelaría el programa en espera de datos.
