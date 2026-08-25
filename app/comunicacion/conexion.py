@@ -125,3 +125,73 @@ class Comunicacion(Conexion):
         self.conexion.send(mensaje.encode())
         
         
+class ComunicacionSimulada(Conexion):
+    """
+    Definimos una clase de comunicación simulada para pruebas locales,
+    sin necesidad de que exista un ESP32 real conectado.
+
+    A diferencia de Comunicacion (la real), esta clase NO simula el
+    "cable de red" completo (serializar a JSON, meterlo a un buffer,
+    volver a deserializarlo). Eso sería reinventar un paso innecesario:
+    como esta clase ya vive del lado de Python, puede escribir
+    directamente en EstadoRobot, que es justo el propósito de que
+    EstadoRobot sea una "caja compartida" en vez de algo atado a la red.
+    """
+
+    def __init__(self):
+        """
+        Variables internas que guardan el estado simulado entre
+        llamadas, para que los valores cambien de forma progresiva
+        y creíble en vez de saltar aleatoriamente cada vez.
+        """
+
+        self._bateria_simulada = 1.0     # fracción 0.0-1.0, igual que en EstadoRobot
+        self._distancia_simulada = 45.0  # cm
+        self._modo_simulado = "automatico"
+        self._ultimo_log_tiempo = time.time()
+
+    def actualizar_estado(self, estado: EstadoRobot):
+        """
+        Calcula valores simulados que cambian con el tiempo,
+        y los escribe directamente en la caja maestra (EstadoRobot).
+
+        No hay serialización ni deserialización aquí: eso solo
+        tiene sentido cuando el dato realmente viajó por una red,
+        que no es el caso de esta clase.
+        """
+
+        # Descarga lenta de batería, con piso en 0
+        self._bateria_simulada = max(0.0, self._bateria_simulada - 0.001)
+
+        # Variación aleatoria de distancia, dentro de un rango razonable
+        variacion_distancia = random.uniform(-2.5, 2.5)
+        self._distancia_simulada = max(5.0, min(200.0, self._distancia_simulada + variacion_distancia))
+
+        estado.bateria = round(self._bateria_simulada, 3)
+        estado.modo = Modo(self._modo_simulado)
+        estado.distancia_obstaculo_cm = round(self._distancia_simulada, 1)
+        estado.consumo_watts = round(random.uniform(1.2, 4.8), 2)
+        estado.conexion_activa = True
+
+        # Log de prueba cada 10 segundos, para probar el widget del Logger
+        if time.time() - self._ultimo_log_tiempo > 10.0:
+            estado.logger.agregar_linea(
+                "SIMULADOR",
+                f"Lectura de prueba. Radar detecta objeto a {round(self._distancia_simulada)}cm",
+                NivelLog.INFO
+            )
+            self._ultimo_log_tiempo = time.time()
+
+    def enviar_mensaje(self, comando: dict):
+        """
+        Simula el envío de un comando al robot.
+
+        No hay robot real que lo reciba, así que por ahora solo
+        se imprime en consola para poder verificar, durante pruebas,
+        que la GUI está mandando exactamente el comando esperado.
+        """
+
+        print(f"[COMUNICACIÓN SIMULADA] Comando enviado -> {comando}")
+
+        if comando.get("tipo") == "modo":
+            self._modo_simulado = comando.get("modo", self._modo_simulado)
