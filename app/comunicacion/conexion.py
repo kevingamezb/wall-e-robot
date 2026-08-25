@@ -2,13 +2,41 @@
 # 24/08/2026 - Fecha de Creación
 
 
-from app.nucleo.estado import EstadoRobot, NivelLog
+from abc import ABC, abstractmethod 
+from app.nucleo.estado import EstadoRobot, NivelLog, Modo
 
 import socket # Socket es una librería para Networking de bajo nivel, perfecto para nuestro caso y elección de medio de Comunicación
 import json   # Json es un modulo built-in para la conversión de diccionarios a JSON (serialización) y visce-versa (deserialización)
 
+import time   # Librería estandar de Python para trabajar con tiempo y fechas
+import random # Estándar de Python para generar números aleatorios, útil para simular datos de sensores en la clase ComunicacionSimulada
 
-class Comunicacion:
+
+class Conexion(ABC):
+    """
+    Definimos una clase abstracta para la comunicación con el robot.
+    Esta clase define los métodos que cualquier clase de comunicación
+    debe implementar para interactuar con el robot.
+    """
+    
+    @abstractmethod
+    def actualizar_estado(self, estado: EstadoRobot):
+        """
+        Método abstracto para actualizar el estado del robot.
+        Debe ser implementado por cualquier subclase concreta.
+        """
+        pass
+    
+    @abstractmethod
+    def enviar_mensaje(self, comando: dict):
+        """
+        Método abstracto para enviar un mensaje al robot.
+        Debe ser implementado por cualquier subclase concreta.
+        """
+        pass
+
+
+class Comunicacion(Conexion):
     """
     Definimos 'Nuestro Protocolo' de comunicación con el Robot (ESP32).
     Nuestra 'Llamada Telefónica' con sus reglas y métodos.
@@ -95,3 +123,5 @@ class Comunicacion:
         
         mensaje = json.dumps(comando) + '\n'
         self.conexion.send(mensaje.encode())
+        
+        
