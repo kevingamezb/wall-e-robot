@@ -1,5 +1,5 @@
-# wall-e-robot/app/comunicacion/conexion.py - Kevin Gámez
-# 24/08/2026 - Fecha de Creación
+# wall-e-robot/app/comunicacion/conexion.py
+# Kevin Gámez - 26/08/2026
 
 
 from abc import ABC, abstractmethod 

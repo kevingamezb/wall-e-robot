@@ -1,5 +1,5 @@
-# wall-e-robot/app/nucleo/paleta.py - Kevin Gámez
-# 23/08/2026 - Fecha de Creación
+# wall-e-robot/app/nucleo/paleta.py
+# Kevin Gámez - 26/08/2026
 
 
 class Paleta:
