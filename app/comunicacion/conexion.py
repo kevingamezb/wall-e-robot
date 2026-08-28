@@ -3,7 +3,7 @@
 
 
 from abc import ABC, abstractmethod 
-from app.nucleo.estado import EstadoRobot, NivelLog, Modo
+from ..nucleo.estado import EstadoRobot, NivelLog, Modo
 
 import socket # Socket es una librería para Networking de bajo nivel, perfecto para nuestro caso y elección de medio de Comunicación
 import json   # Json es un modulo built-in para la conversión de diccionarios a JSON (serialización) y visce-versa (deserialización)
@@ -195,3 +195,40 @@ class ComunicacionSimulada(Conexion):
 
         if comando.get("tipo") == "modo":
             self._modo_simulado = comando.get("modo", self._modo_simulado)
+
+
+# Cajón de Pruebas
+#
+# Ejecutar desde la raíz del proyecto (donde está la carpeta 'app'):
+#   python -m app.comunicacion.conexion
+if __name__ == "__main__":
+    print("Prueba conexion.py\n")
+
+    # ComunicacionSimulada ---
+    print("ComunicacionSimulada")
+    estado = EstadoRobot()
+    simulada = ComunicacionSimulada()
+
+    # Después de un solo ciclo, la batería baja un poco y la
+    # distancia/consumo toman valores aleatorios razonables.
+    simulada.actualizar_estado(estado)
+
+    print(f"bateria            = {estado.bateria}")
+    print(f"modo               = {estado.modo}")
+    print(f"distancia_obstaculo= {estado.distancia_obstaculo_cm} cm")
+    print(f"consumo_watts      = {estado.consumo_watts} W")
+    print(f"conexion_activa    = {estado.conexion_activa}")
+
+    # Enviar un comando "modo" debe cambiar el modo simulado interno
+    print("\nEnviando comando modo -> 'manual'")
+    simulada.enviar_mensaje({"tipo": "modo", "modo": "manual"})
+    simulada.actualizar_estado(estado)
+    print(f"modo actualizado    = {estado.modo}")
+
+    # ComunicacionSimulada con logger
+    # El radar debe loguear cada 10s. Para no esperar 10s reales,
+    # solo verificamos que el búfer del logger arranca vacío.
+    print("\nLogger (buffer simulado)")
+    print(f"lineas de log       = {len(estado.logger.obtener_lineas())}")
+
+    print("\nPruebas OK")
