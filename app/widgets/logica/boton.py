@@ -96,6 +96,8 @@ class Boton:
 #
 # Ejecutar desde la raíz del proyecto (donde está la carpeta 'app'):
 #   python -m app.widgets.logica.boton
+
+
 if __name__ == "__main__":
     print("Prueba boton.py\n")
 
@@ -114,7 +116,7 @@ if __name__ == "__main__":
 
 
     # 1. Estado inicial
-    print("=== Estado inicial ===")
+    print("Estado inicial")
     b = Boton("Abrir mano")
     assert b.texto == "Abrir mano", "El texto inicial no coincide"
     assert b.presionado is False, "Un botón nuevo debería estar sin presionar"
@@ -148,7 +150,7 @@ if __name__ == "__main__":
 
 
     # 4. Soltar apaga pero no avisa 
-    print("Soltar mudos:")
+    print("Soltar no lanza avisos:")
     b.soltar()
     assert b.presionado is False, "Tras soltar no debería estar presionado"
     assert b.color_fondo == Paleta.FONDO_APP, "Suelto debería verse FONDO_APP"
