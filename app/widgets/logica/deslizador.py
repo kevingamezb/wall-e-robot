@@ -2,15 +2,31 @@
 # Kevin Gámez - 28/08/2026
 
 
+class MovimientoDeslizador:
+    """
+    El "sobre" que representa cada intento de mover el deslizador.
+
+    Cuando el deslizador avisa a sus suscriptores, les entrega un
+    sobre con la posición solicitada y si esa posición era válida.
+    Así el que escucha decide qué hacer (moverse, loguear un error,
+    ignorarlo...), sin que el deslizador dependa de nadie concreto.
+    """
+
+    def __init__(self, posicion: float, valido: bool):
+        self.posicion = posicion  # La posición que se intentó
+        self.valido   = valido    # True si estaba dentro del rango
+
+
 class Deslizador:
     """
     Un deslizador es como la perilla de volumen de una radio:
     tiene un valor que va de un mínimo a un máximo, y el usuario
     lo sube o lo baja moviendo la perilla.
 
-    Cuando la perilla cambia de valor, el deslizador "avisa" a todos
-    los suscriptores cuánto vale ahora (igual que el botón avisa
-    cuando lo presionan, pero aquí además pasando el nuevo valor).
+    Cuando la perilla cambia de valor (o se intenta cambiarla), el
+    deslizador "avisa" a todos los suscriptores entregándoles un
+    MovimientoDeslizador. Al igual que el botón, no le importa qué
+    hace cada uno; solo se encarga de avisar.
     """
 
     def __init__(self, rango: tuple):
@@ -34,48 +50,53 @@ class Deslizador:
         Agrega un contacto a la libreta.
 
         Igual que unirse a un grupo de WhatsApp, cada suscriptor queda
-        guardado para ser avisado cada vez que el deslizador se mueva.
+        guardado para ser avisado cada vez que el deslizador se mueva
+        (o se intente mover).
         """
 
         self.suscriptores.append(suscriptor)
 
 
-    def _actualizar(self):
+    def _actualizar(self, posicion: float, valido: bool):
         """
-        El "cableado" interno: avisa a todos con el valor actual.
+        El "cableado" interno: avisa a todos con un "sobre".
 
-        Recorre la libreta y llama a cada contacto pasándole la
-        posición. Es privado (guion bajo al inicio), así que solo lo
-        usa el deslizador; nadie debería llamarlo desde fuera.
+        Recorre la libreta y llama a cada contacto entregándole un
+        MovimientoDeslizador con la posición intentada y si era válida.
+        Es privado (guion bajo al inicio), así que solo lo usa el
+        deslizador; nadie debería llamarlo desde fuera.
         """
+
+        evento = MovimientoDeslizador(posicion, valido)
 
         for suscriptor in self.suscriptores:
-            suscriptor(self.posicion)
+            suscriptor(evento)
 
 
     def mover(self, posicion: float):
         """
         Mueve la "perilla" a la posición indicada, si es válida.
 
-        Si la posición está fuera del rango permitido, se ignora
-        (es como intentar subir el volumen más allá del máximo:
-        simplemente no pasa nada).
+        Si la posición está fuera del rango permitido, la "perilla" no
+        se mueve, pero igual se avisa a los suscriptores con valido=False.
+        Así el logger (u otro) puede enterarse de que se pidió un ángulo
+        fuera de rango, sin que el deslizador se acople directamente.
         """
 
-        # Si está fuera de rango, no hacemos nada y salimos.
+        # Si está fuera de rango: no nos movemos, pero avisamos del intento.
         if posicion < min(self.rango) or posicion > max(self.rango):
+            self._actualizar(posicion, valido=False)
             return
 
-        # Guardamos la nueva posición y avisamos a todos.
+        # Guardamos la nueva posición y avisamos con valido=True.
         self.posicion = posicion
-        self._actualizar()
+        self._actualizar(posicion, valido=True)
 
 
 # Cajón de Pruebas
 #
 # Ejecutar desde la raíz del proyecto (donde está la carpeta 'app'):
 #   python -m app.widgets.logica.deslizador
-
 
 if __name__ == "__main__":
     print("Prueba deslizador.py\n")
@@ -85,11 +106,11 @@ if __name__ == "__main__":
     # Devuelve una función que cuenta las veces que es llamada.
     # Usamos un dict (no un int) porque Python no modifica los ints
     # por referencia; el dict sí cambia y podemos leerlo después.
-    # Acepta un argumento (el valor nuevo) aunque no lo usa.
+    # Recibe el "sobre" (MovimientoDeslizador) pero solo cuenta.
     def _crear_contador():
         contador = {"avisos": 0}
 
-        def contar(_valor):
+        def contar(_evento):
             contador["avisos"] += 1
 
         return contador, contar
@@ -127,46 +148,55 @@ if __name__ == "__main__":
     print("OK: ambos suscriptores fueron avisados\n")
 
 
-    # 4. Fuera de rango no avisa ni cambia
-    print("=== Fuera de rango ===")
-    avisos_antes = c1["avisos"]
+    # 4. Fuera de rango: no mueve pero ahora SÍ avisa (valido=False)
+    print("=== Fuera de rango avisa con valido=False ===")
+    eventos = []  # Aquí van los "sobres" recibidos
+
+    def guardar_evento(evento):
+        eventos.append(evento)
+
+    d.suscribir(guardar_evento)
+
+    posicion_antes = d.posicion
     d.mover(5000)  # 5000 está fuera de (-70, 70)
-    assert d.posicion == -50,             "Fuera de rango no debería cambiar la posición"
-    assert c1["avisos"] == avisos_antes,  "Fuera de rango no debería avisar a nadie"
-    print("OK: mover fuera de rango se ignora\n")
+
+    assert d.posicion == posicion_antes,  "Fuera de rango no debería cambiar la posición"
+    ultimo = eventos[-1]
+    assert ultimo.posicion == 5000, "El sobre debería llevar la posición intentada"
+    assert ultimo.valido is False,  "El sobre debería marcar valido=False"
+    print("OK: fuera de rango no mueve, pero avisa con valido=False\n")
 
 
     # 5. Movimientos repetidos acumulan avisos
     print("=== Movimientos repetidos ===")
+    # Cuenta: mover(-50) prueba 3, mover(5000) prueba 4, +2 aquí = 4 por suscriptor.
     for i in range(2):
         d.mover(i)
-    assert c1["avisos"] == 3, f"El suscriptor 1 debería tener 3 avisos, tiene {c1['avisos']}"
-    assert c2["avisos"] == 3, f"El suscriptor 2 debería tener 3 avisos, tiene {c2['avisos']}"
+    assert c1["avisos"] == 4, f"El suscriptor 1 debería tener 4 avisos, tiene {c1['avisos']}"
+    assert c2["avisos"] == 4, f"El suscriptor 2 debería tener 4 avisos, tiene {c2['avisos']}"
     print("OK: los movimientos sumaron avisos a ambos suscriptores\n")
 
 
-    # 6. El suscriptor recibe el nuevo valor
-    print("=== El suscriptor recibe el valor ===")
-    valores_recibidos = []
-
-    def guardar_valor(valor):
-        valores_recibidos.append(valor)
-
-    d.suscribir(guardar_valor)
+    # 6. El suscriptor recibe la posición válida en el sobre
+    print("=== El sobre con posición válida ===")
     d.mover(10)
-    assert d.posicion == 10, "La posición debería ser 10"
-    assert valores_recibidos[-1] == 10, "El último valor recibido debería ser 10"
-    print(f"OK: el suscriptor recibió el valor {valores_recibidos[-1]}\n")
+    ultimo = eventos[-1]
+    assert ultimo.posicion == 10, "El sobre debería llevar la posición 10"
+    assert ultimo.valido is True, "Una posición en rango debería marcarse valido=True"
+    print(f"OK: el sobre llevó posición {ultimo.posicion} y valido={ultimo.valido}\n")
 
 
-    # 7. Demostración simple con valor
-    print("=== Demostración simple ===")
-    def cuando_se_mueve(valor):
-        print(f"¡El deslizador se movió!, ahora está en {valor}°")
+    # 7. Conexión desacoplada con un "logger" de ejemplo
+    print("=== Conexión desacoplada (simula al Logger) ===")
+    # Aquí vemos cómo un suscriptor externo decide loguear el error.
+    # En la app real esto llamaría a estado.logger.agregar_linea(...).
+    def avisar_log_de_deslizador(evento):
+        if not evento.valido:
+            print(f"[LOGGER] ADVERTENCIA: ángulo {evento.posicion} fuera de rango")
 
-    demo = Deslizador((-50, 50))
-    demo.suscribir(cuando_se_mueve)
-    demo.mover(25)  # imprime: ¡El deslizador se movió!, ahora está en 25°
+    logueador = Deslizador((-90, 90))
+    logueador.suscribir(avisar_log_de_deslizador)
+    logueador.mover(-1000)  # imprime: [LOGGER] ADVERTENCIA: ángulo -1000 fuera de rango
 
 
     print("\nPruebas OK")
