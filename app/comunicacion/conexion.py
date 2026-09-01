@@ -204,7 +204,7 @@ class ComunicacionSimulada(Conexion):
 if __name__ == "__main__":
     print("Prueba conexion.py\n")
 
-    # ComunicacionSimulada ---
+    # ComunicacionSimulada
     print("ComunicacionSimulada")
     estado = EstadoRobot()
     simulada = ComunicacionSimulada()
