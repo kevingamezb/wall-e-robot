@@ -103,7 +103,9 @@ class Comunicacion(Conexion):
             if mensaje["tipo"] == "estado":
                 # Actualizamos el EstadoRobot con los datos JSON deserializados que el servidor (ESP32) nos manda
                 estado.bateria                = mensaje["bateria"]
-                estado.modo                   = mensaje["modo"]
+                estado.modo                   = Modo(mensaje["modo"])                 # El JSON trae un string ('automatico'/'manual');
+                                                                                       # lo convertimos al enum Modo para respetar el contrato
+                                                                                       # de EstadoRobot (igual que ComunicacionSimulada).
                 estado.distancia_obstaculo_cm = mensaje["distancia_cm"]
                 estado.consumo_watts          = mensaje["consumo_watts"]
                 estado.conexion_activa        = mensaje["conexion_activa"]
