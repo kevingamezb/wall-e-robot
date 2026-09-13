@@ -175,6 +175,13 @@ class ComunicacionSimulada(Conexion):
         estado.consumo_watts = round(random.uniform(1.2, 4.8), 2)
         estado.conexion_activa = True
 
+        # Alertas simuladas, para poder probar los íconos de sistema y los ojos:
+        #   - Advertencia: obstáculo cerca (< 15cm) o batería baja (< 0.25).
+        #   - Error: batería al borde del agotamiento (raro, como en la vida real).
+        estado.hay_advertencia = (self._distancia_simulada < 15.0
+                                  or self._bateria_simulada < 0.25)
+        estado.hay_error = self._bateria_simulada < 0.10
+
         # Log de prueba cada 10 segundos, para probar el widget del Logger
         if time.time() - self._ultimo_log_tiempo > 10.0:
             estado.logger.agregar_linea(
