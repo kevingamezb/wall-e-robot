@@ -11,6 +11,11 @@ firmware/.vscode/
 # C extensions
 *.so
 
+# Personal Documentation
+
+*.md
+*.html
+
 # Distribution / packaging
 .Python
 build/
