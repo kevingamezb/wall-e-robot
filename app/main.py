@@ -9,7 +9,7 @@
 
 import tkinter as tk
 from .nucleo.paleta import Paleta
-from .nucleo.estado import EstadoRobot
+from .nucleo.estado import EstadoRobot, NivelLog
 from .comunicacion.conexion import Comunicacion, ComunicacionSimulada, ConexionOffline
 from .pantallas.pantalla_principal import PantallaPrincipal
 
@@ -162,6 +162,19 @@ class Aplicacion:
     def ciclo(self):
         """Un 'paso' de la aplicación: leer al robot + redibujar pantalla."""
         self.conexion.actualizar_estado(self.estado)
+
+        # Si el robot se apagó/reinició en plena conexión, la red lo marca
+        # como "perdida": se degrada a sin-conexión y se avisa en el log.
+        if getattr(self.conexion, "perdida", False):
+            self._cerrar_conexion_actual()
+            self.conexion = ConexionOffline()
+            self.pantalla.establecer_conexion(False, "SIN CONEXI\u00d3N")
+            self.estado.logger.agregar_linea(
+                "CONEXI\u00d3N",
+                "Se perdió la conexión con el robot",
+                NivelLog.ADVERTENCIA,
+            )
+
         self.pantalla.dibujar()
         self.root.after(INTERVALO_CICLO_MS, self.ciclo)
 
