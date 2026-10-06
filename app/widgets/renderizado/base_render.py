@@ -79,6 +79,7 @@ class RenderizadorBase:
         """
         self.canvas = canvas
         self._ids = {}
+        self._valores = {}
 
     def _primera_vez(self, nombre, creador):
         """
@@ -92,3 +93,17 @@ class RenderizadorBase:
         if nombre not in self._ids:
             self._ids[nombre] = creador()
         return self._ids[nombre]
+
+    def _hay_cambio(self, clave, valor):
+        """
+        Devuelve True si 'valor' cambió respecto a la última vez con 'clave'.
+
+        Es el "interruptor de suciedad" de los renderers: en vez de repintar
+        el canvas en cada ciclo (lo que gasta CPU de miembro en periféricos),
+        cada renderer compara el valor derivado de su lógica y salta el
+        repintado si no cambió. La clave es un string propio del renderer.
+        """
+        if clave in self._valores and self._valores[clave] == valor:
+            return False
+        self._valores[clave] = valor
+        return True
