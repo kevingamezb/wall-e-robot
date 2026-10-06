@@ -131,10 +131,6 @@ class BotonRenderer(RenderizadorBase):
             self._paso = 0
             self.canvas.after(INTERVALO_TRANSICION_MS, self._animar_hacia)
 
-        # Color de borde: DORADO si está presionado, gris oscuro si no.
-        borde = Paleta.DORADO if self.widget.presionado else "#333333"
-        self.canvas.itemconfig(fondo, outline=borde)
-
         # (Re)conectar los eventos sobre el fondo: clic y hover + cursor de mano.
         # El hover se bindea solo al fondo (no a la etiqueta) para que
         # cruzar por encima del texto no haga pestañear al botón. Como el
@@ -153,8 +149,16 @@ class BotonRenderer(RenderizadorBase):
                 font=("Segoe UI", self.tamano_fuente, "bold"),
             ),
         )
-        color_texto = Paleta.DORADO if self.widget.presionado else Paleta.TEXTO_LOG
-        self.canvas.itemconfig(etiqueta, fill=color_texto)
+
+        # Borde y color del texto dependen solo de presionado; no se repintan
+        # en cada ciclo si el estado lógico no cambió (el fondo sí se anima).
+        if self._hay_cambio("estado", self.widget.presionado):
+            # Color de borde: DORADO si está presionado, gris oscuro si no.
+            borde = Paleta.DORADO if self.widget.presionado else "#333333"
+            self.canvas.itemconfig(fondo, outline=borde)
+
+            color_texto = Paleta.DORADO if self.widget.presionado else Paleta.TEXTO_LOG
+            self.canvas.itemconfig(etiqueta, fill=color_texto)
 
         # Permitir presionar también haciendo clic sobre el texto (sin hover).
         self.canvas.tag_bind(etiqueta, "<ButtonPress-1>", self._al_presionar)
