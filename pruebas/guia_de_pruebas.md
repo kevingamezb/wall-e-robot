@@ -55,14 +55,22 @@ python -m app.widgets.logica.radar
 python -m app.widgets.logica.logger_widget
 ```
 
+> **Atajo:** para correr **todos** los cajones de una sola vez (los que no abren ventanas) existe el runner:
+>
+> ```powershell
+> python pruebas/ejecutar_cajones.py
+> ```
+>
+> Imprime `[OK]`/`[FALLA]` por módulo y termina con código de salida 0 si todo está verde.
+
 Qué revisa cada uno (resumen):
 
 | Cajón | Prueba |
 |---|---|
 | `nucleo.estado` | `EstadoRobot`, `Modo`, `NivelLog`, `Logger` |
 | `nucleo.paleta` | Colores centralizados y `color_por_umbral()` |
-| `comunicacion.conexion` | Simulador, `ConexionOffline` y **el parseo tolerante del protocolo real** (campos nuevos, `null`, `posiciones_servos`) |
-| `widgets.logica.gamepad` | Direcciones del d-pad (`{"tipo":"motor",...}`), servos del cuello y pulgares, reposo, y que **sin conexión no envía nada** |
+| `comunicacion.conexion` | Simulador, `ConexionOffline` y **el parseo tolerante del protocolo real** (campos nuevos, `null`, `posiciones_servos`, `multi`, y la pérdida de conexión marcada sin romper la app) |
+| `widgets.logica.gamepad` | Direcciones del d-pad (`{"tipo":"motor",...}`), cuello, y **manos/reposo en un único `{"tipo":"multi",...}`**, y que **sin conexión no envía nada** |
 | `widgets.logica.boton` / `deslizador` | Suscripción/avisos, hover, estados de color |
 | demás `widgets.*` | Lógica de cada widget de la pantalla |
 
@@ -170,7 +178,7 @@ static const ModulosActivos MODULOS = { true, true, false, false, false };
 | Módulo | Cómo probarlo | Qué se espera |
 |---|---|---|
 | **Servos** (flag `servos=1`) | Mover el deslizador del **cuello** y los **pulgares** en la GUI; presionar **REPOSO**. | Los servos se mueven suaves. Serial: `Servo 'cuello' -> 30 grados.` |
-| **Motores** (flag `motores=1`) | Mantener el d-pad en direcciones: **arriba / abajo / izquierda / derecha**. | Las 2 ruedas giran: adelante, atrás, y giro en el sitio. Serial: `Motor -> arriba`. |
+| **Motores** (flag `motores=1`) | Mantener el d-pad en direcciones: **arriba / abajo / izquierda / derecha**. | Las 2 ruedas giran: adelante, atrás, y giro en el sitio. Serial: `Motor -> arriba`. Las velocidades suben/bajan con rampa (sin tirón). **Seguridad:** si en modo manual no llega un comando en ~2 s, los motores se detienen solos con log `SEGURIDAD` ("Sin comando del operador..."). |
 | **Radar** (flags `servos=1, radar=1`) | Poner la mano frente al sensor a < 15 cm. | El servo del radar barre solo; al acercar la mano aparece la **advertencia** en la GUI y el log `Obstáculo muy cerca: X.Xcm`. |
 | **Batería** (flag `bateria=1`) | Mirar el Sol de batería y el consumo con el robot alimentado y en reposo/operando. | El nivel se calcula del voltaje medido por el INA219 y baja conforme se descarga la batería. Log crítico (rojo) si el nivel cae por debajo de 0.10. |
 | **OLED** (flag `oled=1`) | Ninguna acción extra. | La pantalla 0.96" muestra BAT / DIS / MODO / CONECTADO. |
