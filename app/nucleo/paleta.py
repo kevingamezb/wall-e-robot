@@ -9,18 +9,30 @@ class Paleta:
     funciona como un espacio de nombres agrupador,
     no como un tipo de dato con instancias distintas entre sí.
     
-    
+    Además de colores, guarda el "sistema" visual calcado del mockup
+    (walle_demo.html): la unidad de espaciado y los radios de esquina.
+    Así ninguna pantalla necesita números mágicos sueltos.
     """
     
-    FONDO_APP    = "#1a1a1a"
-    FONDO_WIDGET = "#000000"
-    DORADO       = "#aa8800"
-    DORADO_DIM   = "#6b5600"
-    TEXTO_LOG    = "#ffffff"
-    GRIS         = "#3a3a3a"
-    NARANJA      = "#d88a2a"
-    ROJO         = "#c94a4a"
-    VERDE_LIMA   = "#8fd82a"
+    FONDO_APP     = "#1a1a1a"
+    FONDO_WIDGET  = "#0d0d0d"
+    DORADO        = "#aa8800"
+    DORADO_DIM    = "#6b5600"
+    TEXTO_LOG     = "#ffffff"
+    GRIS          = "#3a3a3a"
+    NARANJA       = "#d88a2a"
+    ROJO          = "#c94a4a"
+    VERDE_LIMA    = "#8fd82a"
+    BORDE_SUAVE   = "#2c2c2c"      # --border-soft (borde de las tarjetas)
+    TEXTO_TENUE   = "#8a8a8a"      # --text-dim (labels de sección)
+
+    # --- Sistema de espaciado (una unidad para todo) ---
+    UNIDAD        = 24             # --unit: la base de todos los gaps
+    UNIDAD_GRANDE = 39             # UNIDAD * PROPORCION_AUREA: separaciones "de sección"
+
+    # --- Radios de esquina: el "lenguaje visual" de las tarjetas ---
+    RADIO_TARJETA = 10             # border-radius de los contenedores
+    RADIO_BOTON   = 6              # border-radius de los botones
 
 
 PROPORCION_AUREA = 1.618 # Usar para dimensiones del Layout de Widgets
