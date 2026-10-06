@@ -42,10 +42,10 @@ class Gamepad:
         Constructor del gamepad.
 
         estado: la 'caja maestra' (EstadoRobot): se conserva por consistencia
-        con el resto de los widgets, aunque por ahora el gamepad no lo lee
-        (los comandos salen desde aquí hacia la conexión, no al revés).
+        con el resto de los widgets.
         """
         self.estado = estado
+        self.habilitado = True          # solo emite comandos si hay conexión
         self._suscriptores_comando = []  # A quién avisar que hay un comando listo
 
         # --- Los controles (piezas que ya existen por separado) ---
@@ -87,10 +87,21 @@ class Gamepad:
         """
         self._suscriptores_comando.append(callback)
 
+    def habilitar(self, activo: bool):
+        """
+        Enciende/apaga el gamepad según haya conexión o no.
+
+        Sin conexión no se debe construir ningún comando (así los botones
+        y deslizadores se vuelven inofensivos por diseño, no solo visual).
+        """
+        self.habilitado = activo
+
     # --- Internos ---
 
     def _emitir(self, comando: dict):
         """Avisa a todos los suscriptores que hay un comando nuevo."""
+        if not self.habilitado:
+            return  # sin robot conectado, los comandos no salen
         for callback in self._suscriptores_comando:
             callback(comando)
 
@@ -168,5 +179,23 @@ if __name__ == "__main__":
     assert all(c["angulo"] == 0 for c in reposo), "Reposo debe mandar 0°"
     assert all(c["tipo"] == "servo" for c in reposo), "Reposo solo envía servos"
     print(f"OK: reposo -> {[c['servo'] for c in reposo]}\n")
+
+    # 5. Sin conexión: el gamepad ignora todo
+    print("=== Deshabilitado (sin conexión) ===")
+    n = len(comandos)
+    gamepad.habilitar(False)
+    gamepad.direccion_arriba.presionar()
+    gamepad.cuello.mover(10)
+    gamepad.mano_abrir.presionar()
+    assert len(comandos) == n, "Sin conexión no debe emitirse ningún comando"
+    print("OK: los comandos se descartan sin conexión\n")
+
+    # 6. Al habilitar, vuelve a emitir normal
+    print("=== Rehabilitado ===")
+    gamepad.habilitar(True)
+    gamepad.direccion_abajo.presionar()
+    assert comandos[-1] == {"tipo": "motor", "direccion": "abajo"}, \
+        "Al re-habilitar, los comandos deben volver a salir"
+    print(f"OK: {comandos[-1]}\n")
 
     print("Pruebas OK")
