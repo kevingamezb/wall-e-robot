@@ -252,16 +252,26 @@ class PantallaPrincipal:
         self.render_gamepad.dibujar()
 
         # Etiquetas que dependen del estado (el logger se actualiza solo).
-        self.lbl_consumo.config(text=self.barras.etiqueta_watts)
+        # Cada una solo se reconfigura si su texto cambió (evita trabajo
+        # muerto de Tk en cada ciclo de 60 ms).
+        texto_consumo = self.barras.etiqueta_watts
+        if self.lbl_consumo.cget("text") != texto_consumo:
+            self.lbl_consumo.config(text=texto_consumo)
 
-        self.lbl_sol.config(text=self.sol.etiqueta, fg=self.sol.color)
+        texto_sol = self.sol.etiqueta
+        if self.lbl_sol.cget("text") != texto_sol or self.lbl_sol.cget("fg") != self.sol.color:
+            self.lbl_sol.config(text=texto_sol, fg=self.sol.color)
+
         minutos = self.estado.tiempo_restante_min
-        self.lbl_tiempo.config(text=f"~{minutos} min" if minutos else "--")
+        texto_tiempo = f"~{minutos} min" if minutos else "--"
+        if self.lbl_tiempo.cget("text") != texto_tiempo:
+            self.lbl_tiempo.config(text=texto_tiempo)
 
         distancia = self.estado.distancia_obstaculo_cm
-        texto = (f"Objeto detectado a {distancia:.0f} cm"
-                 if distancia is not None else "Sin detección")
-        self.lbl_dist.config(text=texto)
+        texto_dist = (f"Objeto detectado a {distancia:.0f} cm"
+                      if distancia is not None else "Sin detección")
+        if self.lbl_dist.cget("text") != texto_dist:
+            self.lbl_dist.config(text=texto_dist)
 
 
 if __name__ == "__main__":
