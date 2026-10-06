@@ -22,26 +22,30 @@
  *  Flujo de datos:
  *  App Python  -->  ESP32   (comandos)
  *    {"tipo":"servo","servo":"cuello","angulo":30}
- *    {"tipo":"modo","modo":"manual"};
- *  ESP32  -->  App Python  (telemetria y logs)
- *    {"tipo":"estado","bateria":0.85,"modo":"manual",
- *     "distancia_cm":30.5,"consumo_watts":3.2,
- *     "conexion_activa":true}
- *    {"tipo":"log","origen":"RADAR",
- *     "mensaje":"Obstaculo a 8cm","nivel":"advertencia"};
+ *    {"tipo":"modo","modo":"manual"}
+ *    {"tipo":"motor","direccion":"arriba"}          (d-pad del gamepad)
+ *    {"tipo":"multi","comandos":[{...},{...}]}      (varios de golpe)
  *
- *  Por qué un delimitador?
- *  TCP es un flujo de bytes continuo, no un flujo de
- *  mensajes. Un solo envio puede llegar fragmentado en
- *  varias lecturas, o varias cosas de un solo burst.
- *  El '\n' permite saber donde termina cada mensaje.
+ *  ESP32  -->  App Python  (telemetria y logs)
+ *    {"tipo":"estado",
+ *     "bateria":0.85,"modo":"manual",
+ *     "hay_advertencia":false,"hay_error":false,     <-- alertas de la GUI
+ *     "distancia_cm":30.5,"consumo_watts":3.2,
+ *     "conexion_activa":true,
+ *     "cargando":false,"tiempo_restante_min":42,     <-- sol de carga
+ *     "posiciones_servos":{"cuello":0,
+ *        "hombro_izquierdo":10,...}}                 <-- gamepad
+ *
+ *  "distancia_cm" y "tiempo_restante_min" pueden venir como null
+ *  (sin lectura de radar / sin estimación de batería). La app las
+ *  interpreta como "campo ausente" y no toca lo que ya sabía.
  *
  *  Estructura de la clase
- *  Esta clase encapsula TODO lo relacionado con la red:
- *  levantar el servidor, aceptar clientes, recibir
- *  mensajes, enviar respuestas. El resto del firmware
- *  (servos, sensores, logica) no necesita saber nada
- *  sobre WiFi ni JSON.
+ *  Encapsula TODO lo relacionado con la red + el modo actual del robot:
+ *  levantar el servidor, aceptar clientes, recibir mensajes, enviar
+ *  respuestas y ejecutar el comando recibido sobre las librerías de
+ *  hardware (servos, motores). El resto del firmware (sensores, logica)
+ *  no necesita saber nada sobre WiFi ni JSON.
  */
 class Comunicacion {
 
@@ -58,8 +62,18 @@ private:
 
     int    puerto;
 
-    // Interpreta un JSON completo y ejecuta la accion correspondiente
+    // Modo actual del robot. Lo actualiza procesarModo() y lo consulta
+    // enviarEstado() y main.cpp (lógica + OLED).
+    String _modoActual = "automatico";
+
+    // Interpreta un JSON completo y ejecuta las acciones correspondientes.
+    // Si es tipo "multi", aplica cada sub-comando de "comandos".
     void procesarMensaje(const String& mensaje);
+
+    // Ejecuta UN comando del protocolo ("servo", "modo" o "motor").
+    // Reutilizable: procesarMensaje() la llama para el mensaje completo
+    // o para cada elemento de un "multi".
+    void aplicarComando(const JsonVariantConst& comando);
 
 public:
 
@@ -82,11 +96,15 @@ public:
     // Envia un string crudo como linea JSON
     void enviarMensaje(const String& mensaje);
 
-    // Envia el estado del robot: bateria, modo, distancia, consumo
-    // Formato: {"tipo":"estado","bateria":...,"modo":...,...}
+    // Envia el estado del robot (telemetría ampliada). angulos_servos es
+    // opcional (nullptr para omitir posiciones); distancias/tiempos
+    // negativos se mandan como null en el JSON.
     void enviarEstado(float bateria, const String& modo,
+                      bool hay_advertencia, bool hay_error,
                       float distancia_cm, float consumo_watts,
-                      bool conexion_activa);
+                      bool conexion_activa, bool cargando,
+                      float tiempo_restante_min,
+                      const int* angulos_servos, int cantidad_servos);
 
     // Envia una linea de log con origen, mensaje y nivel
     // Formato: {"tipo":"log","origen":...,"mensaje":...,"nivel":...}
@@ -94,7 +112,11 @@ public:
                    const String& nivel);
 
     // True si hay un PC conectado y puede recibir datos
-    bool estaConectado() const;
+    // (no const: WiFiClient::connected() no es const en este framework)
+    bool estaConectado();
+
+    // Modo actual del robot ("automatico" / "manual")
+    const String& modo() const;
 };
 
 #endif // COMUNICACION_H
