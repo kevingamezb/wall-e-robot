@@ -56,7 +56,13 @@ class SolBateria:
 
     @property
     def color(self) -> str:
-        """El color del sol según el estado (ver umbrales en el docstring)."""
+        """El color del sol según el estado (ver umbrales en el docstring).
+
+        Nota de diseño: NO se usa color_por_umbral() de paleta.py. El sol
+        dibuja por RAYOS (12, discretos), no por fracción continua: 0 rayos
+        = sin energía, 1-4 ROJO, 5-7 NARANJA, 8-12 DORADO. Sus cortes por
+        diseño difieren de los de magnitud continua (barras de consumo).
+        """
         if self.estado.cargando:
             return Paleta.VERDE_LIMA
 
