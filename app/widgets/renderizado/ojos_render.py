@@ -85,31 +85,41 @@ class OjosRenderer(RenderizadorBase):
             tamano = PUPILA_ABIERTA
             ver_pupila = True
 
+        # Primera vez: crear las cajas y pupilas con su geometría base.
         for lado, cx in (("izq", cx_izq), ("der", cx_der)):
-            # Caja del ojo (rectángulo gris oscuro sin relleno + borde de color).
-            caja = self._primera_vez(
+            self._primera_vez(
                 f"caja_{lado}",
                 lambda cx=cx: self.canvas.create_rectangle(
                     *self._coords_caja(cx, OJO_ALTO_ABIERTO, self.y + 8),
                     fill="", outline=color, width=2,
                 ),
             )
-            self.canvas.coords(caja, *self._coords_caja(cx, alto, self.y + 8))
-            self.canvas.itemconfig(caja, outline=color)
-
-            # Pupila (evita dibujarla si no corresponde).
-            pupila = self._primera_vez(
+            self._primera_vez(
                 f"pupila_{lado}",
                 lambda cx=cx: self.canvas.create_oval(
                     *self._coords_pupila(cx, self.y + 23, PUPILA_ABIERTA),
                     fill=color, outline="",
                 ),
             )
+
+        # La silueta solo cambia con la expresión (y su color): repintar
+        # solo entonces, en vez de re-coords en cada ciclo.
+        if not self._hay_cambio("estado", (expresion, color)):
+            return
+
+        for lado, cx in (("izq", cx_izq), ("der", cx_der)):
+            # Caja del ojo (rectángulo gris oscuro sin relleno + borde de color).
+            caja = self._ids[f"caja_{lado}"]
+            self.canvas.coords(caja, *self._coords_caja(cx, alto, self.y + 8))
+            self.canvas.itemconfig(caja, outline=color)
+
+            # Pupila (evita dibujarla si no corresponde).
+            pupila = self._ids[f"pupila_{lado}"]
             cx_pupila = cx + (desplazamiento if lado == "izq" else -desplazamiento)
             cy_pupila = self.y + 8 + alto / 2
             self.canvas.coords(pupila, *self._coords_pupila(cx_pupila, cy_pupila, tamano))
             self.canvas.itemconfig(pupila, fill=color)
-            self.canvas.itemconfigure(
+            self.canvas.itemconfig(
                 pupila,
                 state="normal" if ver_pupila else "hidden",
             )
