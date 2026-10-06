@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include "esp_task_wdt.h"
 
 #include "config.h"
 #include "comunicacion.h"
@@ -26,11 +27,21 @@ static uint32_t s_ultimaBateriaMs = 0;
 static bool s_advertenciaAnterior = false;
 static bool s_errorAnterior       = false;
 
+// Cooldown del log del timeout de seguridad (avisa una sola vez).
+static bool s_timeoutAvisado = false;
+
 
 void setup() {
 
     Serial.begin(115200);
     delay(300);   // tiempo para que el monitor USB termine de arrancar
+
+    // Watchdog del loop: si el programa se cuelga (p.ej. un periférico que
+    // trabaja el I2C), el ESP32 se reinicia solo en vez de quedarse mudo.
+    // Timeout de 10 s (grande, para no interferir con el flasheo ni el
+    // monitor) y panic activado: ante bloqueo, reset completo.
+    esp_task_wdt_init(10, true);
+    esp_task_wdt_add(nullptr);
 
     // ===== 1) Red: el ESP32 crea su propia WiFi (modo AP) =====
     WiFi.mode(WIFI_AP);
@@ -98,10 +109,36 @@ void loop() {
 
     uint32_t ahoraMs = millis();
 
+    esp_task_wdt_reset();   // "sigo vivo": solo se resetea si esto corre
+
     // 1) Red: atiende al PC conectado y procesa sus comandos
     comunicacion.escucharCliente();
 
-    // 2) Sensores periódicos
+    // 2) Seguridad: en modo manual, si no llega un comando del operador en
+    //    TIEMPO_MANUAL_TIMEOUT_MS, se detienen los motores (y se avisa 1 vez).
+    //    Al llegar un comando nuevo dentro del plazo, el aviso se rearma.
+    if (MODULOS.motores && comunicacion.modo() == "manual" &&
+        (ahoraMs - comunicacion.ultimaOrdenMs()
+         > (unsigned long)TIEMPO_MANUAL_TIMEOUT_MS)) {
+
+        motores.detener();
+        if (!s_timeoutAvisado) {
+            comunicacion.enviarLog(
+                "SEGURIDAD",
+                "Sin comando del operador: motores detenidos",
+                "advertencia");
+            s_timeoutAvisado = true;
+        }
+    } else {
+        s_timeoutAvisado = false;
+    }
+
+    // 3) Rampa de los motores (frenado/acelerado suaves)
+    if (MODULOS.motores) {
+        motores.actualizar();
+    }
+
+    // 4) Sensores periódicos
     if (MODULOS.radar) {
         radar.actualizar();          // máquina de estados del HC-SR04
         barridoRadar.actualizar();   // mueve el servo del radar de a poco
@@ -113,7 +150,7 @@ void loop() {
         s_ultimaBateriaMs = ahoraMs;
     }
 
-    // 3) Telemetría (estado -> app, cada ENVIO_ESTADO_MS)
+    // 5) Telemetría (estado -> app, cada ENVIO_ESTADO_MS)
     if (ahoraMs - s_ultimaEnvioMs >= ENVIO_ESTADO_MS) {
 
         s_ultimaEnvioMs = ahoraMs;
