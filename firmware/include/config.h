@@ -42,7 +42,10 @@ static const int   PUERTO_SERVIDOR     = 8080;
 
 // --- Umbrales / tiempos (valores de arranque, calibrar con hardware) ---
 static const float   UMBRAL_OBSTACULO_CM  = 15.0;   // "obstáculo cercano"
-static const int     TIEMPO_MANUAL_TIMEOUT_MS = 2000;  // histéresis auto->manual
+// Timeout de presencia del operador en modo manual: si no llega ningún
+// comando de la app en este tiempo, se detienen los motores (seguridad)
+// y el robot puede volver a modo automático (histéresis auto->manual).
+static const int     TIEMPO_MANUAL_TIMEOUT_MS = 2000;
 
 // --- Barrido del servo del radar ---
 static const int      RADAR_SERVO_GRAUS_MIN = -45;
