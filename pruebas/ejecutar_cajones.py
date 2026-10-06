@@ -27,6 +27,8 @@ CAJONES = [
     "app.widgets.logica.radar",
     "app.widgets.logica.logger_widget",
     "app.comunicacion.conexion",
+    "app.widgets.logica.mapeo_teclado",
+    "app.widgets.logica.control_teclado",
 ]
 
 

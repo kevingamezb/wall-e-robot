@@ -71,6 +71,8 @@ Qué revisa cada uno (resumen):
 | `nucleo.paleta` | Colores centralizados y `color_por_umbral()` |
 | `comunicacion.conexion` | Simulador, `ConexionOffline` y **el parseo tolerante del protocolo real** (campos nuevos, `null`, `posiciones_servos`, `multi`, y la pérdida de conexión marcada sin romper la app) |
 | `widgets.logica.gamepad` | Direcciones del d-pad (`{"tipo":"motor",...}`), cuello, y **manos/reposo en un único `{"tipo":"multi",...}`**, y que **sin conexión no envía nada** |
+| `widgets.logica.mapeo_teclado` | Perfil de controles: defaults, persistencia JSON, conflictos una-tecla-una-acción |
+| `widgets.logica.control_teclado` | El driver teclado->gamepad: auto-repetido de motores, pasos de ejes y discretas de un solo disparo |
 | `widgets.logica.boton` / `deslizador` | Suscripción/avisos, hover, estados de color |
 | demás `widgets.*` | Lógica de cada widget de la pantalla |
 
@@ -88,6 +90,30 @@ python -m app.main
 - Para cerrar: `Ctrl+C` en la terminal o cerrar la ventana.
 
 > Si algo sale mal aquí, el problema es de la app; el hardware no tiene nada que ver.
+
+### 3.2 Controles por teclado (mapeo estilo emulador)
+
+El botón **CONTROLES** (cabecera de CONTROL MANUAL) abre la ventana de mapeo
+de teclas, como configuran los emuladores de consola (PCSX2/Dolphin):
+
+1. Hacer clic en la tecla de una acción → **"Presiona una tecla..."**.
+2. Pulsar la tecla nueva: queda asignada al instante y se guarda.
+3. `Esc` cancela la asignación; el botón **✕** limpia la acción; **RESTAURAR
+   POR DEFECTO** vuelve al perfil de fábrica.
+
+Comportamiento al usar el teclado en la pantalla principal:
+
+| Acción | Al mantener pulsada la tecla |
+|---|---|
+| Flechas (avanzar/retroceder/girar) | El comando motor se re-emite (no muere por el timeout de seguridad del firmware) |
+| Cuello / hombros (Q/A, W/S, E/D) | Avanza de a 5° cada ~120 ms; el rango lo clampa el deslizador |
+| Abrir/cerrar mano, Reposo | Dispara **una sola vez** (ignora el auto-repetido del teclado) |
+
+- El teclado funciona **mientras la ventana tiene foco** (como en un emulador);
+  si el foco se va a otra ventana, el estado se limpia solo.
+- El perfil se guarda en `configuracion/controles.json`. Teclas por defecto:
+  flechas = movimiento; `Q/A` cuello; `W/S` hombro izquierdo; `E/D` hombro
+  derecho; `ESPACIO` abrir mano; `C` cerrar; `R` reposo.
 
 ---
 
@@ -279,6 +305,8 @@ no llenar el Logger de repeticiones.
 - [ ] Todos los cajones de §3 imprimen `Pruebas OK`.
 - [ ] `python -m app.main` abre la pantalla única en modo SIMULADOR.
 - [ ] El gamepad sin conexión no emite comandos (overlay SIN CONEXIÓN visible).
+- [ ] CONTROLES: asignar una tecla, limpiar una acción y restaurar por defecto; al cerrar, `configuracion/controles.json` refleja los cambios.
+- [ ] Con el gamepad conectado al simulador, el teclado mueve el estado (flechas reproducen el comando motor; Q/A mueven el cuello; abrir mano dispara una vez).
 
 **Lado firmware aislado:**
 - [ ] Firma con solo `servos=1`: deslizadores mueven cuello y pulgares; REPOSO los centra.
