@@ -117,22 +117,36 @@ class Gamepad:
             self._emitir({"tipo": "servo", "servo": servo, "angulo": int(evento.posicion)})
 
     def _mano(self, angulo: int):
-        """Abre o cierra la pinza: ambos pulgares al mismo ángulo."""
-        self._emitir({"tipo": "servo", "servo": "pulgar_izquierdo", "angulo": angulo})
-        self._emitir({"tipo": "servo", "servo": "pulgar_derecho", "angulo": angulo})
+        """Abre o cierra la pinza: ambos pulgares al mismo ángulo.
+
+        Se agrupa en UN comando "multi" para que los dos servos reciban la
+        orden en el mismo paquete (el firmware los aplica en secuencia) y
+        la pinza se mueva como una sola pieza, no servo a servo.
+        """
+        self._emitir({
+            "tipo": "multi",
+            "comandos": [
+                {"tipo": "servo", "servo": "pulgar_izquierdo", "angulo": angulo},
+                {"tipo": "servo", "servo": "pulgar_derecho", "angulo": angulo},
+            ],
+        })
 
     def _reposo(self):
         """
         Vuelve a posición neutra: cuello y hombros a 0° (las manos no, que
         no sostienen carga y dependen de la decisión del operador).
+
+        Igual que las manos, se envía UN "multi" con las tres reposiciones
+        para que lleguen juntas al robot.
         """
-        reposiciones = {
-            "cuello": 0,
-            "hombro_izquierdo": 0,
-            "hombro_derecho": 0,
-        }
-        for servo, angulo in reposiciones.items():
-            self._emitir({"tipo": "servo", "servo": servo, "angulo": angulo})
+        self._emitir({
+            "tipo": "multi",
+            "comandos": [
+                {"tipo": "servo", "servo": "cuello", "angulo": 0},
+                {"tipo": "servo", "servo": "hombro_izquierdo", "angulo": 0},
+                {"tipo": "servo", "servo": "hombro_derecho", "angulo": 0},
+            ],
+        })
 
 
 # Cajón de Pruebas
@@ -165,20 +179,29 @@ if __name__ == "__main__":
     assert len(comandos) == 2, "Un movimiento fuera de rango no debe emitirse"
     print(f"OK: emitido {comandos[-1]}; el 500 fuera de rango no entró\n")
 
-    # 3. Manos -> comando servo para ambos pulgares
-    print("=== Mano abrir ===")
+    # 3. Manos -> UN comando multi con ambos pulgares
+    print("=== Mano abrir (multi) ===")
     gamepad.mano_abrir.presionar()
-    assert comandos[-2] == {"tipo": "servo", "servo": "pulgar_izquierdo", "angulo": 22}
-    assert comandos[-1] == {"tipo": "servo", "servo": "pulgar_derecho", "angulo": 22}
-    print(f"OK: {comandos[-2]} y {comandos[-1]}\n")
+    assert comandos[-1] == {
+        "tipo": "multi",
+        "comandos": [
+            {"tipo": "servo", "servo": "pulgar_izquierdo", "angulo": 22},
+            {"tipo": "servo", "servo": "pulgar_derecho", "angulo": 22},
+        ],
+    }, "Abrir la mano debe emitir UN comando multi con ambos pulgares"
+    print(f"OK: {comandos[-1]['tipo']} con {len(comandos[-1]['comandos'])} servos\n")
 
-    # 4. Reposo -> cuello y hombros a 0°
-    print("=== Reposo ===")
+    # 4. Reposo -> UN comando multi con cuello y hombros a 0°
+    print("=== Reposo (multi) ===")
     gamepad.reposo.presionar()
-    reposo = comandos[-3:]
-    assert all(c["angulo"] == 0 for c in reposo), "Reposo debe mandar 0°"
-    assert all(c["tipo"] == "servo" for c in reposo), "Reposo solo envía servos"
-    print(f"OK: reposo -> {[c['servo'] for c in reposo]}\n")
+    reposo = comandos[-1]
+    assert reposo["tipo"] == "multi", "Reposo debe emitir un comando multi"
+    assert all(c["angulo"] == 0 for c in reposo["comandos"]), "Reposo debe mandar 0°"
+    assert all(c["tipo"] == "servo" for c in reposo["comandos"]), "Reposo solo envía servos"
+    servos_reposo = [c["servo"] for c in reposo["comandos"]]
+    assert servos_reposo == ["cuello", "hombro_izquierdo", "hombro_derecho"], \
+        f"Reposo debe ir a cuello y hombros, llegó: {servos_reposo}"
+    print(f"OK: reposo -> {servos_reposo}\n")
 
     # 5. Sin conexión: el gamepad ignora todo
     print("=== Deshabilitado (sin conexión) ===")
