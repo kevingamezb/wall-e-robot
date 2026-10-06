@@ -36,6 +36,7 @@ class GamepadRenderer:
         self.canvas = canvas
         self.ancho, self.alto = ancho, alto
         self._textos = {}  # etiquetas auxiliares (valores, nombres de ejes)
+        self._valores_txt = {}  # memoria para no repintar textos sin cambios
         self._overlay = None  # capa "apagado" que se dibuja sin conexión
 
         # --- Geometría base (fracciones del canvas) ---
@@ -104,14 +105,22 @@ class GamepadRenderer:
     # --- Etiquetas auxiliares (texto que cambia con el estado) ---
 
     def _texto(self, clave, contenido, x, y, fill=Paleta.TEXTO_LOG, tamano=8):
-        """Crea (o actualiza) una etiqueta de texto en el canvas."""
+        """Crea (o actualiza) una etiqueta de texto en el canvas.
+
+        Si el contenido y el color no cambiaron desde el último ciclo, se
+        salta el itemconfig (los textos de valores se repiten cada frame).
+        """
         if clave not in self._textos:
             self._textos[clave] = self.canvas.create_text(
                 x, y, text=contenido, font=("Segoe UI", tamano),
                 fill=fill, anchor="nw",
             )
-        else:
-            self.canvas.itemconfig(self._textos[clave], text=contenido, fill=fill)
+            return
+
+        if self._valores_txt.get(clave) == (contenido, fill):
+            return
+        self._valores_txt[clave] = (contenido, fill)
+        self.canvas.itemconfig(self._textos[clave], text=contenido, fill=fill)
 
     # --- Capa "apagado" (sin conexión al robot) ---
 
