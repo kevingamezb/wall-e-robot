@@ -136,9 +136,16 @@ class Gamepad:
         Vuelve a posición neutra: cuello y hombros a 0° (las manos no, que
         no sostienen carga y dependen de la decisión del operador).
 
-        Igual que las manos, se envía UN "multi" con las tres reposiciones
-        para que lleguen juntas al robot.
+        Dos cosas: se re-posicionan los deslizadores locales (la perilla
+        vuelve visualmente al centro) y se envía UN "multi" con las tres
+        reposiciones para que al robot lleguen juntas. Se toca `posicion`
+        directamente (sin mover()) para NO re-emitir los servos uno a uno:
+        el cableado del "multi" es el que ordena al robot.
         """
+        self.cuello.posicion = 0
+        self.hombro_izquierdo.posicion = 0
+        self.hombro_derecho.posicion = 0
+
         self._emitir({
             "tipo": "multi",
             "comandos": [
@@ -191,8 +198,11 @@ if __name__ == "__main__":
     }, "Abrir la mano debe emitir UN comando multi con ambos pulgares"
     print(f"OK: {comandos[-1]['tipo']} con {len(comandos[-1]['comandos'])} servos\n")
 
-    # 4. Reposo -> UN comando multi con cuello y hombros a 0°
+    # 4. Reposo -> UN comando multi con cuello y hombros a 0° y los deslizadores al centro
     print("=== Reposo (multi) ===")
+    gamepad.cuello.mover(30)
+    gamepad.hombro_izquierdo.mover(-20)
+    gamepad.hombro_derecho.mover(20)
     gamepad.reposo.presionar()
     reposo = comandos[-1]
     assert reposo["tipo"] == "multi", "Reposo debe emitir un comando multi"
@@ -201,7 +211,10 @@ if __name__ == "__main__":
     servos_reposo = [c["servo"] for c in reposo["comandos"]]
     assert servos_reposo == ["cuello", "hombro_izquierdo", "hombro_derecho"], \
         f"Reposo debe ir a cuello y hombros, llegó: {servos_reposo}"
-    print(f"OK: reposo -> {servos_reposo}\n")
+    assert gamepad.cuello.posicion == 0 and gamepad.hombro_izquierdo.posicion == 0 \
+        and gamepad.hombro_derecho.posicion == 0, \
+        "Reposo debe volver los deslizadores a 0 (perilla al centro)"
+    print(f"OK: reposo -> {servos_reposo} y sliders al centro\n")
 
     # 5. Sin conexión: el gamepad ignora todo
     print("=== Deshabilitado (sin conexión) ===")
