@@ -66,6 +66,11 @@ private:
     // enviarEstado() y main.cpp (lógica + OLED).
     String _modoActual = "automatico";
 
+    // Momento (millis) de la ÚLTIMA orden recibida del operador. main.cpp
+    // lo usa para el timeout de seguridad en modo manual (parar los motores
+    // si el operador deja de mandar comandos por TIEMPO_MANUAL_TIMEOUT_MS).
+    unsigned long _ultimaOrdenMs = 0;
+
     // Interpreta un JSON completo y ejecuta las acciones correspondientes.
     // Si es tipo "multi", aplica cada sub-comando de "comandos".
     void procesarMensaje(const String& mensaje);
@@ -117,6 +122,10 @@ public:
 
     // Modo actual del robot ("automatico" / "manual")
     const String& modo() const;
+
+    // millis() de la última orden recibida (0 si aún no llega ninguna).
+    // Consultarlo en main.cpp para el timeout de comando en modo manual.
+    unsigned long ultimaOrdenMs() const;
 };
 
 #endif // COMUNICACION_H

@@ -295,6 +295,10 @@ void Comunicacion::aplicarComando(const JsonVariantConst& comando) {
     } else {
         Serial.print("Tipo desconocido: ");
         Serial.println(tipo);
+        // Avisamos también al operador en la app (si hay alguien conectado)
+        // para que no sea un fallo silencioso del protocolo.
+        enviarLog("COMANDO",
+                  "Comando no reconocido: " + String(tipo), "advertencia");
     }
 }
 
@@ -315,6 +319,10 @@ void Comunicacion::procesarMensaje(const String& lineaJson) {
         Serial.println(error.c_str());
         return;
     }
+
+    // Toda orden completa cuenta como "presencia del operador": sirve para
+    // el timeout de seguridad de main.cpp (parar motores en modo manual).
+    _ultimaOrdenMs = millis();
 
     const char* tipo = doc["tipo"];
 
@@ -353,4 +361,11 @@ bool Comunicacion::estaConectado() {
 
 const String& Comunicacion::modo() const {
     return _modoActual;
+}
+
+
+//  Última orden recibida
+
+unsigned long Comunicacion::ultimaOrdenMs() const {
+    return _ultimaOrdenMs;
 }
