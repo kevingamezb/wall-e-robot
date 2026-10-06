@@ -89,6 +89,18 @@ class Comunicacion(Conexion):
         # Con [self.socket.setblocking(False)], recv() no detiene el programa esperando datos
         # Lanza BlockingIOError de inmediato si no hay datos recibidos, que se captura e ignora
         self._mensaje_entrante = ''
+        self._perdida = False    # True si la conexión se rompió en el aire
+
+
+    @property
+    def perdida(self) -> bool:
+        """
+        True si la conexión se interrumpió (el ESP32 se reinició, se apagó,
+        se cortó el cable...). main.py la consulta cada ciclo para degradar
+        a 'sin conexión' en lugar de seguir mandando a un socket muerto.
+        """
+        # getattr: algunos tests construyen la clase con __new__ (sin __init__).
+        return getattr(self, "_perdida", False)
         
         
     def actualizar_estado(self, estado: EstadoRobot):
@@ -100,10 +112,17 @@ class Comunicacion(Conexion):
         try:
             datos_crudos = self.conexion.recv(4096).decode() # Escuchamos (max) 4096 bytes de datos de el servidor (ESP32)
             self._mensaje_entrante += datos_crudos         # Añadimos los datos capturados a nuestra caja [self._mensaje_entrante]
-        
+
         except BlockingIOError:
             pass # Simplemente no hay datos nuevos que capturar, normal en modo no bloqueante.
-        
+
+        except OSError:
+            # El ESP32 se reinició / se apagó / se cortó el cable: la conexión
+            # quedó rota. Se marca la pérdida para que main.py degrade la GUI
+            # y no seguir intentando leer de un socket muerto.
+            self._perdida = True
+            return
+
         while '\n' in self._mensaje_entrante:              # Cuando haya un salto de línea (fin mensaje) en el mensaje entrante...
             linea, self._mensaje_entrante = self._mensaje_entrante.split('\n', 1)
             # Lo que hacemos aquí es simplemente dividir los mensaje entrantes si están incompletos.
@@ -113,8 +132,12 @@ class Comunicacion(Conexion):
                 # Esto es una capa de protección para no deserializar
                 # Un JSON vacío, que lanzaría JSONDecoderError
                 continue
-            
-            mensaje = json.loads(linea)                    # Deserializamos el mensaje entrante
+
+            try:
+                mensaje = json.loads(linea)                # Deserializamos el mensaje entrante
+            except json.JSONDecodeError:
+                continue   # línea corrupta (JSON roto): se descarta y seguimos
+
             self._procesar_mensaje(mensaje, estado)        # Interpretarlo + escribirlo en la caja maestra
     
     def _procesar_mensaje(self, mensaje: dict, estado: EstadoRobot):
@@ -135,11 +158,18 @@ class Comunicacion(Conexion):
             self._aplicar_estado(mensaje, estado)
         
         elif tipo == "log":
+            # Un nivel desconocido (o ausente) no debe tumbar la app: se
+            # degrada a INFO y la línea sigue entrando al logger.
+            try:
+                nivel = NivelLog(mensaje.get("nivel", "info"))
+            except ValueError:
+                nivel = NivelLog.INFO
+
             # Agregamos una línea nueva al Logger de EstadoRobot
             estado.logger.agregar_linea(
                 mensaje.get("origen", "DESCONOCIDO"),
                 mensaje.get("mensaje", ""),
-                NivelLog(mensaje.get("nivel", "info")),
+                nivel,
             )
     
     def _aplicar_estado(self, mensaje: dict, estado: EstadoRobot):
@@ -203,7 +233,12 @@ class Comunicacion(Conexion):
         """
         
         mensaje = json.dumps(comando) + '\n'
-        self.conexion.send(mensaje.encode())
+        try:
+            self.conexion.send(mensaje.encode())
+        except OSError:
+            # Socket muerto (robot apagado/reiniciado): se marca la pérdida
+            # para que main.py degrade la GUI, sin colgar la app.
+            self._perdida = True
         
         
     def cerrar(self):
@@ -315,13 +350,22 @@ class ComunicacionSimulada(Conexion):
         """
         Simula el envío de un comando al robot.
 
-        No hay robot real que lo reciba, así que por ahora solo
-        se imprime en consola para poder verificar, durante pruebas,
-        que la GUI está mandando exactamente el comando esperado.
+        Sin robot real, aquí se procesa el efecto local del comando (por
+        ahora, cambiar el modo simulado). Soporta el comando "multi" del
+        protocolo: recorre sus sub-comandos igual que haría el firmware.
         """
-
         print(f"[COMUNICACIÓN SIMULADA] Comando enviado -> {comando}")
 
+        if comando.get("tipo") == "multi":
+            for sub in comando.get("comandos", []):
+                if isinstance(sub, dict):
+                    self._aplicar_comando_simulado(sub)
+            return
+
+        self._aplicar_comando_simulado(comando)
+
+    def _aplicar_comando_simulado(self, comando: dict):
+        """Aplica UN comando simple al estado simulado (soporta 'modo')."""
         if comando.get("tipo") == "modo":
             self._modo_simulado = comando.get("modo", self._modo_simulado)
 
@@ -370,6 +414,20 @@ if __name__ == "__main__":
     simulada.enviar_mensaje({"tipo": "modo", "modo": "manual"})
     simulada.actualizar_estado(estado)
     print(f"modo actualizado    = {estado.modo}")
+
+    # El comando "multi" debe recorrer sus sub-comandos (como el firmware)
+    print("\nEnviando comando multi -> [modo automatico, modo manual]")
+    simulada.enviar_mensaje({
+        "tipo": "multi",
+        "comandos": [
+            {"tipo": "modo", "modo": "automatico"},
+            {"tipo": "modo", "modo": "manual"},
+        ],
+    })
+    simulada.actualizar_estado(estado)
+    assert estado.modo == Modo.MANUAL, \
+        "El último sub-comando del multi debe quedar aplicado (manual)"
+    print(f"OK: modo tras el multi = {estado.modo}")
 
     # ComunicacionSimulada con logger
     # El radar debe loguear cada 10s. Para no esperar 10s reales,
@@ -489,5 +547,59 @@ if __name__ == "__main__":
     # Comunicacion.cerrar() existe (socket real se cierra idempotente)
     assert callable(getattr(Comunicacion, "cerrar", None)), "Comunicacion debe tener cerrar()"
     print("OK: Comunicacion.cerrar() existe")
+
+    # Robustez de red (sin sockets reales: se inyecta un socket falso)
+    print("\nRobustez de red (socket falso)")
+
+    # 1) Un JSON roto en el medio NO debe tumbar ni machacar lo bueno.
+    class _SocketBasura:
+        """Entrega una línea válida y luego una línea con JSON corrupto."""
+        def recv(self, _n):
+            return b'{"tipo":"estado","bateria":0.5}\n{"tipo": roto\n'
+
+    roto = Comunicacion.__new__(Comunicacion)
+    roto.conexion = _SocketBasura()
+    roto._mensaje_entrante = ""
+    estado_red = EstadoRobot(bateria=0.1)
+    roto.actualizar_estado(estado_red)   # no debe lanzar
+    assert estado_red.bateria == 0.5, "La línea buena sí debe procesarse"
+    assert not roto.perdida, "Un JSON roto NO es pérdida de conexión"
+    print("OK: JSON corrupto se descarta y la línea buena se aplica")
+
+    # 2) Nivel de log desconocido -> degrada a INFO, no rompe.
+    class _SocketBien:
+        def recv(self, _n):
+            return b'{"tipo":"log","origen":"X","mensaje":"hola","nivel":"turbo"}\n'
+
+    log_ok = Comunicacion.__new__(Comunicacion)
+    log_ok.conexion = _SocketBien()
+    log_ok._mensaje_entrante = ""
+    estado_log = EstadoRobot()
+    log_ok.actualizar_estado(estado_log)
+    assert estado_log.logger.obtener_lineas()[-1].mensaje == "hola"
+    print("OK: nivel desconocido degrada a INFO")
+
+    # 3) Conexión caída (recv lanza) -> perdida=True, sin excepción.
+    class _SocketCaido:
+        def recv(self, _n):
+            raise ConnectionResetError("el robot se reinició")
+
+    caido = Comunicacion.__new__(Comunicacion)
+    caido.conexion = _SocketCaido()
+    caido._mensaje_entrante = ""
+    caido.actualizar_estado(EstadoRobot())   # no debe lanzar
+    assert caido.perdida, "recv caído debe marcar perdida=True"
+    print("OK: recv caído marca perdida=True sin lanzar")
+
+    # 4) Enviar a un socket muerto marca perdida=True, sin excepción.
+    class _SocketSendCaido:
+        def send(self, _datos):
+            raise OSError("socket cerrado")
+
+    send_caido = Comunicacion.__new__(Comunicacion)
+    send_caido.conexion = _SocketSendCaido()
+    send_caido.enviar_mensaje({"tipo": "motor", "direccion": "arriba"})
+    assert send_caido.perdida, "send caído debe marcar perdida=True"
+    print("OK: send caído marca perdida=True sin lanzar")
 
     print("\nPruebas OK")
