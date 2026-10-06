@@ -40,12 +40,22 @@ public:
 
     void detener();
 
+    // Ramps de las velocidades hacia sus metas (llamar seguido en loop()).
+    // Evita el tirón 0->200: los motores aceleran/desaceleran de a poco.
+    void actualizar();
+
 private:
 
     void _rueda(uint8_t inA, uint8_t inB, uint8_t en, int velocidad);
 
     uint8_t _in1, _in2, _in3, _in4, _enA, _enB;
     bool    _activo;
+
+    // Velocidades META (lo que pide mover()) vs REALES (lo que se escribe
+    // a los pines, que evoluciona de a poco por la rampa).
+    int       _metaA, _metaB;
+    int       _velA,  _velB;
+    uint32_t  _ultimaRampaMs;
 };
 
 // Instancia única global (comunicacion.cpp y main.cpp).
