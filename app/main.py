@@ -12,6 +12,9 @@ from .nucleo.paleta import Paleta
 from .nucleo.estado import EstadoRobot, NivelLog
 from .comunicacion.conexion import Comunicacion, ComunicacionSimulada, ConexionOffline
 from .pantallas.pantalla_principal import PantallaPrincipal
+from .pantallas.modal_controles import ModalControles
+from .widgets.logica.mapeo_teclado import MapeoTeclado
+from .widgets.logica.control_teclado import ControlTeclado
 
 
 # Cada cuántos milisegundos se lee el "robot" y se redibuja la pantalla.
@@ -60,12 +63,25 @@ class Aplicacion:
             self.estado,
             on_conectar=self._pedir_ip,
             on_desconectar=self._desconectar,
+            on_controles=self._abrir_controles,
         )
         # El gamepad siempre dispara hacia la conexión ACTIVA: la función
         # cierra sobre self.conexion, así al cambiar de conexión el mando
         # empieza a hablar con el robot nuevo sin volver a cablear nada.
         self.pantalla.conectar_gamepad(lambda cmd: self.conexion.enviar_mensaje(cmd))
         self.pantalla.establecer_conexion(True, "SIMULADOR")
+
+        # Mapeo de teclado: perfil persistido (o fábrica) + el driver que
+        # traduce cada tecla en la acción correspondiente del gamepad.
+        self.mapeo = MapeoTeclado.cargar()
+        self.control_teclado = ControlTeclado(self.root, self.mapeo,
+                                              self.pantalla.gamepad)
+
+    # --- Controles de teclado (modal estilo emulador) ---
+
+    def _abrir_controles(self):
+        """Abre el modal de asignación de teclas y guarda cada cambio."""
+        ModalControles(self.root, self.mapeo, on_cambio=self.mapeo.guardar)
 
     # --- Conexión con el robot (modal de IP) ---
 
