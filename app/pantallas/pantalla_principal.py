@@ -41,7 +41,7 @@ class PantallaPrincipal:
     """
 
     def __init__(self, parent, estado: EstadoRobot,
-                 on_conectar=None, on_desconectar=None):
+                 on_conectar=None, on_desconectar=None, on_controles=None):
         """
         Constructor de la pantalla.
 
@@ -49,6 +49,7 @@ class PantallaPrincipal:
         estado         : la 'caja maestra' compartida con todo el programa.
         on_conectar    : callback al pulsar CONECTAR (abre el modal con la IP).
         on_desconectar : callback al pulsar DESCONECTAR (cuelga el teléfono).
+        on_controles   : callback al pulsar CONTROLES (abre el mapeo de teclado).
         """
         self.estado = estado
         self.frame = tk.Frame(parent, bg=Paleta.FONDO_APP)
@@ -64,10 +65,13 @@ class PantallaPrincipal:
         self.gamepad = Gamepad(estado)
         self.boton_conectar = Boton("CONECTAR")
         self.boton_desconectar = Boton("DESCONECTAR")
+        self.boton_controles = Boton("CONTROLES")
         if on_conectar is not None:
             self.boton_conectar.suscribir(on_conectar)
         if on_desconectar is not None:
             self.boton_desconectar.suscribir(on_desconectar)
+        if on_controles is not None:
+            self.boton_controles.suscribir(on_controles)
 
         # --- Distribución de la gilla ---
         # Columnas con peso áureo (10:16): el radar y el gamepad comparten
@@ -199,6 +203,12 @@ class PantallaPrincipal:
         botones = tk.Frame(cabecera, bg=Paleta.FONDO_WIDGET)
         botones.pack(side="right", pady=(0, Paleta.UNIDAD // 4))
 
+        canvas_controles = tk.Canvas(botones, width=86, height=30,
+                                     bg=Paleta.FONDO_WIDGET, highlightthickness=0)
+        canvas_controles.pack(side="left", padx=(0, Paleta.UNIDAD // 3))
+        self.render_controles = BotonRenderer(
+            self.boton_controles, canvas_controles, 6, 5, 74, 20, tamano_fuente=8)
+
         canvas_conectar = tk.Canvas(botones, width=106, height=30,
                                     bg=Paleta.FONDO_WIDGET, highlightthickness=0)
         canvas_conectar.pack(side="left", padx=(0, Paleta.UNIDAD // 3))
@@ -249,6 +259,7 @@ class PantallaPrincipal:
         self.render_radar.dibujar()
         self.render_conectar.dibujar()
         self.render_desconectar.dibujar()
+        self.render_controles.dibujar()
         self.render_gamepad.dibujar()
 
         # Etiquetas que dependen del estado (el logger se actualiza solo).
