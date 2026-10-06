@@ -3,7 +3,7 @@
 
 
 from ...nucleo.estado import EstadoRobot
-from ...nucleo.paleta import Paleta
+from ...nucleo.paleta import Paleta, color_por_umbral
 
 
 class BarrasConsumo:
@@ -11,10 +11,11 @@ class BarrasConsumo:
     Las barritas de consumo apiladas (estilo lector MoE de la película).
 
     Mientras más energía consume el robot, más barritas se "encienden".
-    Aquí "más es peor": el color se calcula con un criterio INVERTIDO,
-    igual que propone color_por_umbral(fraccion, invertido=True):
+    Aquí "más es peor": el color lo decide color_por_umbral(fraccion,
+    invertido=True), la regla central de paleta.py:
 
-      0.0 - 0.4  -> DORADO (consumo tranquilo)
+      0.0 - 0.1  -> GRIS (sin actividad: no hay barritas encendidas)
+      0.1 - 0.4  -> DORADO (consumo tranquilo)
       0.4 - 0.7  -> NARANJA
       0.7 - 1.0  -> ROJO (consumo alto)
 
@@ -52,14 +53,7 @@ class BarrasConsumo:
     @property
     def color(self) -> str:
         """Color de las barritas según la fracción (invertido: más = peor)."""
-        fraccion = self.fraccion
-
-        if fraccion > 0.7:
-            return Paleta.ROJO
-        elif fraccion > 0.4:
-            return Paleta.NARANJA
-        else:
-            return Paleta.DORADO
+        return color_por_umbral(self.fraccion, invertido=True)
 
     @property
     def etiqueta_watts(self) -> str:
@@ -84,7 +78,7 @@ if __name__ == "__main__":
     estado.max_consumo_watts = 15.0
     assert barras.fraccion == 0.0, "Fracción debería ser 0.0"
     assert barras.barritas_encendidas == 0, "No debería haber barritas"
-    assert barras.color == Paleta.DORADO, "Consumo bajo debería ser DORADO"
+    assert barras.color == Paleta.GRIS, "Consumo nulo debería ser GRIS (sin actividad)"
     print(f"OK: {barras.barritas_encendidas}/10, {barras.etiqueta_watts}\n")
 
     # 2. Consumo medio (4.2 W de 15 W) -> fracción 0.28 -> 3 barritas DORADO
