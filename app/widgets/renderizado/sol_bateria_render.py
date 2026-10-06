@@ -49,25 +49,25 @@ class SolBateriaRenderer(RenderizadorBase):
                 self.cy + vy * radio)
 
     def dibujar(self):
-        """Dibuja (o actualiza) los 12 rayos y el círculo central."""
+        """Dibuja (o actualiza) los 12 rayos y el círculo central.
+
+        La geometría se crea una sola vez; el estado se repinta solo cuando
+        cambia (encendidos, color), para no gastar coords/itemconfig de más.
+        """
         encendidos = self.widget.rayos_encendidos
         color = self.widget.color
         apagado = "#333333"
 
+        # Primera vez: crear los rayos y el círculo central.
         for i in range(self.TOTAL_RAYOS):
-            rayo = self._primera_vez(
+            self._primera_vez(
                 f"rayo_{i}",
                 lambda i=i: self.canvas.create_line(
                     *self._punto_rayo(i, self.r_off),
                     width=5, capstyle="round",
                 ),
             )
-            encendido = i < encendidos
-            self.canvas.coords(rayo, *self._punto_rayo(i, self.r_on if encendido else self.r_off))
-            self.canvas.itemconfig(rayo, fill=color if encendido else apagado)
-
-        # Círculo central: todo encendido si hay energía/carga, gris si no.
-        circulo = self._primera_vez(
+        self._primera_vez(
             "circulo",
             lambda: self.canvas.create_oval(
                 self.cx - self.r_in, self.cy - self.r_in,
@@ -75,5 +75,18 @@ class SolBateriaRenderer(RenderizadorBase):
                 outline="", width=3,
             ),
         )
+
+        # El valor derivado no cambió: no hay nada que repintar.
+        if not self._hay_cambio("estado", (encendidos, color)):
+            return
+
+        for i in range(self.TOTAL_RAYOS):
+            rayo = self._ids[f"rayo_{i}"]
+            encendido = i < encendidos
+            self.canvas.coords(rayo, *self._punto_rayo(i, self.r_on if encendido else self.r_off))
+            self.canvas.itemconfig(rayo, fill=color if encendido else apagado)
+
+        # Círculo central: todo encendido si hay energía/carga, gris si no.
+        circulo = self._ids["circulo"]
         color_circulo = color if encendidos > 0 else Paleta.GRIS
         self.canvas.itemconfig(circulo, outline=color_circulo)
