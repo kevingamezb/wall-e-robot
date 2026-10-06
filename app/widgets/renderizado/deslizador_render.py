@@ -41,6 +41,7 @@ class DeslizadorRenderer(RenderizadorBase):
         self.radio_thumb = radio_thumb
         self._ultimo_enviado = None  # evita reenviar el mismo ángulo y "spamear"
         self._arrastrando = False
+        self._en_hover = False
 
     # --- Conversiones de coordenadas ---
 
@@ -82,6 +83,16 @@ class DeslizadorRenderer(RenderizadorBase):
         """Suelta la pista: termina el arrastre."""
         self._arrastrando = False
 
+    def _al_entrar(self, _evento):
+        """El mouse entró sobre la pista: cursor de "agarre" y thumb iluminado."""
+        self._en_hover = True
+        self.canvas.configure(cursor="hand2")
+
+    def _al_salir(self, _evento):
+        """El mouse salió de la pista: se restaura cursor y thumb."""
+        self._en_hover = False
+        self.canvas.configure(cursor="")
+
     def _aplicar_posicion(self, px, py):
         """
         Pasa al deslizador lógico el valor bajo el mouse (solo si cambió)
@@ -111,25 +122,35 @@ class DeslizadorRenderer(RenderizadorBase):
                 *pista1, fill="#333333", outline="",
             ),
         )
-        # El thumb puede haber crecido o no en cada ciclo; actualizamos su forma.
+        # El thumb cambia de tamaño/color según el estado, como el
+        # ::-webkit-slider-thumb del mockup: reposo apagado, con el mouse
+        # encima más claro, y al arrastrar grande y brillante.
+        thumb_radio = self.radio_thumb + (2 if self._arrastrando else 0)
+        color_thumb = (Paleta.DORADO
+                       if (self._arrastrando or self._en_hover)
+                       else Paleta.DORADO_DIM)
         px, py = self._valor_a_pixel(self.widget.posicion)
         thumb = self._primera_vez(
             "thumb",
             lambda: self.canvas.create_oval(
-                px - self.radio_thumb, py - self.radio_thumb,
-                px + self.radio_thumb, py + self.radio_thumb,
-                fill=Paleta.DORADO, outline="",
+                px - thumb_radio, py - thumb_radio,
+                px + thumb_radio, py + thumb_radio,
+                fill=color_thumb, outline="",
             ),
         )
         self.canvas.coords(
             thumb,
-            px - self.radio_thumb, py - self.radio_thumb,
-            px + self.radio_thumb, py + self.radio_thumb,
+            px - thumb_radio, py - thumb_radio,
+            px + thumb_radio, py + thumb_radio,
         )
+        self.canvas.itemconfig(thumb, fill=color_thumb)
 
         # Bindings de interacción sobre pista y thumb (idempotente: los
-        # re-anotamos cada vez, los eventos viejos se sobrescriben).
+        # re-anotamos cada vez, los eventos viejos se sobrescriben). El
+        # cursor no existe por ítem en Tk, así que se cambia el del canvas.
         for item in (pista, thumb):
             self.canvas.tag_bind(item, "<ButtonPress-1>", self._al_presionar)
             self.canvas.tag_bind(item, "<B1-Motion>", self._al_arrastrar)
             self.canvas.tag_bind(item, "<ButtonRelease-1>", self._al_soltar)
+            self.canvas.tag_bind(item, "<Enter>", self._al_entrar)
+            self.canvas.tag_bind(item, "<Leave>", self._al_salir)
