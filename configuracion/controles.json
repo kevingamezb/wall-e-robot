@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "teclado": {
+    "abajo": "Down",
+    "arriba": "Up",
+    "cuello_mas": "q",
+    "cuello_menos": "a",
+    "derecha": "Right",
+    "hombro_der_mas": "e",
+    "hombro_der_menos": "d",
+    "hombro_izq_mas": "w",
+    "hombro_izq_menos": "s",
+    "izquierda": "Left",
+    "mano_abrir": "space",
+    "mano_cerrar": "c",
+    "reposo": "r"
+  }
+}
