@@ -72,9 +72,14 @@ class IconoSistemaRenderer(RenderizadorBase):
                 outline=borde, width=1,
             ),
         )
-        self.canvas.itemconfig(caja, outline=borde)
-
         glifo = self._primera_vez("glifo", self._crear_glifo)
+
+        # El ícono solo cambia de COLOR (recoloreo): se repinta solo cuando
+        # cambia su estado activo/color (forma y glifo son siempre iguales).
+        if not self._hay_cambio("estado", (self.widget.color, self.widget.activo)):
+            return
+
+        self.canvas.itemconfig(caja, outline=borde)
         # Si el glifo es un texto (no el polígono del rayo), actualizamos color.
         if self.widget.tipo != TipoIcono.CARGANDO:
             self.canvas.itemconfig(glifo, fill=self.widget.color)
