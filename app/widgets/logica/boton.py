@@ -27,6 +27,7 @@ class Boton:
         
         self.texto = texto                    # La etiqueta visible del botón
         self.presionado = False               # El estado actual (como un interruptor apagado)
+        self.en_hover = False                 # El mouse está encima sin presionar
         
         self._suscriptores = []               # La "libreta de contactos" del botón
         
@@ -78,6 +79,27 @@ class Boton:
         self.presionado = False
         
         
+    def entrar_hover(self):
+        """
+        El mouse entró sobre el botón (sin presionar todavía).
+        
+        Es un estado PURAMENTE visual: no avisa a ningún suscriptor.
+        El botón solo lo recuerda para que su color lo comunique.
+        """
+        
+        self.en_hover = True
+        
+        
+    def salir_hover(self):
+        """
+        El mouse salió del área del botón.
+        
+        Igual que entrar_hover, es solo visual y no avisa a nadie.
+        """
+        
+        self.en_hover = False
+        
+        
     @property
     def color_fondo(self):
         """
@@ -85,11 +107,18 @@ class Boton:
         
         Este decorador @property permite leer el color como si fuera un
         atributo normal (boton.color_fondo), pero por dentro calcula el
-        valor. Así el botón cambia de color para que visualmente se note
-        que está presionado: DORADO si está presionado, FONDO_APP (negro) si no.
+        valor. El botón cambia de color para comunicar sus tres estados
+        de forma visual, en orden de "intensidad"):
+            - Sin interacción    -> FONDO_APP   (negro: en reposo)
+            - Hover (mouse encima) -> DORADO_DIM (ámbar apagado: "soy clickeable")
+            - Presionado          -> DORADO      (ámbar brillante: "me están usando")
         """
         
-        return Paleta.DORADO if self.presionado else Paleta.FONDO_APP
+        if self.presionado:
+            return Paleta.DORADO
+        if self.en_hover:
+            return Paleta.DORADO_DIM
+        return Paleta.FONDO_APP
     
 
 # Cajón de Pruebas
@@ -165,6 +194,32 @@ if __name__ == "__main__":
     assert c1["avisos"] == 3, f"El suscriptor 1 debería tener 3 avisos, tiene {c1['avisos']}"
     assert c2["avisos"] == 3, f"El suscriptor 2 debería tener 3 avisos, tiene {c2['avisos']}"
     print("OK: dos presiones extra sumaron avisos a ambos suscriptores\n")
+
+
+    # 6. Hover: es visual y NO avisa a los suscriptores 
+    print("Hover (mouse encima):")
+    b.soltar()
+    b.entrar_hover()
+    assert b.en_hover is True, "entrar_hover debería encender en_hover"
+    assert b.color_fondo == Paleta.DORADO_DIM, "En hover el botón debe verse DORADO_DIM"
+    assert c1["avisos"] == 3 and c2["avisos"] == 3, "El hover no debería avisar a nadie"
+    print("OK: en_hover=True, color DORADO_DIM y sin avisos\n")
+
+
+    # 7. Hover tiene menor prioridad que presionado 
+    print("Hover + presionado:")
+    b.presionar()
+    assert b.color_fondo == Paleta.DORADO, "Presionado debe ganar siempre al hover"
+    print("OK: presionado sigue viéndose DORADO en hover\n")
+
+
+    # 8. Salir del hover vuelve a reposo 
+    print("Salir del hover:")
+    b.soltar()
+    b.salir_hover()
+    assert b.en_hover is False, "salir_hover debería apagar en_hover"
+    assert b.color_fondo == Paleta.FONDO_APP, "Sin hover ni presión debe volver a FONDO_APP"
+    print("OK: en_hover=False y color FONDO_APP\n")
 
 
     # Bonus: demostración simple con print 
