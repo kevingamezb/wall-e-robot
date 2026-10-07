@@ -4,7 +4,7 @@
 
 from ...nucleo.paleta import Paleta
 from ...widgets.logica.ojos import ExpresionOjos
-from .base_render import RenderizadorBase
+from .base_render import RenderizadorBase, interpolar_color, rectangulo_redondeado
 
 
 # Geometría base de los ojos (silueta "caja" estilo Wall-E, mientras la
@@ -85,6 +85,17 @@ class OjosRenderer(RenderizadorBase):
             tamano = PUPILA_ABIERTA
             ver_pupila = True
 
+        # Halo del fondo: una "pantalla" tenue detrás de las cajas, del
+        # mismo color que los ojos (recoloreado cuando cambia la expresión).
+        self._primera_vez(
+            "glow",
+            lambda: rectangulo_redondeado(
+                self.canvas, self.x - 3, self.y, self.x + 101, self.y + 44,
+                radio=8, fill=interpolar_color(color, Paleta.FONDO_WIDGET, 0.88),
+                outline="", width=0,
+            ),
+        )
+
         # Primera vez: crear las cajas y pupilas con su geometría base.
         for lado, cx in (("izq", cx_izq), ("der", cx_der)):
             self._primera_vez(
@@ -123,3 +134,8 @@ class OjosRenderer(RenderizadorBase):
                 pupila,
                 state="normal" if ver_pupila else "hidden",
             )
+
+        # El halo de fondo acompaña la emoción (se atenúa sin datos).
+        self.canvas.itemconfig(
+            self._ids["glow"], fill=interpolar_color(color, Paleta.FONDO_WIDGET, 0.88),
+        )
