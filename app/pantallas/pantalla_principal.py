@@ -105,7 +105,8 @@ class PantallaPrincipal:
         """
         barra = tk.Frame(self.frame, bg=Paleta.FONDO_APP)
         barra.grid(row=0, column=0, columnspan=2, sticky="ew",
-                   padx=Paleta.UNIDAD // 2, pady=(Paleta.UNIDAD // 3, 0))
+                   padx=Paleta.UNIDAD // 2,
+                   pady=(Paleta.UNIDAD // 3, Paleta.UNIDAD // 3))
 
         # Izquierda: AXIOM ▸ subtítulo del módulo.
         izq = tk.Frame(barra, bg=Paleta.FONDO_APP)
@@ -183,11 +184,16 @@ class PantallaPrincipal:
         pad = Paleta.UNIDAD // 3
         arriba = Paleta.UNIDAD // 4
 
-        # 3 columnas de igual peso (cada una expande a su tercio de ancho).
+        # 3 columnas de igual peso (cada una expande a su tercio de ancho),
+        # separadas por 2 líneas verticales tenues (estilo mockup).
         col0 = tk.Frame(col, bg=Paleta.FONDO_WIDGET)
         col0.pack(side="left", expand=True, fill="both")
+        tk.Frame(col, bg=Paleta.HUD_LINE, width=1).pack(
+            side="left", fill="y", pady=(pad, pad))
         col1 = tk.Frame(col, bg=Paleta.FONDO_WIDGET)
         col1.pack(side="left", expand=True, fill="both")
+        tk.Frame(col, bg=Paleta.HUD_LINE, width=1).pack(
+            side="left", fill="y", pady=(pad, pad))
         col2 = tk.Frame(col, bg=Paleta.FONDO_WIDGET)
         col2.pack(side="left", expand=True, fill="both")
 
@@ -209,17 +215,19 @@ class PantallaPrincipal:
         fila_barras = tk.Frame(col1, bg=Paleta.FONDO_WIDGET)
         fila_barras.pack(anchor="n", pady=(pad, 0))
 
-        # Barras x5 (v4). 10 barritas de (alto+sep) = 10*26 = 260px de columna;
-        # canvas de 264 para que la base respire dentro del alto disponible.
-        canvas_barras = tk.Canvas(fila_barras, width=64, height=264,
+        # Barras x5 (v4). 10 barritas de (alto+sep) = 10*21 = 210px de columna;
+        # canvas de 214 para que la base respire dentro del alto disponible.
+        # Finas y apiladas, como el mockup (barritas de ~16px).
+        canvas_barras = tk.Canvas(fila_barras, width=38, height=214,
                                   bg=Paleta.FONDO_WIDGET, highlightthickness=0)
         canvas_barras.pack(side="left")
         self.render_barras = BarrasConsumoRenderer(
-            self.barras, canvas_barras, 6, 260,
-            ancho_barra=50, alto_barra=20, separacion=6)
+            self.barras, canvas_barras, 4, 210,
+            ancho_barra=30, alto_barra=16, separacion=5)
 
         self.lbl_consumo = tk.Label(fila_barras, text="", bg=Paleta.FONDO_WIDGET,
-                                    fg=Paleta.TEXTO_LOG, font=("Segoe UI", 8))
+                                    fg=Paleta.TEXTO_LOG,
+                                    font=(Paleta.FUENTE_TEXTO, 8))
         self.lbl_consumo.pack(side="left", padx=(pad, 0))
 
         # Columna 2: sol de batería + etiquetas debajo.
@@ -229,10 +237,11 @@ class PantallaPrincipal:
         self.render_sol = SolBateriaRenderer(self.sol, canvas_sol, 50, 50)
 
         self.lbl_sol = tk.Label(col2, text="", bg=Paleta.FONDO_WIDGET,
-                                font=("Segoe UI", 10, "bold"))
+                                font=(Paleta.FUENTE_TEXTO, 10, "bold"))
         self.lbl_sol.pack(anchor="n", pady=(Paleta.UNIDAD // 4, 0))
         self.lbl_tiempo = tk.Label(col2, text="", bg=Paleta.FONDO_WIDGET,
-                                   fg=Paleta.TEXTO_LOG, font=("Segoe UI", 9))
+                                   fg=Paleta.TEXTO_LOG,
+                                   font=(Paleta.FUENTE_TEXTO, 9))
         self.lbl_tiempo.pack(anchor="n")
 
         subir_decoracion(col)
@@ -273,11 +282,11 @@ class PantallaPrincipal:
         cabecera.pack(fill="x", padx=Paleta.UNIDAD // 3,
                       pady=(Paleta.UNIDAD // 4, 0))
 
-        lbl_captura = tk.Label(cabecera, text="CONEXI\u00d3N", bg=Paleta.FONDO_WIDGET,
-                               fg=Paleta.TEXTO_TENUE, font=("Segoe UI", 7))
+lbl_captura = tk.Label(cabecera, text="CONEXI\u00d3N", bg=Paleta.FONDO_WIDGET,
+                           fg=Paleta.TEXTO_TENUE, font=(Paleta.FUENTE_TEXTO, 7))
         lbl_captura.pack(anchor="w")
         self.lbl_estado_conexion = tk.Label(cabecera, text="", bg=Paleta.FONDO_WIDGET,
-                                            font=("Segoe UI", 10, "bold"))
+                                            font=(Paleta.FUENTE_TEXTO, 10, "bold"))
         self.lbl_estado_conexion.pack(anchor="w")
 
         botones = tk.Frame(cabecera, bg=Paleta.FONDO_WIDGET)
@@ -301,10 +310,11 @@ class PantallaPrincipal:
         self.render_desconectar = BotonRenderer(
             self.boton_desconectar, canvas_desconectar, 6, 5, 118, 20, tamano_fuente=9)
 
-        # Gamepad.
+        # Gamepad (el mando se centra en la tarjeta, no queda pegado arriba).
         canvas_gamepad = tk.Canvas(marco, width=600, height=300,
                                    bg=Paleta.FONDO_WIDGET, highlightthickness=0)
-        canvas_gamepad.pack(padx=Paleta.UNIDAD // 3,
+        canvas_gamepad.pack(expand=True,
+                            padx=Paleta.UNIDAD // 3,
                             pady=(Paleta.UNIDAD // 4, Paleta.UNIDAD // 3))
         self.render_gamepad = GamepadRenderer(self.gamepad, canvas_gamepad, 600, 300)
         subir_decoracion(marco)
@@ -375,7 +385,8 @@ if __name__ == "__main__":
     print("=== PantallaPrincipal (cajón de pruebas) ===")
 
     raiz = tk.Tk()
-    raiz.geometry("1080x700")
+    raiz.geometry("1280x860")
+    raiz.minsize(1200, 800)
     raiz.configure(bg=Paleta.FONDO_APP)
 
     estado = EstadoRobot()
