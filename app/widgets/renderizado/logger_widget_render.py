@@ -39,7 +39,7 @@ class LoggerWidgetRenderer:
             bg=Paleta.FONDO_WIDGET,
             fg=Paleta.TEXTO_LOG,
             insertbackground=Paleta.TEXTO_LOG,
-            font=("Consolas", 10),
+            font=(Paleta.FUENTE_HUD, 10),
             relief="flat",
             state="disabled",
             height=14,
@@ -49,7 +49,8 @@ class LoggerWidgetRenderer:
         self.texto.pack(fill="both", expand=True)
 
         # Etiquetas de color por nivel (las usamos con los rangos del Text).
-        self.texto.tag_config("ts",   foreground="#666666")
+        self.texto.tag_config("ts",   foreground=Paleta.CYAN_DIM)
+        self.texto.tag_config("prmt", foreground=Paleta.AXIOM_CYAN)
         self.texto.tag_config("info", foreground=Paleta.TEXTO_LOG)
         self.texto.tag_config("warn", foreground=Paleta.NARANJA)
         self.texto.tag_config("error", foreground=Paleta.ROJO)
@@ -84,8 +85,13 @@ class LoggerWidgetRenderer:
 
             self.texto.insert(
                 "end",
-                f"[{entrada.timestamp:.0f}] > ",
+                f"[{entrada.timestamp:.0f}] ",
                 ("ts",),
+            )
+            self.texto.insert(
+                "end",
+                "\u25b8 ",
+                ("prmt",),
             )
             self.texto.insert(
                 "end",
