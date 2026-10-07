@@ -170,7 +170,7 @@ class BotonRenderer(RenderizadorBase):
             lambda: self.canvas.create_text(
                 self.x + self.ancho / 2, self.y + self.alto / 2,
                 text=self.texto,
-                font=("Segoe UI", self.tamano_fuente, "bold"),
+                font=(Paleta.FUENTE_TEXTO, self.tamano_fuente, "bold"),
             ),
         )
 
