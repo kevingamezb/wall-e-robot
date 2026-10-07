@@ -9,22 +9,44 @@ class Paleta:
     funciona como un espacio de nombres agrupador,
     no como un tipo de dato con instancias distintas entre sí.
     
-    Además de colores, guarda el "sistema" visual calcado del mockup
-    (walle_demo.html): la unidad de espaciado y los radios de esquina.
-    Así ninguna pantalla necesita números mágicos sueltos.
+    Además de colores, guarda el "sistema" visual de la GUI: primero calcado
+    del mockup (walle_demo.html) y ahora temático "Axiom + Wall-E":
+    fondo azul-espacio, paneles de cristal, brillo cian tipo EVE para lo de
+    la NAVE (radar, terminal, íconos) y dorado/naranja Wall-E para lo del
+    ROBOT (mando, ojos). También las unidades de espaciado y las fuentes.
+    Así ninguna pantalla necesita números mágicos sueltos, y ningún color
+    se escribe fuera de aquí (regla del proyecto).
     """
     
-    FONDO_APP     = "#1a1a1a"
-    FONDO_WIDGET  = "#0d0d0d"
-    DORADO        = "#aa8800"
-    DORADO_DIM    = "#6b5600"
-    TEXTO_LOG     = "#ffffff"
-    GRIS          = "#3a3a3a"
-    NARANJA       = "#d88a2a"
-    ROJO          = "#c94a4a"
-    VERDE_LIMA    = "#8fd82a"
-    BORDE_SUAVE   = "#2c2c2c"      # --border-soft (borde de las tarjetas)
-    TEXTO_TENUE   = "#8a8a8a"      # --text-dim (labels de sección)
+    # --- Fondos (noche de la nave: azul profundo) ---
+    FONDO_APP    = "#0a111f"   # fondo general de la ventana
+    FONDO_WIDGET = "#0c1626"   # cara de los paneles (tarjetas)
+    FONDO_CANVAS = "#080f1c"   # lienzo interno (radar, gamepad): aún más oscuro
+
+    # --- Acentos del robot (Wall-E) ---
+    DORADO       = "#cba135"   # chassis/ojos del robot
+    DORADO_DIM   = "#6e5416"   # variante tenue del dorado
+    NARANJA      = "#e8932e"   # advertencias / ojos en manual
+
+    # --- Acentos de la nave (Axiom / EVE) ---
+    AXIOM_CYAN   = "#58c7f3"   # hologramas e interfaces de la nave
+    CYAN_DIM     = "#2471a6"   # bordes y brillos tenues
+    HUD_LINE     = "#1c2f4d"   # líneas estructurales de los paneles
+    ESCANEO      = "#0a1220"   # scanlines (superpuestas a los paneles)
+
+    # --- Texto ---
+    TEXTO_LOG    = "#e8f4ff"   # general (blanco-hielo)
+    TEXTO_TENUE  = "#7e9ab8"   # etiquetas de sección e inactivo
+    GRIS         = "#33435e"   # "apagado"/sin datos (grafito azulado)
+    VERDE_LIMA   = "#8fd82a"   # carga / OK
+    ROJO         = "#e05656"   # error / obstáculo
+
+    # --- Borde de los paneles ---
+    BORDE_SUAVE  = "#1b2a44"   # borde de las tarjetas de cristal
+
+    # --- Fuentes ---
+    FUENTE_TEXTO = "Segoe UI"
+    FUENTE_HUD   = "Consolas"
 
     # --- Sistema de espaciado (una unidad para todo) ---
     UNIDAD        = 24             # --unit: la base de todos los gaps
