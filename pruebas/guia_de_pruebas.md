@@ -44,6 +44,7 @@ imprime `Pruebas OK` si todo está bien. Se ejecutan desde la **raíz del reposi
 python -m app.nucleo.estado
 python -m app.nucleo.paleta
 python -m app.comunicacion.conexion
+python -m app.widgets.renderizado.base_render
 python -m app.widgets.logica.boton
 python -m app.widgets.logica.deslizador
 python -m app.widgets.logica.gamepad
@@ -53,6 +54,10 @@ python -m app.widgets.logica.sol_bateria
 python -m app.widgets.logica.barras_consumo
 python -m app.widgets.logica.radar
 python -m app.widgets.logica.logger_widget
+python -m app.widgets.logica.mapeo_teclado
+python -m app.widgets.logica.control_teclado
+python -m app.pantallas.pantalla_principal
+python -m app.pantallas.modal_controles
 ```
 
 > **Atajo:** para correr **todos** los cajones de una sola vez (los que no abren ventanas) existe el runner:
@@ -61,7 +66,8 @@ python -m app.widgets.logica.logger_widget
 > python pruebas/ejecutar_cajones.py
 > ```
 >
-> Imprime `[OK]`/`[FALLA]` por módulo y termina con código de salida 0 si todo está verde.
+> Imprime `[OK]`/`[FALLA]` por módulo y termina con código de salida 0 si todo está verde
+> (a la fecha: **15 cajones en verde**, incluye ±lógica y `base_render`, que cierra su ventana solo).
 
 Qué revisa cada uno (resumen):
 
@@ -70,7 +76,8 @@ Qué revisa cada uno (resumen):
 | `nucleo.estado` | `EstadoRobot`, `Modo`, `NivelLog`, `Logger` |
 | `nucleo.paleta` | Colores centralizados y `color_por_umbral()` |
 | `comunicacion.conexion` | Simulador, `ConexionOffline` y **el parseo tolerante del protocolo real** (campos nuevos, `null`, `posiciones_servos`, `multi`, y la pérdida de conexión marcada sin romper la app) |
-| `widgets.logica.gamepad` | Direcciones del d-pad (`{"tipo":"motor",...}`), cuello, y **manos/reposo en un único `{"tipo":"multi",...}`**, y que **sin conexión no envía nada** |
+| `widgets.renderizado.base_render` | Helpers HUD (`scanlines`, `corchetes_hud`, `banda_gradiente`, `fulgor_radial`, `anillo_con_halo`, `borde_panel`, `rectangulo_redondeado`, `interpolar_color`) |
+| `widgets.logica.gamepad` | Direcciones del d-pad (`{"tipo":"motor",...}`), cuello, **manos/reposo en un único `{"tipo":"multi",...}`**, que **sin conexión no envía nada** y que **reposo devuelve los deslizadores al centro** |
 | `widgets.logica.mapeo_teclado` | Perfil de controles: defaults, persistencia JSON, conflictos una-tecla-una-acción |
 | `widgets.logica.control_teclado` | El driver teclado->gamepad: auto-repetido de motores, pasos de ejes y discretas de un solo disparo |
 | `widgets.logica.boton` / `deslizador` | Suscripción/avisos, hover, estados de color |
@@ -114,6 +121,23 @@ Comportamiento al usar el teclado en la pantalla principal:
 - El perfil se guarda en `configuracion/controles.json`. Teclas por defecto:
   flechas = movimiento; `Q/A` cuello; `W/S` hombro izquierdo; `E/D` hombro
   derecho; `ESPACIO` abrir mano; `C` cerrar; `R` reposo.
+
+### 3.3 Apariencia: "Holograma Axiom + Wall-E"
+
+- Tema de la GUI: **nave Axiom / Wall-E** — azul espacial de fondo,
+  paneles con scanners y corchetes HUD en cian (glow de EVE), y el robot en
+  dorado/naranja (botones, deslizadores, radar).
+- **Regla de oro de pintado:** ningún color en hexadecimal fuera de
+  `Paleta` (`app/nucleo/paleta.py`). Botones = placa metálica con borde y
+  halo dorado al presionar; deslizadores con marcas de 0°/extremos y halo en
+  el thumb; logger = terminal de la nave (`[ts] ▸ mensaje`, niveles con
+  color); radar con barrido y retícula; batería como sol con rayos.
+- No hay animaciones nuevas: solo los ojos, el barrido del radar, el fade de
+  botones y el brillo al interactuar; el resto se dibuja **una sola vez**
+  (dirty-check) para no recargar el ciclo.
+
+> Para revisar la estética en vivo: `python -m app.main` en el simulador.
+> Para revisar el layout en frío: `python -m app.pantallas.pantalla_principal`.
 
 ---
 
