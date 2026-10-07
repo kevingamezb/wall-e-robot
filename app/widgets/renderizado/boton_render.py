@@ -109,6 +109,30 @@ class BotonRenderer(RenderizadorBase):
 
     def dibujar(self):
         """Dibuja (o actualiza) el botón y regenera sus bindings si hace falta."""
+        # --- Bezel (placa metálica) y halo, detrás del fondo animado ---
+        # La placa es un borde metálico fijo que le da aspecto de "tapa de
+        # deck"; el halo es el brillo que se prende al presionar (dibujado
+        # detrás del fondo, así el fade del estado lo cubre con elegancia).
+        self._primera_vez(
+            "bezel",
+            lambda: rectangulo_redondeado(
+                self.canvas, self.x - 2, self.y - 2,
+                self.x + self.ancho + 2, self.y + self.alto + 2,
+                self.radio_esquinas + 1,
+                fill=Paleta.HUD_LINE, outline="", width=0,
+            ),
+        )
+        self._primera_vez(
+            "halo",
+            lambda: rectangulo_redondeado(
+                self.canvas, self.x - 4, self.y - 4,
+                self.x + self.ancho + 4, self.y + self.alto + 4,
+                self.radio_esquinas + 2,
+                fill=interpolar_color(Paleta.DORADO, Paleta.FONDO_WIDGET, 0.75),
+                outline="", width=0,
+            ),
+        )
+
         # --- Fondo del botón (rectángulo redondeado, color según estado) ---
         fondo = self._primera_vez(
             "fondo",
@@ -153,8 +177,14 @@ class BotonRenderer(RenderizadorBase):
         # Borde y color del texto dependen solo de presionado; no se repintan
         # en cada ciclo si el estado lógico no cambió (el fondo sí se anima).
         if self._hay_cambio("estado", self.widget.presionado):
+            # El halo "se enciende" con la presión (y se apaga al soltar).
+            halo = self._ids["halo"]
+            self.canvas.itemconfig(
+                halo, state="normal" if self.widget.presionado else "hidden",
+            )
+
             # Color de borde: DORADO si está presionado, gris oscuro si no.
-            borde = Paleta.DORADO if self.widget.presionado else "#333333"
+            borde = Paleta.DORADO if self.widget.presionado else Paleta.GRIS
             self.canvas.itemconfig(fondo, outline=borde)
 
             color_texto = Paleta.DORADO if self.widget.presionado else Paleta.TEXTO_LOG
