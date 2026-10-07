@@ -282,8 +282,8 @@ class PantallaPrincipal:
         cabecera.pack(fill="x", padx=Paleta.UNIDAD // 3,
                       pady=(Paleta.UNIDAD // 4, 0))
 
-lbl_captura = tk.Label(cabecera, text="CONEXI\u00d3N", bg=Paleta.FONDO_WIDGET,
-                           fg=Paleta.TEXTO_TENUE, font=(Paleta.FUENTE_TEXTO, 7))
+        lbl_captura = tk.Label(cabecera, text="CONEXI\u00d3N", bg=Paleta.FONDO_WIDGET,
+                               fg=Paleta.TEXTO_TENUE, font=(Paleta.FUENTE_TEXTO, 7))
         lbl_captura.pack(anchor="w")
         self.lbl_estado_conexion = tk.Label(cabecera, text="", bg=Paleta.FONDO_WIDGET,
                                             font=(Paleta.FUENTE_TEXTO, 10, "bold"))
