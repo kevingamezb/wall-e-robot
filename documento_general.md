@@ -77,6 +77,8 @@ nunca hacen polling ni dependen de revisar condiciones "a mano".
 | Comunicación | WiFi/TCP, **JSON una por línea** (`\n`), ESP32 como **servidor en modo AP** (`WALL-E`, IP 192.168.4.1, puerto 8080) |
 | Pruebas de hardware aisladas | Flags 0/1 `MODULOS` en `firmware/include/config.h`; módulo en 0 reporta **valores neutros** a la GUI |
 | Apagado | Corte físico de alimentación (relé/MOSFET), no sleep de software |
+| Look & feel | **"Holograma Axiom + Wall-E"**: azul espacial de fondo, scanlines y corchetes HUD en cian (EVE) en los paneles, robot en dorado/naranja; **brillo estático sutil**, sin animaciones nuevas (solo ojos, barrido del radar, fade de botones y brillo al interactuar) |
+| Estructura de la pantalla | **Barra de sistema** superior (ENLACE · MODO · BATERÍA) + tarjetas con 4 **corchetes HUD** en las esquinas (que sobreviven al redimensionado); grilla fija: fila 1 ESTADO + TERMINAL, fila 2 RADAR + CONTROL MANUAL |
 
 ---
 
@@ -142,9 +144,12 @@ wall-e-robot/
 │   ├── widgets/
 │   │   ├── logica/          ✅ 9/9       # boton, deslizador, sol_bateria, barras_consumo, ojos,
 │   │   │                                 # icono_sistema, radar, logger_widget, gamepad — TODOS con cajón de pruebas
-│   │   └── renderizado/     ✅ 11/12     # *_render.py + base_render.py + tarjeta.py (recoloreo.py ⬜ vacío)
+│   │   └── renderizado/     ✅ 11/12     # *_render.py + base_render.py (helpers HUD: scanlines, corchetes_hud,
+│   │   │                                 #   borde_panel, fulgor_radial, banda_gradiente, anillo_con_halo…)
+│   │   │                                 #   + tarjeta.py (corchetes en las esquinas). recoloreo.py ⬜ vacío
 │   ├── pantallas/
-│   │   ├── pantalla_principal.py ✅      # la única pantalla del sistema (monitoreo/control_manual eliminados)
+│   │   ├── pantalla_principal.py ✅      # la única pantalla del sistema (monitoreo/control_manual eliminados);
+│   │   │                                 #   barra de sistema (ENLACE/MODO/BATERÍA) + corchetes HUD
 │   │   └── iconos/          ⬜ vacío      # sin PNG: los íconos se dibujan por código
 │   ├── main.py              ✅ hecho      # arranca la GUI: SIMULADOR → CONECTAR(IP) → DESCONECTAR
 │   └── (sin requirements.txt — solo stdlib: tkinter, socket, json, random, time)
