@@ -96,11 +96,11 @@ class Aplicacion:
 
         tk.Label(modal, text="Dirección IP del Wall-E:",
                  bg=Paleta.FONDO_APP, fg=Paleta.TEXTO_LOG,
-                 font=("Segoe UI", 10)).grid(
+                 font=(Paleta.FUENTE_TEXTO, 10)).grid(
             row=0, column=0, columnspan=2, sticky="w",
             padx=Paleta.UNIDAD, pady=(Paleta.UNIDAD, 0))
 
-        entrada = tk.Entry(modal, width=20, font=("Segoe UI", 10),
+        entrada = tk.Entry(modal, width=20, font=(Paleta.FUENTE_TEXTO, 10),
                            bg=Paleta.FONDO_WIDGET, fg=Paleta.TEXTO_LOG,
                            insertbackground=Paleta.DORADO)
         entrada.grid(row=1, column=0, columnspan=2, sticky="we",
@@ -109,7 +109,7 @@ class Aplicacion:
         entrada.focus_set()
 
         lbl_error = tk.Label(modal, text="", bg=Paleta.FONDO_APP,
-                             fg=Paleta.ROJO, font=("Segoe UI", 9))
+                             fg=Paleta.ROJO, font=(Paleta.FUENTE_TEXTO, 9))
         lbl_error.grid(row=2, column=0, columnspan=2, sticky="w",
                        padx=Paleta.UNIDAD, pady=(Paleta.UNIDAD // 2, 0))
 
@@ -130,7 +130,7 @@ class Aplicacion:
                                  bg=Paleta.FONDO_WIDGET, fg=Paleta.DORADO,
                                  activebackground=Paleta.DORADO_DIM,
                                  activeforeground=Paleta.TEXTO_LOG,
-                                 font=("Segoe UI", 9, "bold"), relief="flat",
+                                 font=(Paleta.FUENTE_TEXTO, 9, "bold"), relief="flat",
                                  command=_confirmar)
         btn_conectar.grid(row=3, column=0, sticky="we",
                           padx=(Paleta.UNIDAD, Paleta.UNIDAD // 2),
@@ -140,7 +140,7 @@ class Aplicacion:
                                  bg=Paleta.FONDO_WIDGET, fg=Paleta.TEXTO_TENUE,
                                  activebackground=Paleta.GRIS,
                                  activeforeground=Paleta.TEXTO_LOG,
-                                 font=("Segoe UI", 9, "bold"), relief="flat",
+                                 font=(Paleta.FUENTE_TEXTO, 9, "bold"), relief="flat",
                                  command=_cancelar)
         btn_cancelar.grid(row=3, column=1, sticky="we",
                           padx=(Paleta.UNIDAD // 2, Paleta.UNIDAD),
@@ -202,6 +202,7 @@ class Aplicacion:
 
 if __name__ == "__main__":
     ventana = tk.Tk()
-    ventana.geometry("1080x700")
+    ventana.geometry("1280x860")
+    ventana.minsize(1200, 800)
     app = Aplicacion(ventana)
     app.iniciar()
