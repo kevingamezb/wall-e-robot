@@ -28,10 +28,10 @@ class IconoSistema:
     Es LÓGICA PURA: responde si el ícono está ACTIVO (on/off) y de qué color,
     pero no sabe cómo dibujarlo. El renderer dibuja el glifo correspondiente.
 
-    Colores por ícono activo (definidos aquí, de acuerdo al mockup):
+    Colores por ícono activo (definidos aquí, de acuerdo al tema Axiom):
       ADVERTENCIA -> NARANJA     ERROR       -> ROJO
-      CARGANDO    -> VERDE_LIMA  CONEXION    -> DORADO
-      MODO_MANUAL -> DORADO
+      CARGANDO    -> VERDE_LIMA  CONEXION    -> AXIOM_CYAN (holograma de la nave)
+      MODO_MANUAL -> AXIOM_CYAN
     Inactivo -> GRIS (apagado).
     """
 
@@ -66,9 +66,9 @@ class IconoSistema:
         colores = {
             TipoIcono.ADVERTENCIA: Paleta.NARANJA,
             TipoIcono.CARGANDO:    Paleta.VERDE_LIMA,
-            TipoIcono.MODO_MANUAL: Paleta.DORADO,
+            TipoIcono.MODO_MANUAL: Paleta.AXIOM_CYAN,
             TipoIcono.ERROR:       Paleta.ROJO,
-            TipoIcono.CONEXION:    Paleta.DORADO,
+            TipoIcono.CONEXION:    Paleta.AXIOM_CYAN,
         }
         return colores[self.tipo]
 
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     print("=== Estado inicial ===")
     estado.conexion_activa = True
     assert iconos[TipoIcono.CONEXION].activo, "Conectado -> CONEXION activo"
-    assert iconos[TipoIcono.CONEXION].color == Paleta.DORADO
+    assert iconos[TipoIcono.CONEXION].color == Paleta.AXIOM_CYAN
     assert not iconos[TipoIcono.ADVERTENCIA].activo, "Sin advertencia -> apagado"
     assert iconos[TipoIcono.ADVERTENCIA].color == Paleta.GRIS
     assert not iconos[TipoIcono.MODO_MANUAL].activo, "Automático -> manual apagado"
@@ -115,9 +115,9 @@ if __name__ == "__main__":
     estado.modo = Modo.MANUAL
     estado.cargando = True
     assert iconos[TipoIcono.MODO_MANUAL].activo
-    assert iconos[TipoIcono.MODO_MANUAL].color == Paleta.DORADO
+    assert iconos[TipoIcono.MODO_MANUAL].color == Paleta.AXIOM_CYAN
     assert iconos[TipoIcono.CARGANDO].activo
     assert iconos[TipoIcono.CARGANDO].color == Paleta.VERDE_LIMA
-    print("OK: MODO_MANUAL dorado, CARGANDO verde lima\n")
+    print("OK: MODO_MANUAL cian, CARGANDO verde lima\n")
 
     print("Pruebas OK")
