@@ -3,6 +3,7 @@
 
 
 import tkinter as tk
+from datetime import datetime
 from ...nucleo.paleta import Paleta
 from ...nucleo.estado import NivelLog
 
@@ -83,9 +84,13 @@ class LoggerWidgetRenderer:
         try:
             self.texto.configure(state="normal")  # Text solo se edita aquí adentro
 
+            # Timestamp local con formato DD-MM-AAAA HH:MM (ej: [06-10-2026 20:02]).
+            marca = datetime.fromtimestamp(entrada.timestamp).strftime(
+                "%d-%m-%Y %H:%M",
+            )
             self.texto.insert(
                 "end",
-                f"[{entrada.timestamp:.0f}] ",
+                f"[{marca}] ",
                 ("ts",),
             )
             self.texto.insert(
