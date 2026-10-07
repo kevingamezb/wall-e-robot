@@ -3,7 +3,7 @@
 
 
 from ...nucleo.paleta import Paleta
-from .base_render import RenderizadorBase
+from .base_render import RenderizadorBase, interpolar_color
 
 
 class DeslizadorRenderer(RenderizadorBase):
@@ -106,7 +106,7 @@ class DeslizadorRenderer(RenderizadorBase):
     # --- Dibujo ---
 
     def dibujar(self):
-        """Dibuja (o actualiza) la pista y el thumb del deslizador."""
+        """Dibuja (o actualiza) pista, ticks, halo y thumb del deslizador."""
         # Pista: banda fina que indica el recorrido. Según la orientación,
         # la banda es un rectángulo horizontal o vertical centrado en (x, y).
         if self.orientacion == "horizontal":
@@ -119,17 +119,39 @@ class DeslizadorRenderer(RenderizadorBase):
         pista = self._primera_vez(
             "pista",
             lambda: self.canvas.create_rectangle(
-                *pista1, fill="#333333", outline="",
+                *pista1, fill=Paleta.HUD_LINE, outline="",
             ),
         )
+        self._dibujar_ticks()
+
         # El thumb cambia de tamaño/color según el estado, como el
         # ::-webkit-slider-thumb del mockup: reposo apagado, con el mouse
         # encima más claro, y al arrastrar grande y brillante.
+        activo = self._arrastrando or self._en_hover
         thumb_radio = self.radio_thumb + (2 if self._arrastrando else 0)
-        color_thumb = (Paleta.DORADO
-                       if (self._arrastrando or self._en_hover)
-                       else Paleta.DORADO_DIM)
+        color_thumb = Paleta.DORADO if activo else Paleta.DORADO_DIM
         px, py = self._valor_a_pixel(self.widget.posicion)
+
+        # Halo del thumb: un disco tenue detrás que acompaña el agarre.
+        halo = self._primera_vez(
+            "halo",
+            lambda: self.canvas.create_oval(
+                px - thumb_radio - 5, py - thumb_radio - 5,
+                px + thumb_radio + 5, py + thumb_radio + 5,
+                fill=interpolar_color(color_thumb, Paleta.FONDO_WIDGET, 0.75),
+                outline="",
+            ),
+        )
+        self.canvas.coords(
+            halo,
+            px - thumb_radio - 5, py - thumb_radio - 5,
+            px + thumb_radio + 5, py + thumb_radio + 5,
+        )
+        self.canvas.itemconfig(
+            halo, fill=interpolar_color(color_thumb, Paleta.FONDO_WIDGET, 0.75),
+        )
+        self.canvas.itemconfig(halo, state="normal" if activo else "hidden")
+
         thumb = self._primera_vez(
             "thumb",
             lambda: self.canvas.create_oval(
@@ -154,3 +176,33 @@ class DeslizadorRenderer(RenderizadorBase):
             self.canvas.tag_bind(item, "<ButtonRelease-1>", self._al_soltar)
             self.canvas.tag_bind(item, "<Enter>", self._al_entrar)
             self.canvas.tag_bind(item, "<Leave>", self._al_salir)
+
+    def _dibujar_ticks(self):
+        """Marca de fin y de centro (0°) de la pista (se crea 1 vez)."""
+        # La marca es perpendicular a la pista: en un deslizador horizontal
+        # es una rayita vertical; en uno vertical, horizontal.
+        es_horizontal = self.orientacion == "horizontal"
+
+        def _crear_marca(px, py):
+            if es_horizontal:
+                return self.canvas.create_line(
+                    px, self.y - 5, px, self.y + 5,
+                    fill=Paleta.CYAN_DIM, width=1,
+                )
+            return self.canvas.create_line(
+                self.x - 5, py, self.x + 5, py,
+                fill=Paleta.CYAN_DIM, width=1,
+            )
+
+        # Extremos y centro: min, max y 0° (o el punto medio si 0 no cae
+        # dentro del rango del eje).
+        extremos = (self._minimo(), self._maximo())
+        centro = 0.0 if extremos[0] <= 0 <= extremos[1] else \
+            sum(extremos) / 2
+        marcas = {
+            "marca_min":  self._valor_a_pixel(extremos[0]),
+            "marca_max":  self._valor_a_pixel(extremos[1]),
+            "marca_cero": self._valor_a_pixel(centro),
+        }
+        for clave, (px, py) in marcas.items():
+            self._primera_vez(clave, lambda px=px, py=py: _crear_marca(px, py))
