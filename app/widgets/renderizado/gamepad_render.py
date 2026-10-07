@@ -3,7 +3,8 @@
 
 
 from ...nucleo.paleta import Paleta
-from .base_render import rectangulo_redondeado
+from .base_render import (rectangulo_redondeado, corchetes_hud, scanlines,
+                          interpolar_color, borde_panel)
 from .boton_render import BotonRenderer
 from .deslizador_render import DeslizadorRenderer
 
@@ -37,6 +38,7 @@ class GamepadRenderer:
         self.ancho, self.alto = ancho, alto
         self._textos = {}  # etiquetas auxiliares (valores, nombres de ejes)
         self._valores_txt = {}  # memoria para no repintar textos sin cambios
+        self._hecho = {}  # decoración estática del panel (se dibuja 1 vez)
         self._overlay = None  # capa "apagado" que se dibuja sin conexión
 
         # --- Geometría base (fracciones del canvas) ---
@@ -104,7 +106,14 @@ class GamepadRenderer:
 
     # --- Etiquetas auxiliares (texto que cambia con el estado) ---
 
-    def _texto(self, clave, contenido, x, y, fill=Paleta.TEXTO_LOG, tamano=8):
+    def _una_vez(self, clave, creador):
+        """Crea un ítem de decoración la primera vez (equiv. a _primera_vez
+        de los renderers con base RenderizadorBase)."""
+        if clave not in self._hecho:
+            self._hecho[clave] = creador()
+        return self._hecho[clave]
+
+    def _texto(self, clave, contenido, x, y, fill=Paleta.TEXTO_TENUE, tamano=8):
         """Crea (o actualiza) una etiqueta de texto en el canvas.
 
         Si el contenido y el color no cambiaron desde el último ciclo, se
@@ -112,7 +121,7 @@ class GamepadRenderer:
         """
         if clave not in self._textos:
             self._textos[clave] = self.canvas.create_text(
-                x, y, text=contenido, font=("Segoe UI", tamano),
+                x, y, text=contenido, font=(Paleta.FUENTE_HUD, tamano),
                 fill=fill, anchor="nw",
             )
             return
@@ -122,6 +131,33 @@ class GamepadRenderer:
         self._valores_txt[clave] = (contenido, fill)
         self.canvas.itemconfig(self._textos[clave], text=contenido, fill=fill)
 
+    def _dibujar_panel(self):
+        """Decoración estática del mando: scanlines + borde + corchetes."""
+        self._una_vez(
+            "panel_scan",
+            lambda: scanlines(self.canvas, 2, 2, self.ancho - 2, self.alto - 2,
+                              separacion=7),
+        )
+        self._una_vez(
+            "panel_borde",
+            lambda: borde_panel(self.canvas, color=Paleta.HUD_LINE),
+        )
+        self._una_vez(
+            "panel_glow",
+            lambda: rectangulo_redondeado(
+                self.canvas, 4, 4, self.ancho - 4, self.alto - 4,
+                Paleta.RADIO_TARJETA - 2,
+                outline=interpolar_color(Paleta.CYAN_DIM, Paleta.FONDO_WIDGET, 0.5),
+                width=1,
+            ),
+        )
+        self._una_vez(
+            "panel_corchetes",
+            lambda: corchetes_hud(self.canvas, 6, 6,
+                                  self.ancho - 6, self.alto - 6,
+                                  largo=16, grosor=2, nivel=1),
+        )
+
     # --- Capa "apagado" (sin conexión al robot) ---
 
     def _mostrar_desconectado(self):
@@ -129,26 +165,32 @@ class GamepadRenderer:
 
         La capa se dibuja ENCIMA de todo (fill opaco), así que tapa también
         cualquier botón/deslizador que haya quedado de estar conectado antes.
+        El título lleva un halo rojo tenue detrás (aviso de la nave).
         """
         if self._overlay is None:
             self._overlay = rectangulo_redondeado(
                 self.canvas, 2, 2, self.ancho - 2, self.alto - 2,
-                Paleta.RADIO_TARJETA, fill="#131313",
+                Paleta.RADIO_TARJETA, fill=Paleta.FONDO_CANVAS,
                 outline=Paleta.BORDE_SUAVE, width=1,
             )
         else:
             self.canvas.itemconfig(self._overlay, state="normal")
 
         cx = self.ancho * 0.26
+        self._texto("off_titulo_halo", "SIN CONEXI\u00d3N",
+                    cx - 70, self.alto * 0.40 + 2,
+                    fill=interpolar_color(Paleta.ROJO, Paleta.FONDO_CANVAS, 0.55),
+                    tamano=20)
         self._texto("off_titulo", "SIN CONEXI\u00d3N",
-                    cx - 70, self.alto * 0.40, fill=Paleta.DORADO_DIM, tamano=16)
+                    cx - 70, self.alto * 0.40,
+                    fill=Paleta.ROJO, tamano=18)
         self._texto("off_nota", "Presiona CONECTAR para usar el mando",
                     cx - 70, self.alto * 0.40 + 26, fill=Paleta.TEXTO_TENUE, tamano=8)
 
     def _esconder_desconectado(self):
         """Esconde la capa apagada (se llama al volver a haber conexión)."""
         if self._overlay is not None:
-            for clave in ("off_titulo", "off_nota"):
+            for clave in ("off_titulo", "off_titulo_halo", "off_nota"):
                 if clave in self._textos:
                     self.canvas.itemconfig(self._textos[clave], state="hidden")
             self.canvas.itemconfig(self._overlay, state="hidden")
@@ -160,6 +202,8 @@ class GamepadRenderer:
         se oculta y las piezas vuelven a pintarse (con sus valores previos,
         que el ciclo de main.py refresca de inmediato).
         """
+        self._dibujar_panel()
+
         if not self.gamepad.habilitado:
             self._mostrar_desconectado()
             return
@@ -178,7 +222,8 @@ class GamepadRenderer:
         x_cuello, y_cuello = self._cuello.x, self._cuello.y
         self._texto("lbl_cuello", "CUELLO", x_cuello, y_cuello - 14, tamano=7)
         self._texto("val_cuello", f"{int(self.gamepad.cuello.posicion)}\u00b0",
-                    x_cuello + self._cuello.largo + 6, y_cuello - 8, tamano=8)
+                    x_cuello + self._cuello.largo + 6, y_cuello - 8,
+                    fill=Paleta.AXIOM_CYAN, tamano=8)
 
         for (clave_lbl, clave_val, slider, txt) in (
             ("lbl_izq", "val_izq", self._hombro_izq, "IZQ"),
@@ -186,4 +231,5 @@ class GamepadRenderer:
         ):
             self._texto(clave_lbl, txt, slider.x - 14, slider.y - 16, tamano=7)
             self._texto(clave_val, f"{int(slider.widget.posicion)}\u00b0",
-                        slider.x + 10, slider.y + slider.largo + 4, tamano=8)
+                        slider.x + 10, slider.y + slider.largo + 4,
+                        fill=Paleta.AXIOM_CYAN, tamano=8)
