@@ -43,13 +43,13 @@ class ModalControles:
             self.ventana, text="Clic en la tecla de una acción y pulsa la nueva tecla. "
                                "Esc cancela.",
             bg=Paleta.FONDO_APP, fg=Paleta.TEXTO_TENUE,
-            font=("Segoe UI", 8), justify="left",
+            font=(Paleta.FUENTE_TEXTO, 8), justify="left",
         )
         self.lbl_ayuda.pack(fill="x", padx=Paleta.UNIDAD, pady=(Paleta.UNIDAD, 0))
 
         self.lbl_estado = tk.Label(
             self.ventana, text="", bg=Paleta.FONDO_APP,
-            fg=Paleta.DORADO, font=("Segoe UI", 8), anchor="w",
+            fg=Paleta.DORADO, font=(Paleta.FUENTE_TEXTO, 8), anchor="w",
         )
         self.lbl_estado.pack(fill="x", padx=Paleta.UNIDAD, pady=(4, 0))
 
@@ -68,14 +68,14 @@ class ModalControles:
             pie, text="RESTAURAR POR DEFECTO", bg=Paleta.FONDO_WIDGET,
             fg=Paleta.TEXTO_TENUE, activebackground=Paleta.GRIS,
             activeforeground=Paleta.TEXTO_LOG, relief="flat",
-            font=("Segoe UI", 8, "bold"), command=self._restaurar,
+            font=(Paleta.FUENTE_TEXTO, 8, "bold"), command=self._restaurar,
         )
         btn_restaurar.pack(side="left")
 
         btn_cerrar = tk.Button(
             pie, text="CERRAR", bg=Paleta.FONDO_WIDGET, fg=Paleta.DORADO,
             activebackground=Paleta.DORADO_DIM, activeforeground=Paleta.TEXTO_LOG,
-            relief="flat", font=("Segoe UI", 8, "bold"), command=self.ventana.destroy,
+            relief="flat", font=(Paleta.FUENTE_TEXTO, 8, "bold"), command=self.ventana.destroy,
         )
         btn_cerrar.pack(side="right")
 
@@ -90,7 +90,7 @@ class ModalControles:
             lbl_nombre = tk.Label(
                 self.marco_filas, text=accion.nombre, anchor="w",
                 bg=Paleta.FONDO_WIDGET, fg=Paleta.TEXTO_LOG,
-                font=("Segoe UI", 9),
+                font=(Paleta.FUENTE_TEXTO, 9),
             )
             lbl_nombre.grid(row=fila, column=0, sticky="w",
                             padx=(Paleta.UNIDAD // 3, Paleta.UNIDAD // 2),
@@ -98,7 +98,7 @@ class ModalControles:
 
             btn_tecla = tk.Button(
                 self.marco_filas, width=12, relief="flat",
-                bg=Paleta.FONDO_APP, font=("Segoe UI", 9, "bold"),
+                bg=Paleta.FONDO_APP, font=(Paleta.FUENTE_TEXTO, 9, "bold"),
                 command=lambda a=accion.id: self._empezar_captura(a),
             )
             btn_tecla.grid(row=fila, column=1, padx=2, pady=2)
@@ -107,7 +107,7 @@ class ModalControles:
                 self.marco_filas, text="\u2715", width=2, relief="flat",
                 bg=Paleta.FONDO_APP, fg=Paleta.TEXTO_TENUE,
                 activebackground=Paleta.ROJO, activeforeground=Paleta.TEXTO_LOG,
-                font=("Segoe UI", 9, "bold"),
+                font=(Paleta.FUENTE_TEXTO, 9, "bold"),
                 command=lambda a=accion.id: self._limpiar(a),
             )
             btn_limpiar.grid(row=fila, column=2, padx=(2, Paleta.UNIDAD // 3), pady=2)
