@@ -8,23 +8,20 @@
 #include <ESP32Servo.h>   // reutilizamos ESP32PWM para el PWM de los motores
 
 /*
- *  Motores: control de 2 motores CC por driver TB6612FNG.
+ *  Motores: 2 motores CC por driver TB6612FNG.
  *
- *  Traduce el comando de dirección de la app
- *  ({"tipo":"motor","direccion":"arriba"}) a velocidades
- *  diferenciales de las ruedas:
+ *  Traduce el comando de dirección de la app ({"tipo":"motor","direccion":...})
+ *  a velocidades diferenciales de las ruedas:
  *      arriba      -> ambas adelante
  *      abajo       -> ambas atrás
- *      izquierda   -> giro a la izquierda (diferencial)
- *      derecha     -> giro a la derecha (diferencial)
+ *      izquierda   -> giro a la izquierda (ruedas contrapuestas)
+ *      derecha     -> giro a la derecha  (ruedas contrapuestas)
  *
- *  "izquierda" y "derecha" son GIROS EN EL SITIO. Los nombres de los
- *  canales del TB6612FNG (AIN1/AIN2, BIN1/BIN2, PWMA/PWMB) y cuál rueda
- *  es A o B hay que verificarlos contra el robot real. Si el robot va al
- *  revés, se canjea A/B en _rueda().
+ *  El PWM va por ESP32PWM (LEDC) y no por analogWrite(): analogWrite comparte
+ *  timers con ESP32Servo y deja un servo sin responder.
  *
- *  El PWM va por ESP32PWM (LEDC) y NO por analogWrite(): analogWrite choca
- *  con los timers de ESP32Servo y un servo deja de responder.
+ *  TODO(hardware): confirmar qué rueda es A y cuál B contra el robot. Si el
+ *  robot avanza al revés, se canjean las ruedas en _rueda().
  */
 
 class Motores {
@@ -35,17 +32,16 @@ public:
     Motores(uint8_t ain1, uint8_t ain2, uint8_t bin1, uint8_t bin2,
             uint8_t pwma, uint8_t pwmb, uint8_t stby);
 
-    // Configura los pines, habilita el driver (STBY) y fija velocidad 0.
+    // Configura los pines, habilita el driver (STBY) y deja velocidad 0.
     void iniciar();
 
     // Aplica una dirección ("arriba","abajo","izquierda","derecha").
-    // Si el módulo no está activo, no hace nada.
     void mover(const String& direccion);
 
     void detener();
 
-    // Ramps de las velocidades hacia sus metas (llamar seguido en loop()).
-    // Evita el tirón 0->máx: los motores aceleran/desaceleran de a poco.
+    // Acerca las velocidades reales a sus metas. Llamar seguido en loop()
+    // para evitar el tirón 0->máx.
     void actualizar();
 
 private:
@@ -56,8 +52,7 @@ private:
     ESP32PWM _pwmA, _pwmB;
     bool    _activo;
 
-    // Velocidades META (lo que pide mover()) vs REALES (lo que se escribe
-    // al PWM, que evoluciona de a poco por la rampa).
+    // Metas (lo que pide mover()) vs. reales (lo que evoluciona por la rampa).
     int       _metaA, _metaB;
     int       _velA,  _velB;
     uint32_t  _ultimaRampaMs;

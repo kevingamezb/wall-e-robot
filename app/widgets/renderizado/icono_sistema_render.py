@@ -8,29 +8,10 @@ from .base_render import RenderizadorBase, interpolar_color
 
 
 class IconoSistemaRenderer(RenderizadorBase):
-    """
-    Renderer (Tkinter) de un ícono de sistema.
-
-    Cada ícono es una caja pequeña con UN TEXTO (glifo) adentro. Según la
-    técnica del mockup, la forma nunca cambia: solo cambia el color según
-    si el ícono está activo o apagado (lo decide la lógica). Cuando está
-    activo, la caja se rodea de un HALO tenue (relleno del mismo color
-    diluido) que da el brillo de holograma, y su borde "se enciende".
-
-    Glifos de los íconos (igual que en walle_demo.html):
-      ADVERTENCIA -> '!'
-      CARGANDO    -> dibuja un RAYO (polygon) en vez de emoji
-      MODO_MANUAL -> 'M'
-      ERROR       -> 'X'
-      CONEXION    -> '▂▄█'
-    """
+    """Renderer de un ícono de sistema. """
 
     def __init__(self, widget, canvas, x, y, lado=24):
-        """
-        Constructor del renderer del ícono.
-
-        x, y, lado: zona (cuadrada) que ocupa el ícono dentro del canvas.
-        """
+        """x, y, lado: zona cuadrada que ocupa el ícono dentro del canvas."""
         super().__init__(canvas)
         self.widget = widget
         self.x, self.y = x, y
@@ -40,7 +21,7 @@ class IconoSistemaRenderer(RenderizadorBase):
         """Crea el ítem (texto o rayo) correspondiente al tipo de ícono."""
         cx, cy = self.x + self.lado / 2, self.y + self.lado / 2
         if self.widget.tipo == TipoIcono.CARGANDO:
-            # Un rayo hecho de polígono: ni emoji, ni recurso externo.
+            # Un rayo hecho de polígono: sin emoji ni recurso externo.
             s = self.lado
             puntos = [
                 cx + 0.28 * s, cy - 0.30 * s,
@@ -64,7 +45,7 @@ class IconoSistemaRenderer(RenderizadorBase):
         )
 
     def dibujar(self):
-        """Dibuja (o actualiza) el halo, la caja y el glifo del ícono."""
+        """Dibuja o actualiza el halo, la caja y el glifo del ícono."""
         activo = self.widget.activo
         color = self.widget.color
         borde = color if activo else Paleta.HUD_LINE
@@ -87,14 +68,15 @@ class IconoSistemaRenderer(RenderizadorBase):
         )
         glifo = self._primera_vez("glifo", self._crear_glifo)
 
-        # El ícono solo cambia de COLOR (recoloreo): se repinta solo cuando
-        # cambia su estado activo/color (forma y glifo son siempre iguales).
+        # El ícono solo cambia de color (recoloreo): se repinta únicamente
+        # cuando cambia su estado activo/color (forma y glifo son invariables).
         if not self._hay_cambio("estado", (color, activo)):
             return
 
         self.canvas.itemconfig(halo, fill=interpolar_color(
             color, Paleta.FONDO_WIDGET, 0.80) if activo else Paleta.FONDO_WIDGET)
         self.canvas.itemconfig(caja, outline=borde)
-        # Si el glifo es un texto (no el polígono del rayo), actualizamos color.
+        # El rayo (polígono) conserva el color con que se creó; solo los glifos
+        # de texto se recolorean.
         if self.widget.tipo != TipoIcono.CARGANDO:
             self.canvas.itemconfig(glifo, fill=color)

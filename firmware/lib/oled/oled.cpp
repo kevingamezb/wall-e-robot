@@ -3,7 +3,6 @@
 
 #include "oled.h"
 
-// Resolución de la pantalla SSD1306 0.96" que ya tenemos.
 static const uint8_t OLED_ANCHO   = 128;
 static const uint8_t OLED_ALTO    = 64;
 static const uint8_t OLED_I2C_DIR = 0x3C;
@@ -12,11 +11,10 @@ static const uint8_t OLED_I2C_DIR = 0x3C;
 PantallaOled oled;
 
 
+// reset=-1: el módulo no tiene pin de reset; la librería arranca la pantalla
+// por comando (SWITCHCAPVCC). Los pines I2C por defecto del ESP32 (21/22)
+// coinciden con pines.h.
 PantallaOled::PantallaOled()
-    // reset=-1: el ESP32 no pin de reset para la pantalla; la lib lo
-    // inicia por comando SWITCHCAPVCC. El periphBegin por defecto ya
-    // llama a Wire.begin(), y en el ESP32 los pines I2C por defecto
-    // (SDA=21, SCL=22) coinciden con pines.h.
     : _pantalla(OLED_ANCHO, OLED_ALTO, &Wire, -1)
     , _activo(false) {}
 
@@ -44,7 +42,7 @@ void PantallaOled::mostrar(float bateria, float distanciaCm,
                            const String& modo, bool conexionActiva) {
 
     if (!_activo) {
-        return;   // módulo deshabilitado: no tocar el I2C
+        return;   // módulo apagado: no tocar el I2C
     }
 
     _pantalla.clearDisplay();

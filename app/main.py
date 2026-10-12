@@ -2,7 +2,6 @@
 # Kevin Gámez - 13/09/2026
 #
 # Punto de entrada de la aplicación de escritorio del Wall-E.
-#
 # Para arrancar (desde la raíz del proyecto, donde está la carpeta 'app'):
 #   python -m app.main
 
@@ -18,28 +17,27 @@ from .widgets.logica.control_teclado import ControlTeclado
 
 
 # Cada cuántos milisegundos se lee el "robot" y se redibuja la pantalla.
-# 60 ms ~ 16 cuadros por segundo: más que suficiente para una GUI y deja
-# tranquilo al procesador (un ESP32 real tampoco actualiza más rápido).
+# 60 ms ~ 16 cuadros por segundo: suficiente para la GUI sin cargar al
+# procesador (un ESP32 real tampoco actualiza más rápido).
 INTERVALO_CICLO_MS = 60
 
-# Puerto en el que escucha el ESP32 (el fw del robot y el socket de aquí
-# se escriben por parejas; por defecto 8080 como hemos acordado).
+# Puerto en el que escucha el ESP32 (firmware y socket deben coincidir).
 PUERTO = 8080
 
 
 class Aplicacion:
     """
-    El 'cerebro' de la GUI: une estado + conexión + pantalla.
+    Coordina estado + conexión + pantalla.
 
-    Ahora es una sola pantalla (PantallaPrincipal): todo está siempre a la
-    vista y la conexión se administra desde ahí con CONECTAR / DESCONECTAR.
-    Cada ciclo pregunta al estado, pasa los comandos del gamepad a la
-    conexión activa y pide a la pantalla que se redibuje.
+    Es una sola pantalla (PantallaPrincipal): todo está siempre a la vista y
+    la conexión se administra desde ahí con CONECTAR / DESCONECTAR. En cada
+    ciclo se lee el estado, se pasan los comandos del gamepad a la conexión
+    activa y se redibuja la pantalla.
 
-    Estados de conexión que se manejan aquí:
-        - simulador    (arranque)          : ComunicacionSimulada
-        - robot por IP (tras CONECTAR)     : Comunicacion
-        - sin conexión (tras DESCONECTAR)  : ConexionOffline
+    Estados de conexión manejados aquí:
+        - simulador   (arranque)         : ComunicacionSimulada
+        - robot por IP (tras CONECTAR)    : Comunicacion
+        - sin conexión (tras DESCONECTAR) : ConexionOffline
     """
 
     def __init__(self, root: tk.Tk):
@@ -48,11 +46,10 @@ class Aplicacion:
         self.root.title("Wall-E · Panel de control")
         self.root.configure(bg=Paleta.FONDO_APP)
 
-        # La 'caja maestra': todo el programa lee de aquí.
+        # Estado compartido del que leen todos los widgets.
         self.estado = EstadoRobot()
 
-        # Conexión con el robot. Prima el simulador; el usuario puede
-        # conectar con un ESP32 real dándonos su IP.
+        # Arranca en simulador; el usuario puede conectar a un ESP32 real.
         self.conexion = ComunicacionSimulada()
 
         self.contenedor = tk.Frame(root, bg=Paleta.FONDO_APP)
@@ -65,28 +62,26 @@ class Aplicacion:
             on_desconectar=self._desconectar,
             on_controles=self._abrir_controles,
         )
-        # El gamepad siempre dispara hacia la conexión ACTIVA: la función
-        # cierra sobre self.conexion, así al cambiar de conexión el mando
-        # empieza a hablar con el robot nuevo sin volver a cablear nada.
+        # El gamepad dispara siempre hacia la conexión ACTIVA: la lambda cierra
+        # sobre self.conexion, así al cambiar de conexión el mando empieza a
+        # hablar con el robot nuevo sin recablear nada.
         self.pantalla.conectar_gamepad(lambda cmd: self.conexion.enviar_mensaje(cmd))
         self.pantalla.establecer_conexion(True, "SIMULADOR")
 
-        # Mapeo de teclado: perfil persistido (o fábrica) + el driver que
+        # Mapeo de teclado: perfil persistido (o de fábrica) + el driver que
         # traduce cada tecla en la acción correspondiente del gamepad.
         self.mapeo = MapeoTeclado.cargar()
         self.control_teclado = ControlTeclado(self.root, self.mapeo,
                                               self.pantalla.gamepad)
 
-    # --- Controles de teclado (modal estilo emulador) ---
-
+    # Controles de teclado
     def _abrir_controles(self):
         """Abre el modal de asignación de teclas y guarda cada cambio."""
         ModalControles(self.root, self.mapeo, on_cambio=self.mapeo.guardar)
 
-    # --- Conexión con el robot (modal de IP) ---
-
+    # Conexión con el robot
     def _pedir_ip(self):
-        """Abre el modal que pide la IP del ESP32 (con grab, como un diálogo)."""
+        """Abre el modal que pide la IP del ESP32."""
         modal = tk.Toplevel(self.root)
         modal.title("Conectar al Wall-E")
         modal.configure(bg=Paleta.FONDO_APP)
@@ -150,37 +145,31 @@ class Aplicacion:
         modal.bind("<Escape>", lambda _e: _cancelar())
 
     def _conectar(self, ip: str):
-        """
-        Cambia a la conexión real con el ESP32 de la IP dada.
-
-        Lanza OSError/ValueError si no se puede abrir el socket; el modal
-        las captura y las muestra como error en pantalla.
-        """
+        """Cambia a la conexión real con el ESP32 de la IP dada."""
         nueva = Comunicacion(ip, PUERTO)
         self._cerrar_conexion_actual()
         self.conexion = nueva
         self.pantalla.establecer_conexion(True, ip)
 
     def _desconectar(self):
-        """Cuelga el teléfono y deja el panel sin conexión."""
+        """Cierra la conexión actual y deja el panel sin conexión."""
         self._cerrar_conexion_actual()
         self.conexion = ConexionOffline()
         self.pantalla.establecer_conexion(False, "SIN CONEXI\u00d3N")
 
     def _cerrar_conexion_actual(self):
-        """Cierra el socket actual si lo hay (los simuladores no tienen)."""
+        """Cierra el socket actual si lo hay."""
         cerrar = getattr(self.conexion, "cerrar", None)
         if callable(cerrar):
             cerrar()
 
-    # --- Bucle principal de la aplicación ---
-
+    # Bucle principal de la aplicación
     def ciclo(self):
-        """Un 'paso' de la aplicación: leer al robot + redibujar pantalla."""
+        """Un paso de la aplicación: leer al robot y redibujar la pantalla."""
         self.conexion.actualizar_estado(self.estado)
 
-        # Si el robot se apagó/reinició en plena conexión, la red lo marca
-        # como "perdida": se degrada a sin-conexión y se avisa en el log.
+        # Si el robot se apagó/reinició en plena conexión, la red lo marca como
+        # "perdida": se degrada a sin-conexión y se avisa en el log.
         if getattr(self.conexion, "perdida", False):
             self._cerrar_conexion_actual()
             self.conexion = ConexionOffline()

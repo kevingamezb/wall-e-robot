@@ -7,8 +7,8 @@ from ...widgets.logica.ojos import ExpresionOjos
 from .base_render import RenderizadorBase, interpolar_color, rectangulo_redondeado
 
 
-# Geometría base de los ojos (silueta "caja" estilo Wall-E, mientras la
-# mejora realista de los ojos queda pendiente).
+# Geometría base de los ojos (silueta en "caja" estilo Wall-E).
+# TODO(gui): implementar la silueta realista de los ojos.
 OJO_ANCHO = 44
 SEP_ENTRE_OJOS = 12
 OJO_ALTO_ABIERTO = 30
@@ -18,27 +18,12 @@ PUPILA_OBSTACULO = 6
 
 
 class OjosRenderer(RenderizadorBase):
-    """
-    Renderer (Tkinter) de los ojos de Wall-E.
-
-    Los ojos son el único widget que cambia de SILUETA además de color
-    (los planos lo explican: normal/manual/obstáculo/sin datos). Por eso
-    este renderer no solo pinta un color distinto: ajusta el alto de la
-    "caja" del ojo, la posición de la pupila y si la pupila se ve o no.
-
-    Expresiones:
-      NORMAL    -> caja abierta, pupila centrada (DORADO)
-      MANUAL    -> pupila mirando "al operador" (hacia adentro, NARANJA)
-      OBSTACULO -> caja entrecerrada (ROJO)
-      SIN_DATOS -> caja vacía: sin pupila (GRIS)
-    """
+    """Renderer de los ojos de Wall-E."""
 
     def __init__(self, widget, canvas, x=20, y=8):
         """
-        Constructor del renderer de los ojos.
-
-        x, y: origen de la caja de dibujo (el ancho total necesario es
-        2*OJO_ANCHO + SEP_ENTRE_OJOS = 100px; el alto ~46px).
+        x, y: origen de la caja de dibujo. El ancho total necesario es
+        2*OJO_ANCHO + SEP_ENTRE_OJOS = 100px y el alto ~46px.
         """
         super().__init__(canvas)
         self.widget = widget
@@ -57,7 +42,7 @@ class OjosRenderer(RenderizadorBase):
                 cx + tamano / 2, cy + tamano / 2)
 
     def dibujar(self):
-        """Dibuja (o actualiza) los dos ojos según la expresión lógica."""
+        """Dibuja o actualiza los dos ojos según la expresión lógica."""
         expresion = self.widget.expresion
         color = self.widget.color
 
@@ -68,13 +53,13 @@ class OjosRenderer(RenderizadorBase):
         # Alto de la caja según la expresión.
         alto = OJO_ALTO_ABIERTO if expresion != ExpresionOjos.OBSTACULO else OJO_ALTO_OBSTACULO
 
-        # Desplazamiento horizontal de la pupila: en MANUAL mira hacia
-        # adentro (izquierdo a la derecha, derecho a la izquierda).
+        # Desplazamiento horizontal de la pupila: en MANUAL mira hacia adentro
+        # (el ojo izquierdo a la derecha y el derecho a la izquierda).
         desplazamiento = 0
         if expresion == ExpresionOjos.MANUAL:
             desplazamiento = 6
 
-        # Tamaño de la pupila (y si se ve o no).
+        # Tamaño de la pupila y si se muestra o no.
         if expresion == ExpresionOjos.SIN_DATOS:
             tamano = 0          # no se dibuja pupila
             ver_pupila = False
@@ -85,8 +70,8 @@ class OjosRenderer(RenderizadorBase):
             tamano = PUPILA_ABIERTA
             ver_pupila = True
 
-        # Halo del fondo: una "pantalla" tenue detrás de las cajas, del
-        # mismo color que los ojos (recoloreado cuando cambia la expresión).
+        # Halo de fondo: una pantalla tenue detrás de las cajas, del mismo
+        # color que los ojos (se recolorea cuando cambia la expresión).
         self._primera_vez(
             "glow",
             lambda: rectangulo_redondeado(
@@ -113,18 +98,18 @@ class OjosRenderer(RenderizadorBase):
                 ),
             )
 
-        # La silueta solo cambia con la expresión (y su color): repintar
-        # solo entonces, en vez de re-coords en cada ciclo.
+        # La silueta solo cambia con la expresión (y su color): repintar solo
+        # entonces, en vez de recalcular coords en cada ciclo.
         if not self._hay_cambio("estado", (expresion, color)):
             return
 
         for lado, cx in (("izq", cx_izq), ("der", cx_der)):
-            # Caja del ojo (rectángulo gris oscuro sin relleno + borde de color).
+            # Caja del ojo: rectángulo sin relleno con borde de color.
             caja = self._ids[f"caja_{lado}"]
             self.canvas.coords(caja, *self._coords_caja(cx, alto, self.y + 8))
             self.canvas.itemconfig(caja, outline=color)
 
-            # Pupila (evita dibujarla si no corresponde).
+            # La pupila se oculta cuando la expresión es SIN_DATOS.
             pupila = self._ids[f"pupila_{lado}"]
             cx_pupila = cx + (desplazamiento if lado == "izq" else -desplazamiento)
             cy_pupila = self.y + 8 + alto / 2
@@ -135,7 +120,7 @@ class OjosRenderer(RenderizadorBase):
                 state="normal" if ver_pupila else "hidden",
             )
 
-        # El halo de fondo acompaña la emoción (se atenúa sin datos).
+        # El halo de fondo se recolorea con la expresión (se atenúa sin datos).
         self.canvas.itemconfig(
             self._ids["glow"], fill=interpolar_color(color, Paleta.FONDO_WIDGET, 0.88),
         )

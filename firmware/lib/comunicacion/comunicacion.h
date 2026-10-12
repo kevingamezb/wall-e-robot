@@ -9,101 +9,79 @@
 #include <WiFi.h>
 
 /*
- *  Protocolo de Comunicación ESP32 <-> App Python
+ *  Protocolo de comunicación ESP32 <-> App Python.
  *
- *  Medio fisico:  WiFi (TCP)
- *  Formato:       JSON
- *  Delimitador:   Salto de linea ('\n')
+ *  Medio: WiFi (TCP). El ESP32 es el SERVIDOR y la app Python el cliente.
+ *  Formato: JSON, un mensaje por línea terminada en '\n'.
  *
- *  El ESP32 actua como SERVIDOR TCP. La app Python se
- *  conecta como cliente. Ambos intercambian mensajes
- *  JSON terminados en '\n'.
- *
- *  Flujo de datos:
- *  App Python  -->  ESP32   (comandos)
+ *  App -> ESP32 (comandos):
  *    {"tipo":"servo","servo":"cuello","angulo":30}
  *    {"tipo":"modo","modo":"manual"}
- *    {"tipo":"motor","direccion":"arriba"}          (d-pad del gamepad)
- *    {"tipo":"multi","comandos":[{...},{...}]}      (varios de golpe)
+ *    {"tipo":"motor","direccion":"arriba"}
+ *    {"tipo":"multi","comandos":[{...},{...}]}
  *
- *  ESP32  -->  App Python  (telemetria y logs)
- *    {"tipo":"estado",
- *     "bateria":0.85,"modo":"manual",
- *     "hay_advertencia":false,"hay_error":false,     <-- alertas de la GUI
- *     "distancia_cm":30.5,"consumo_watts":3.2,
- *     "conexion_activa":true,
- *     "cargando":false,"tiempo_restante_min":42,     <-- sol de carga
- *     "posiciones_servos":{"cuello":0,
- *        "hombro_izquierdo":10,...}}                 <-- gamepad
+ *  ESP32 -> App (telemetría y logs):
+ *    {"tipo":"estado","bateria":0.85,"modo":"manual",
+ *     "hay_advertencia":false,"hay_error":false,
+ *     "distancia_cm":30.5,"consumo_watts":3.2,"conexion_activa":true,
+ *     "cargando":false,"tiempo_restante_min":42,
+ *     "posiciones_servos":{"cuello":0,"hombro_izquierdo":10,...}}
  *
- *  "distancia_cm" y "tiempo_restante_min" pueden venir como null
- *  (sin lectura de radar / sin estimación de batería). La app las
- *  interpreta como "campo ausente" y no toca lo que ya sabía.
+ *  "distancia_cm" y "tiempo_restante_min" pueden venir como null (sin lectura
+ *  de radar / sin estimación); la app los interpreta como "campo ausente".
  *
- *  Estructura de la clase
- *  Encapsula TODO lo relacionado con la red + el modo actual del robot:
- *  levantar el servidor, aceptar clientes, recibir mensajes, enviar
- *  respuestas y ejecutar el comando recibido sobre las librerías de
- *  hardware (servos, motores). El resto del firmware (sensores, logica)
- *  no necesita saber nada sobre WiFi ni JSON.
+ *  Encapsula todo lo de red + el modo del robot (servidor, clientes, JSON y el
+ *  despacho de comandos hacia servos/motores). El resto del firmware no
+ *  necesita saber de WiFi ni de JSON.
  */
 class Comunicacion {
 
 private:
 
     // Red
-    WiFiServer servidor;    // Espera conexiones entrantes en un puerto
-    WiFiClient cliente;     // Representa al PC conectado (solo 1 a la vez)
+    WiFiServer servidor;    // espera conexiones entrantes
+    WiFiClient cliente;     // el PC conectado (solo uno a la vez)
 
-    // Buffer de recepcion
-    // Acumula bytes hasta encontrar '\n'. Cuando lo encuentra,
-    // el contenido completo se pasa a procesarMensaje().
+    // TCP entrega bytes, no mensajes: se acumula hasta encontrar '\n' y recién
+    // ahí se pasa el contenido completo a procesarMensaje().
     String mensajeEntrante;
 
     int    puerto;
 
-    // Modo actual del robot. Lo actualiza procesarModo() y lo consulta
-    // enviarEstado() y main.cpp (lógica + OLED).
+    // Modo actual del robot ("automatico"/"manual"). Lo consultan enviarEstado(),
+    // main.cpp y el OLED.
     String _modoActual = "automatico";
 
-    // Momento (millis) de la ÚLTIMA orden recibida del operador. main.cpp
-    // lo usa para el timeout de seguridad en modo manual (parar los motores
-    // si el operador deja de mandar comandos por TIEMPO_MANUAL_TIMEOUT_MS).
+    // millis() de la última orden recibida. main.cpp lo usa para el timeout de
+    // seguridad en modo manual (parar si el operador deja de mandar comandos).
     unsigned long _ultimaOrdenMs = 0;
 
-    // Interpreta un JSON completo y ejecuta las acciones correspondientes.
-    // Si es tipo "multi", aplica cada sub-comando de "comandos".
+    // Interpreta un JSON completo y ejecuta las acciones. Un "multi" aplica
+    // cada sub-comando de "comandos".
     void procesarMensaje(const String& mensaje);
 
-    // Ejecuta UN comando del protocolo ("servo", "modo" o "motor").
-    // Reutilizable: procesarMensaje() la llama para el mensaje completo
-    // o para cada elemento de un "multi".
+    // Ejecuta UN comando ("servo", "modo" o "motor"). Lo reutiliza
+    // procesarMensaje() para el mensaje completo o para cada sub-comando.
     void aplicarComando(const JsonVariantConst& comando);
 
 public:
 
-    // Ciclo de vida
-
-    // Crea el servidor en el puerto indicado (no lo arranca aun)
+    // Crea el servidor en el puerto indicado (no lo arranca todavía).
     Comunicacion(int puerto);
 
-    // Arranca el servidor TCP para que pueda aceptar conexiones
+    // Arranca el servidor TCP.
     void iniciarServidor();
 
-    // Uso principal (llamar en loop())
-
-    // Acepta clientes nuevos y procesa todos los mensajes pendientes.
-    // Debe llamarse repetidamente en loop() para no perder datos.
+    // Acepta clientes nuevos y procesa los mensajes pendientes. Llamar
+    // repetidamente en loop() para no perder datos.
     void escucharCliente();
 
-    // Envio de datos al PC
-
-    // Envia un string crudo como linea JSON
+    // Envía un string crudo como línea JSON.
     void enviarMensaje(const String& mensaje);
 
-    // Envia el estado del robot (telemetría ampliada). angulos_servos es
-    // opcional (nullptr para omitir posiciones); distancias/tiempos
-    // negativos se mandan como null en el JSON.
+    // Envía el estado (telemetría ampliada). angulos_servos es opcional
+    // (nullptr para omitir posiciones); distancias/tiempos negativos se mandan
+    // como null.
     void enviarEstado(float bateria, const String& modo,
                       bool hay_advertencia, bool hay_error,
                       float distancia_cm, float consumo_watts,
@@ -111,20 +89,18 @@ public:
                       float tiempo_restante_min,
                       const int* angulos_servos, int cantidad_servos);
 
-    // Envia una linea de log con origen, mensaje y nivel
-    // Formato: {"tipo":"log","origen":...,"mensaje":...,"nivel":...}
+    // Envía una línea de log:
+    // {"tipo":"log","origen":...,"mensaje":...,"nivel":...}
     void enviarLog(const String& origen, const String& mensaje,
                    const String& nivel);
 
-    // True si hay un PC conectado y puede recibir datos
-    // (no const: WiFiClient::connected() no es const en este framework)
+    // True si hay un PC conectado (no const: WiFiClient::connected() no es const).
     bool estaConectado();
 
-    // Modo actual del robot ("automatico" / "manual")
+    // Modo actual ("automatico" / "manual").
     const String& modo() const;
 
-    // millis() de la última orden recibida (0 si aún no llega ninguna).
-    // Consultarlo en main.cpp para el timeout de comando en modo manual.
+    // millis() de la última orden recibida (0 si aún no llegó ninguna).
     unsigned long ultimaOrdenMs() const;
 };
 

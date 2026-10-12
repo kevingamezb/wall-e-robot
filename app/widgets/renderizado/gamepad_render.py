@@ -10,27 +10,11 @@ from .deslizador_render import DeslizadorRenderer
 
 
 class GamepadRenderer:
-    """
-    Renderer (Tkinter) del gamepad, hecho por COMPOSICIÓN.
-
-    Igual que la lógica del Gamepad reutiliza piezas (Boton, Deslizador),
-    este renderer reutiliza sus renderers correspondientes sobre un mismo
-    canvas. Agrupa:
-        - cruceta (4 botones, con flechas ▲◀▶▼)
-        - deslizador horizontal del cuello
-        - dos deslizadores verticales de hombros (Izq / Der)
-        - botón de reposo
-        - dos botones de manos (ABRIR / CERRAR)
-
-    Cada pieza se ubica en una zona del canvas definida por fracciones del
-    ancho/alto (para que las proporciones sobrevivan a distintos tamaños).
-    """
+    """Renderer del gamepad, construido por composición."""
 
     def __init__(self, gamepad, canvas, ancho, alto):
         """
-        Constructor del renderer del gamepad.
-
-        gamepad : el Gamepad lógico (ya trae cableados los comandos).
+        gamepad : el Gamepad lógico, con los comandos ya cableados.
         canvas  : canvas donde se dibuja todo el control.
         """
         self.gamepad = gamepad
@@ -41,7 +25,7 @@ class GamepadRenderer:
         self._hecho = {}  # decoración estática del panel (se dibuja 1 vez)
         self._overlay = None  # capa "apagado" que se dibuja sin conexión
 
-        # --- Geometría base (fracciones del canvas) ---
+        # Geometría base
         cx = 0.26 * ancho          # centro de la cruceta
         cy = 0.32 * alto
         lado_boton = 44
@@ -104,20 +88,19 @@ class GamepadRenderer:
             46, 34, texto="CERRAR", tamano_fuente=10,
         )
 
-    # --- Etiquetas auxiliares (texto que cambia con el estado) ---
-
+    # Etiquetas auxiliares
     def _una_vez(self, clave, creador):
-        """Crea un ítem de decoración la primera vez (equiv. a _primera_vez
-        de los renderers con base RenderizadorBase)."""
+        """Crea un ítem de decoración la primera vez; equivale a _primera_vez
+        de los renderers basados en RenderizadorBase."""
         if clave not in self._hecho:
             self._hecho[clave] = creador()
         return self._hecho[clave]
 
     def _texto(self, clave, contenido, x, y, fill=Paleta.TEXTO_TENUE, tamano=8):
-        """Crea (o actualiza) una etiqueta de texto en el canvas.
+        """Crea o actualiza una etiqueta de texto en el canvas.
 
         Si el contenido y el color no cambiaron desde el último ciclo, se
-        salta el itemconfig (los textos de valores se repiten cada frame).
+        omite el itemconfig (los textos de valores se repiten cada frame).
         """
         if clave not in self._textos:
             self._textos[clave] = self.canvas.create_text(
@@ -132,7 +115,7 @@ class GamepadRenderer:
         self.canvas.itemconfig(self._textos[clave], text=contenido, fill=fill)
 
     def _dibujar_panel(self):
-        """Decoración estática del mando: scanlines + borde + corchetes."""
+        """Dibuja la decoración estática del mando: scanlines, borde y corchetes."""
         self._una_vez(
             "panel_scan",
             lambda: scanlines(self.canvas, 2, 2, self.ancho - 2, self.alto - 2,
@@ -158,14 +141,13 @@ class GamepadRenderer:
                                   largo=16, grosor=2, nivel=1),
         )
 
-    # --- Capa "apagado" (sin conexión al robot) ---
-
+    # Capa "apagado"
     def _mostrar_desconectado(self):
-        """Cubre el mando con una capa apagada, como el "sleep" del robot.
+        """Cubre el mando con una capa apagada, a modo de reposo del robot.
 
-        La capa se dibuja ENCIMA de todo (fill opaco), así que tapa también
-        cualquier botón/deslizador que haya quedado de estar conectado antes.
-        El título lleva un halo rojo tenue detrás (aviso de la nave).
+        La capa se dibuja encima de todo (relleno opaco), así que tapa también
+        cualquier botón o deslizador que haya quedado de una conexión previa.
+        El título lleva un halo rojo tenue detrás, como aviso de la Nave.
         """
         if self._overlay is None:
             self._overlay = rectangulo_redondeado(
@@ -188,7 +170,7 @@ class GamepadRenderer:
                     cx - 70, self.alto * 0.40 + 26, fill=Paleta.TEXTO_TENUE, tamano=8)
 
     def _esconder_desconectado(self):
-        """Esconde la capa apagada (se llama al volver a haber conexión)."""
+        """Oculta la capa apagada al recuperar la conexión."""
         if self._overlay is not None:
             for clave in ("off_titulo", "off_titulo_halo", "off_nota"):
                 if clave in self._textos:
@@ -196,11 +178,11 @@ class GamepadRenderer:
             self.canvas.itemconfig(self._overlay, state="hidden")
 
     def dibujar(self):
-        """Dibuja (o actualiza) todas las piezas y sus etiquetas.
+        """Dibuja o actualiza todas las piezas y sus etiquetas.
 
-        Sin conexión solo se dibuja la capa "apagado"; con conexión la capa
-        se oculta y las piezas vuelven a pintarse (con sus valores previos,
-        que el ciclo de main.py refresca de inmediato).
+        Sin conexión solo se dibuja la capa apagada; con conexión la capa se
+        oculta y las piezas vuelven a pintarse con sus valores previos, que el
+        ciclo de main.py refresca de inmediato.
         """
         self._dibujar_panel()
 
@@ -209,7 +191,7 @@ class GamepadRenderer:
             return
         self._esconder_desconectado()
 
-        # Piezas interactivas (sus propios renderers se encargan de su estado).
+        # Piezas interactivas (sus propios renderers gestionan su estado).
         for pieza in (self._arriba, self._abajo, self._izquierda, self._derecha,
                       self._reposo, self._mano_abrir, self._mano_cerrar):
             pieza.dibujar()
@@ -217,8 +199,8 @@ class GamepadRenderer:
         self._hombro_izq.dibujar()
         self._hombro_der.dibujar()
 
-        # Nombres de los ejes y valores actuales (anclados a la geometría
-        # real de cada deslizador, para que no se desalineen).
+        # Nombres de los ejes y valores actuales, anclados a la geometría real
+        # de cada deslizador para que no se desalineen.
         x_cuello, y_cuello = self._cuello.x, self._cuello.y
         self._texto("lbl_cuello", "CUELLO", x_cuello, y_cuello - 14, tamano=7)
         self._texto("val_cuello", f"{int(self.gamepad.cuello.posicion)}\u00b0",

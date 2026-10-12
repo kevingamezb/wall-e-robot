@@ -1,10 +1,5 @@
 # wall-e-robot/app/widgets/logica/mapeo_teclado.py
 # Kevin Gámez - 06/10/2026
-#
-# El "perfil de controles": la traducción tecla (keysym de Tk) -> acción
-# del robot, con persistencia en configuracion/controles.json (estilo
-# retroarch.cfg). Es LÓGICA PURA: no toca la GUI. El driver (control_teclado.py)
-# y el modal (modal_controles.py) la consumen.
 
 
 import json
@@ -12,13 +7,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-# Acciones mapeables. IDs estables (van al JSON; NO renombrarlos) y nombres
-# para la GUI. tipo: "discreto" (dispara 1 vez; manos/reposo) o "eje"
-# (paso a paso mientras se mantiene; cuello/hombros).
 DISCRETO = "discreto"
 EJE = "eje"
 
-# Paso de cuello/hombros por "pulsado" del teclado (los servos aceptan ±70°).
 PASO_CUELLO = 5
 PASO_HOMBRO = 5
 
@@ -48,8 +39,6 @@ ACCIONES = (
     Accion("hombro_der_menos", "Hombro der. abajo", EJE, PASO_HOMBRO),
 )
 
-# Teclas que no tienen sentido como control (modificadores solas). Al capturar
-# una tecla en el modal se ignoran. Escape aparte, que cancela la captura.
 MODIFICADORAS = {
     "Shift_L", "Shift_R", "Control_L", "Control_R",
     "Alt_L", "Alt_R", "Caps_Lock",
@@ -59,7 +48,6 @@ RUTA_CONTROLES = Path(__file__).resolve().parents[3] / "configuracion" / "contro
 
 
 def _teclas_por_defecto() -> dict:
-    """Perfil de fábrica: flechas mueven, letras para cuello/hombros/manos."""
     return {
         "arriba": "Up",
         "abajo": "Down",
@@ -78,7 +66,6 @@ def _teclas_por_defecto() -> dict:
 
 
 def accion_por_id(accion_id: str) -> Accion:
-    """Devuelve la Accion del ID dado (lanza KeyError si no existe)."""
     for accion in ACCIONES:
         if accion.id == accion_id:
             return accion
@@ -86,7 +73,6 @@ def accion_por_id(accion_id: str) -> Accion:
 
 
 def nombre_tecla(keysym: str) -> str:
-    """'Up' -> '↑', 'space' -> 'ESPACIO', 'q' -> 'Q' (para la GUI)."""
     especiales = {
         "Up": "\u2191", "Down": "\u2193", "Left": "\u2190", "Right": "\u2192",
         "space": "ESPACIO", "Return": "ENTRAR", "Escape": "ESC",
@@ -102,29 +88,13 @@ def nombre_tecla(keysym: str) -> str:
 
 
 class MapeoTeclado:
-    """
-    El perfil de controles: dict accion_id -> keysym.
-
-    Reglas:
-      - Una acción siempre tiene UNA tecla (si se le asigna otra, se reemplaza).
-      - Una tecla solo puede estar en UNA acción (la última asignación manda y
-        la acción ocupada anterior se libera).
-      - El archivo JSON admite 'version' para poder migrar el formato.
-    """
-
     VERSION = 1
 
-    def __init__(self, mapa: dict | None = None):
-        self._mapa = dict(mapa) if mapa is not None else _teclas_por_defecto()
-
-    # --- Persistencia ---
+    def __init__(self, mapa: dict[str, str] | None = None):
+        self._mapa: dict[str, str] = dict(mapa) if mapa is not None else _teclas_por_defecto()
 
     @classmethod
     def cargar(cls, ruta: Path | None = None) -> "MapeoTeclado":
-        """
-        Carga el perfil desde JSON. Si falta el archivo o hay entradas
-        inválidas, se completan con los valores por defecto.
-        """
         ruta = ruta or RUTA_CONTROLES
         mapa = {}
         if ruta.is_file():
@@ -142,7 +112,6 @@ class MapeoTeclado:
         return mapa
 
     def guardar(self, ruta: Path | None = None) -> Path:
-        """Escribe el perfil en JSON (crea la carpeta si hace falta)."""
         ruta = ruta or RUTA_CONTROLES
         ruta.parent.mkdir(parents=True, exist_ok=True)
         ruta.write_text(json.dumps({
@@ -151,70 +120,59 @@ class MapeoTeclado:
         }, indent=2, ensure_ascii=False), encoding="utf-8")
         return ruta
 
-    # --- Consultas ---
+    # Consultas
 
     def tecla_de(self, accion_id: str) -> str | None:
         return self._mapa.get(accion_id)
 
     def tecla_de_o_por_defecto(self, accion_id: str) -> str:
-        return self._mapa.get(accion_id, _teclas_por_defecto().get(accion_id))
+        tecla = self._mapa.get(accion_id)
+        if tecla is not None:
+            return tecla
+        return _teclas_por_defecto()[accion_id]
 
     def buscar_accion(self, keysym: str) -> str | None:
-        """A qué acción está asignada la tecla (None si no está mapeada)."""
         for accion_id, tecla in self._mapa.items():
             if tecla == keysym:
                 return accion_id
         return None
 
     def tecla_ocupada(self, keysym: str, excepto: str | None = None) -> str | None:
-        """Acción que ocupa la tecla, ignorando 'excepto' (para reasignar)."""
         for accion_id, tecla in self._mapa.items():
             if tecla == keysym and accion_id != excepto:
                 return accion_id
         return None
 
-    # --- Edición ---
-
     def asignar(self, accion_id: str, keysym: str):
-        """
-        Asigna una tecla a una acción. Si la tecla estaba en otra acción,
-        esa acción queda sin tecla (una tecla = una acción).
-        """
-        accion_por_id(accion_id)  # valida que exista la acción
+        accion_por_id(accion_id)
         ocupada = self.tecla_ocupada(keysym, excepto=accion_id)
         if ocupada is not None:
             self._mapa.pop(ocupada, None)
         self._mapa[accion_id] = keysym
 
     def limpiar(self, accion_id: str):
-        """Deja la acción sin tecla asignada."""
         accion_por_id(accion_id)
         self._mapa.pop(accion_id, None)
 
     def restaurar_por_defecto(self):
         self._mapa = _teclas_por_defecto()
 
-    # --- Internos ---
-
     def _completar_faltantes(self):
-        """Acciones sin tecla declarada reciben la tecla de fábrica."""
         faltan = {a.id for a in ACCIONES} - set(self._mapa)
         for accion_id in faltan:
             self._mapa[accion_id] = _teclas_por_defecto()[accion_id]
-        # Cualquier id desconocido (de un JSON viejo/ajeno) se descarta.
         validas = {a.id for a in ACCIONES}
         self._mapa = {k: v for k, v in self._mapa.items() if k in validas}
 
-
 # Cajón de Pruebas
-#
-# Ejecutar desde la raíz del proyecto (donde está la carpeta 'app'):
+# Ejecutar desde la raíz del proyecto:
 #   python -m app.widgets.logica.mapeo_teclado
-
 if __name__ == "__main__":
     import sys
     try:
-        sys.stdout.reconfigure(encoding="utf-8")  # console cp1252 no imprime ↑/↓
+        reconfigure = getattr(sys.stdout, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8")
     except Exception:
         pass
     print("Prueba mapeo_teclado.py\n")

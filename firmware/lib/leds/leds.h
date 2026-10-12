@@ -7,10 +7,9 @@
 #include <Arduino.h>
 
 /*
- *  Leds: 2 LEDs indicadores de estado.
- *
+ *  Leds: 2 indicadores de estado.
  *   - Amarillo: robot funcionando sin alertas.
- *   - Rojo    : alerta (advertencia de radar o error de batería).
+ *   - Rojo    : advertencia de radar o error de batería.
  *
  *  El LED verde de "encendido" va directo al riel de 5 V, sin GPIO.
  */

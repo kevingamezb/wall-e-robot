@@ -4,12 +4,12 @@
 #include "motores.h"
 #include "pines.h"
 
-// Velocidad fija con la que gira el d-pad (0-255 PWM). Los motores son de
-// 6 V y la batería llega a 8,4 V: 178/255 ~ 70 %, para no sobrevoltarlos.
+// Velocidad fija del d-pad (PWM 0-255). Los motores son de 6 V y la batería
+// llega a 8,4 V: 178/255 ~ 70 %, para no sobrevoltarlos.
 static const int VELOCIDAD_GIRO = 178;
 
-// Rampa anti-tirón: cada cuántos ms se acerca la velocidad real a la meta
-// y en cuánto.
+// Rampa anti-tirón: cada INTERVALO_RAMPA_MS la velocidad real avanza PASO_RAMPA
+// hacia su meta.
 static const int       PASO_RAMPA         = 15;
 static const uint32_t  INTERVALO_RAMPA_MS = 12;
 
@@ -38,11 +38,10 @@ void Motores::iniciar() {
     pinMode(_stby, OUTPUT);
     digitalWrite(_stby, HIGH);
 
-    // PWM por ESP32PWM (LEDC), no analogWrite: choca con ESP32Servo.
     _pwmA.attachPin(_pwma, 1000, 8);
     _pwmB.attachPin(_pwmb, 1000, 8);
 
-    // Sin giro al encender: nada debe moverse hasta que la app lo diga.
+    // Nada se mueve hasta que la app lo pida.
     _metaA = _metaB = 0;
     _velA  = _velB  = 0;
     _rueda(_ain1, _ain2, _pwmA, 0);
@@ -52,10 +51,10 @@ void Motores::iniciar() {
 }
 
 
-// Aplica una velocidad con signo a una rueda del TB6612FNG.
-//   velocidad > 0 -> inA=HIGH, inB=LOW  (gira adelante)
-//   velocidad < 0 -> inA=LOW,  inB=HIGH (gira atrás)
-//   velocidad ==0 -> ambos LOW (parada libre)
+// Aplica una velocidad con signo a una rueda del TB6612FNG:
+//   > 0 -> inA=HIGH, inB=LOW  (adelante)
+//   < 0 -> inA=LOW,  inB=HIGH (atrás)
+//   = 0 -> ambos LOW          (parada libre)
 void Motores::_rueda(uint8_t inA, uint8_t inB, ESP32PWM& pwm, int velocidad) {
 
     if (velocidad > 0) {
@@ -76,7 +75,7 @@ void Motores::_rueda(uint8_t inA, uint8_t inB, ESP32PWM& pwm, int velocidad) {
 void Motores::mover(const String& direccion) {
 
     if (!_activo) {
-        return;   // el módulo no está cableado/activo: no mover nada
+        return;   // módulo inactivo: no mover nada
     }
 
     if (direccion == "arriba") {
@@ -101,8 +100,8 @@ void Motores::mover(const String& direccion) {
 
 void Motores::detener() {
 
-    // Se frenan las METAS: las velocidades reales bajan de a poco por la
-    // rampa (frenado suave en vez de un corte seco).
+    // Se frenan las metas: la rampa baja las velocidades reales de a poco
+    // (frenado suave en vez de un corte seco).
     _metaA = 0;
     _metaB = 0;
 }
@@ -120,7 +119,7 @@ void Motores::actualizar() {
     }
     _ultimaRampaMs = ahoraMs;
 
-    // Un "paso" de rampa hacia la meta (sin pasarse de ella).
+    // Un paso de rampa hacia la meta, sin pasarse.
     if (_velA < _metaA) { _velA = min(_metaA, _velA + PASO_RAMPA); }
     if (_velA > _metaA) { _velA = max(_metaA, _velA - PASO_RAMPA); }
     if (_velB < _metaB) { _velB = min(_metaB, _velB + PASO_RAMPA); }

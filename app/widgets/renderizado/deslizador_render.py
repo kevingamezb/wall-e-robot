@@ -7,27 +7,11 @@ from .base_render import RenderizadorBase, interpolar_color
 
 
 class DeslizadorRenderer(RenderizadorBase):
-    """
-    El renderer (Tkinter) de un Deslizador lógico.
-
-    A diferencia del botón, este renderer es INTERACTIVO de verdad: mapea
-    la posición del mouse dentro de la pista a un valor dentro del rango
-    del deslizador, y se lo pasa a widget.mover() mientras el usuario
-    presiona/arrastra (eso es lo que dispara los avisos a los suscriptores).
-
-    Puede dibujarse horizontal o vertical (para el cuello y los hombros).
-
-    Convención de eje:
-      - horizontal: los valores crecen de izquierda a derecha.
-      - vertical:   los valores crecen de abajo hacia arriba (como una regla).
-    """
+    """Renderer de un Deslizador lógico."""
 
     def __init__(self, widget, canvas, x, y, largo,
                  orientacion="horizontal", alto_pista=6, radio_thumb=10):
         """
-        Constructor del renderer del deslizador.
-
-        widget      : el Deslizador lógico.
         x, y        : esquina superior-izquierda de la pista.
         largo       : longitud de la pista (horizontal: ancho, vertical: alto).
         orientacion : 'horizontal' | 'vertical'.
@@ -39,12 +23,11 @@ class DeslizadorRenderer(RenderizadorBase):
         self.orientacion = orientacion
         self.alto_pista = alto_pista
         self.radio_thumb = radio_thumb
-        self._ultimo_enviado = None  # evita reenviar el mismo ángulo y "spamear"
+        self._ultimo_enviado = None  # evita reenviar el mismo valor y saturar avisos
         self._arrastrando = False
         self._en_hover = False
 
-    # --- Conversiones de coordenadas ---
-
+    # Conversiones de coordenadas
     def _minimo(self):
         return min(self.widget.rango)
 
@@ -67,48 +50,43 @@ class DeslizadorRenderer(RenderizadorBase):
             factor = max(0.0, min(1.0, (self.y + self.largo - py) / self.largo))
         return self._minimo() + factor * (self._maximo() - self._minimo())
 
-    # --- Eventos del mouse ---
-
+    # Eventos del mouse
     def _al_presionar(self, evento):
-        """Agarra la pista: mueve el thumb hasta el mouse y habilita arrastre."""
+        """Mueve el thumb hasta el mouse y habilita el arrastre."""
         self._arrastrando = True
         self._aplicar_posicion(evento.x, evento.y)
 
     def _al_arrastrar(self, evento):
-        """Mientras se arrastra, sigue moviendo el thumb."""
         if self._arrastrando:
             self._aplicar_posicion(evento.x, evento.y)
 
     def _al_soltar(self, _evento):
-        """Suelta la pista: termina el arrastre."""
         self._arrastrando = False
 
     def _al_entrar(self, _evento):
-        """El mouse entró sobre la pista: cursor de "agarre" y thumb iluminado."""
+        """Activa el cursor de agarre y el estado hover del thumb."""
         self._en_hover = True
         self.canvas.configure(cursor="hand2")
 
     def _al_salir(self, _evento):
-        """El mouse salió de la pista: se restaura cursor y thumb."""
         self._en_hover = False
         self.canvas.configure(cursor="")
 
     def _aplicar_posicion(self, px, py):
         """
-        Pasa al deslizador lógico el valor bajo el mouse (solo si cambió)
-        para no bombardear al robot con el mismo ángulo en cada píxel.
+        Entrega al deslizador lógico el valor bajo el mouse, solo si cambió,
+        para no repetir el mismo aviso en cada píxel.
         """
         valor = round(self._pixel_a_valor(px, py))
         if valor != self._ultimo_enviado:
             self._ultimo_enviado = valor
             self.widget.mover(valor)
 
-    # --- Dibujo ---
-
+    # Dibujo
     def dibujar(self):
-        """Dibuja (o actualiza) pista, ticks, halo y thumb del deslizador."""
-        # Pista: banda fina que indica el recorrido. Según la orientación,
-        # la banda es un rectángulo horizontal o vertical centrado en (x, y).
+        """Dibuja o actualiza la pista, sus marcas, el halo y el thumb."""
+        # Pista: banda fina que representa el recorrido, centrada en la
+        # posición (x, y) y orientada según el eje.
         if self.orientacion == "horizontal":
             pista1 = (self.x, self.y - self.alto_pista / 2,
                       self.x + self.largo, self.y + self.alto_pista / 2)
@@ -124,9 +102,9 @@ class DeslizadorRenderer(RenderizadorBase):
         )
         self._dibujar_ticks()
 
-        # El thumb cambia de tamaño/color según el estado, como el
-        # ::-webkit-slider-thumb del mockup: reposo apagado, con el mouse
-        # encima más claro, y al arrastrar grande y brillante.
+        # El thumb cambia de tamaño y color según el estado, igual que el
+        # control del mockup: apagado en reposo, más claro con el mouse encima,
+        # y grande y brillante al arrastrar.
         activo = self._arrastrando or self._en_hover
         thumb_radio = self.radio_thumb + (2 if self._arrastrando else 0)
         color_thumb = Paleta.DORADO if activo else Paleta.DORADO_DIM
@@ -167,9 +145,9 @@ class DeslizadorRenderer(RenderizadorBase):
         )
         self.canvas.itemconfig(thumb, fill=color_thumb)
 
-        # Bindings de interacción sobre pista y thumb (idempotente: los
-        # re-anotamos cada vez, los eventos viejos se sobrescriben). El
-        # cursor no existe por ítem en Tk, así que se cambia el del canvas.
+        # Enlaza la interacción sobre pista y thumb. Es idempotente: volver a
+        # enlazar sobrescribe los manejadores anteriores. El cursor pertenece
+        # al canvas porque Tk no lo define por ítem.
         for item in (pista, thumb):
             self.canvas.tag_bind(item, "<ButtonPress-1>", self._al_presionar)
             self.canvas.tag_bind(item, "<B1-Motion>", self._al_arrastrar)
@@ -178,9 +156,9 @@ class DeslizadorRenderer(RenderizadorBase):
             self.canvas.tag_bind(item, "<Leave>", self._al_salir)
 
     def _dibujar_ticks(self):
-        """Marca de fin y de centro (0°) de la pista (se crea 1 vez)."""
-        # La marca es perpendicular a la pista: en un deslizador horizontal
-        # es una rayita vertical; en uno vertical, horizontal.
+        """Dibuja las marcas de los extremos y del centro (0° si cae en el rango)."""
+        # La marca es perpendicular a la pista: vertical en un deslizador
+        # horizontal y horizontal en uno vertical.
         es_horizontal = self.orientacion == "horizontal"
 
         def _crear_marca(px, py):

@@ -8,25 +8,11 @@ from .base_render import RenderizadorBase, interpolar_color
 
 class BarrasConsumoRenderer(RenderizadorBase):
     """
-    Renderer (Tkinter) de las barritas de consumo apiladas.
-
-    Recrea el mockup: una columna de 10 barritas horizontales. Se encienden
-    desde abajo hacia arriba (column-reverse del HTML). Las apagadas son de
-    un azul-estructural tenue y las encendidas llevan un "brillo" superior
-    (una línea más clara arriba de cada barrita) que les da relieve sin
-    blur real. El color de las encendidas lo decide la lógica (más consumo
-    = color más caliente: dorado -> naranja -> rojo).
-
-    Parámetros típicos: un canvas de ~40x130 con la columna arriba.
-    """
+    Renderer (Tkinter) de las barritas de consumo apiladas."""
 
     def __init__(self, widget, canvas, x, y, ancho_barra=26,
                  alto_barra=4, separacion=3):
-        """
-        Constructor del renderer de barras.
-
-        x, y: esquina inferior-izquierda (las barras crecen hacia arriba).
-        """
+        """x, y: esquina inferior-izquierda (las barras crecen hacia arriba)."""
         super().__init__(canvas)
         self.widget = widget
         self.x, self.y = x, y
@@ -35,10 +21,10 @@ class BarrasConsumoRenderer(RenderizadorBase):
         self.separacion = separacion
 
     def dibujar(self):
-        """Dibuja (o actualiza) las 10 barritas apiladas de abajo hacia arriba.
+        """Dibuja o actualiza las 10 barritas apiladas de abajo hacia arriba.
 
         La geometría se crea una sola vez; el coloreo se repite solo cuando
-        cambia (encendidas, color), para no gastar `itemconfig` en cada ciclo.
+        cambia (encendidas, color), para no gastar itemconfig en cada ciclo.
         """
         total = self.widget.TOTAL_BARRISTAS
         encendidas = self.widget.barritas_encendidas
@@ -69,7 +55,7 @@ class BarrasConsumoRenderer(RenderizadorBase):
         if not self._hay_cambio("estado", (encendidas, color)):
             return
 
-        # i=0 es la barra de abajo (y crecen hacia arriba).
+        # i=0 es la barra inferior (las barras crecen hacia arriba).
         brillo = interpolar_color(color, Paleta.TEXTO_LOG, 0.30)
         for i in range(total):
             base_y = self.y - i * (self.alto_barra + self.separacion)

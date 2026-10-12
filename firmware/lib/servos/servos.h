@@ -8,21 +8,15 @@
 #include <ESP32Servo.h>
 
 /*
- *  Servos: capa limpia sobre 3 servos MG90S conectados directo a GPIO.
+ *  Servos: capa sobre los 3 servos MG90S conectados directo a GPIO.
  *
  *  - Traduce el nombre que manda la app ("cuello", "hombro_izquierdo"...)
- *    al servo físico (MAPA_SERVOS[] en servos.cpp).
- *  - Respeta SERVOS_ACTIVOS[]: cada servo se mueve solo si su flag
- *    está en 1 (pruebas aisladas).
- *  - Guarda SIEMPRE el último ángulo comandado aunque el servo esté
- *    inactivo, para que la telemetría (enviarEstado) refleje lo que
- *    la GUI cree que está mandando.
- *
- *  El hardware real no trae pulgares ni servo de radar: esos nombres
- *  se aceptan (para no romper el protocolo de la app) pero no mueven
- *  nada.
+ *    al servo físico (MAPA_SERVOS[]).
+ *  - Respeta SERVOS_ACTIVOS[] (pruebas aisladas): un servo se mueve solo si
+ *    su flag está en 1.
+ *  - El hardware no trae pulgares: esos nombres se aceptan para no romper el
+ *    protocolo, pero no mueven nada.
  */
-
 class Servos {
 
 public:
@@ -32,19 +26,19 @@ public:
 
     Servos();
 
-    // Configura los 3 servos (llamar solo si MODULOS.servos está activo).
-    // Si no se llama, moverServo() solo guarda el ángulo.
+    // Configura los 3 servos. Llamar solo si MODULOS.servos está activo;
+    // si no, moverServo() igual guarda el ángulo pedido.
     void iniciar();
 
-    // Mueve un servo de usuario por nombre (lo que manda "{"tipo":"servo"}").
+    // Mueve un servo por nombre, como llega en {"tipo":"servo"}.
     void moverServo(const char* nombre, int angulo);
 
-    // Copia los ángulos actuales (últimos comandados) al arreglo destino.
+    // Copia los últimos ángulos comandados al arreglo destino.
     void angulosUsuario(int destino[CANTIDAD]) const;
 
 private:
 
-    // Orden del arreglo _servos[] y de SERVOS_ACTIVOS[].
+    // Orden de _servos[] y de SERVOS_ACTIVOS[].
     enum IndiceServo {
         IDX_CUELLO = 0,
         IDX_HOMBRO_IZQ,

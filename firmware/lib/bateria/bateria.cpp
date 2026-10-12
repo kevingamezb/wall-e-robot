@@ -19,7 +19,7 @@ void Bateria::iniciar() {
 
     if (!_sensor.begin()) {
         Serial.println("BATERIA: no se encontró el INA219 en el bus I2C.");
-        return;   // _activo sigue en false: los captadores dan neutro
+        return;   // _activo queda en false: los captadores dan neutro
     }
 
     _activo = true;
@@ -29,20 +29,19 @@ void Bateria::iniciar() {
 
 void Bateria::actualizarLectura() {
 
-    // Si el sensor no está activo no se toca el I2C.
     if (!_activo) {
-        return;
+        return;   // sensor inactivo: no tocar el I2C
     }
 
     _voltaje = _sensor.getBusVoltage_V();
-    _corriente = _sensor.getCurrent_mA() / 1000.0f;   // mA -> A
+    _corriente = _sensor.getCurrent_mA() / 1000.0f;
 }
 
 
 float Bateria::nivel() const {
 
     if (!_activo) {
-        return 1.0f;   // neutro: no hay alerta en la GUI sin el sensor
+        return 1.0f;   // neutro: sin sensor no debe haber alerta
     }
 
     float nivel = (_voltaje - BATERIA_VOLTAJE_MIN)
@@ -63,8 +62,8 @@ float Bateria::consumoWatts() const {
 
 
 bool Bateria::cargando() const {
-    // Heurística: con el cargador conectado la corriente del bus
-    // "entra" a la batería (signo opuesto/negativo según el cableado).
+    // Con el cargador, la corriente "entra" a la batería (signo negativo según
+    // el cableado del INA219).
     return _activo && _corriente < -0.1f;
 }
 
@@ -77,12 +76,10 @@ float Bateria::minutosRestantes() const {
 
     float watts = consumoWatts();
     if (watts <= 0.0f) {
-        return -1.0f;   // sin consumo no se puede estimar
+        return -1.0f;   // sin consumo no hay nada que estimar
     }
 
     // Energía restante ~ capacidad_mAh * nivel * voltaje (Wh).
-    // El INA219 de medición se actualiza en main.cpp con la frecuencia
-    // LECTURA_BATERIA_MS; aquí solo se estima con el último valor.
     float energiaWh = (BATERIA_CAPACIDAD_MAH / 1000.0f) * nivel() * _voltaje;
 
     return energiaWh / watts * 60.0f;

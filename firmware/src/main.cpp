@@ -18,50 +18,47 @@
 #include "leds.h"
 
 
-// Instancia única del servidor de comunicación. La logica de negocio
-// (main) se conecta a ella, sin saber nada de JSON ni TCP.
+// main() solo orquesta: la red y el JSON viven en Comunicacion.
 Comunicacion comunicacion(PUERTO_SERVIDOR);
 
-// Marcas de tiempo para el loop no bloqueante (por millis()).
+// Marcas de tiempo del loop no bloqueante.
 static uint32_t s_ultimaEnvioMs   = 0;
 static uint32_t s_ultimaBateriaMs = 0;
 
-// Transiciones de alerta: solo se loguea al ENCENDER la alerta (cooldown),
-// no en cada envío de estado mientras la alerta persiste.
+// Estado anterior de las alertas: permite loguear solo la transición a la
+// alerta, no cada envío mientras persiste.
 static bool s_advertenciaAnterior = false;
 static bool s_errorAnterior       = false;
 
-// Cooldown del log del timeout de seguridad (avisa una sola vez).
+// Evita repetir el aviso del timeout de seguridad en cada vuelta.
 static bool s_timeoutAvisado = false;
 
 
 void setup() {
 
     Serial.begin(115200);
-    delay(300);   // tiempo para que el monitor USB termine de arrancar
+    delay(300);   // deja que el monitor USB termine de arrancar
 
-    // Watchdog del loop: si el programa se cuelga (p.ej. un periférico que
-    // trabaja el I2C), el ESP32 se reinicia solo en vez de quedarse mudo.
-    // Timeout de 10 s (grande, para no interferir con el flasheo ni el
-    // monitor) y panic activado: ante bloqueo, reset completo.
+    // Watchdog: si el loop se cuelga (p.ej. un periférico trabado en I2C), el
+    // ESP32 se reinicia solo. Timeout largo para no interferir con el flasheo;
+    // panic activado para forzar el reset ante bloqueo.
     esp_task_wdt_init(10, true);
     esp_task_wdt_add(nullptr);
 
-    // I2C compartido (INA219 + OLED). Antes lo iniciaba la PCA9685; ahora
-    // debe hacerse explícito con los pines del proyecto (pines.h).
+    // I2C compartido por el INA219 y el OLED.
     Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
 
-    // Reservamos los timers LEDC una sola vez: los usan ESP32Servo (servos)
-    // y ESP32PWM (motores). Sin esto chocan y un servo deja de responder.
+    // Los timers LEDC se reservan una sola vez porque los comparten ESP32Servo
+    // (servos) y ESP32PWM (motores): si se autoasignan, chocan y un servo deja
+    // de responder.
     ESP32PWM::allocateTimer(0);
     ESP32PWM::allocateTimer(1);
     ESP32PWM::allocateTimer(2);
     ESP32PWM::allocateTimer(3);
 
-    // LEDs indicadores (rojo/amarillo; el verde va al riel de 5 V).
     leds.iniciar();
 
-    // ===== 1) Red: el ESP32 crea su propia WiFi (modo AP) =====
+    // Red: el ESP32 crea su propia WiFi (modo AP).
     WiFi.mode(WIFI_AP);
     WiFi.softAP(WIFI_AP_SSID, WIFI_AP_CLAVE);
     Serial.print("AP iniciada: SSID='");
@@ -71,10 +68,7 @@ void setup() {
 
     comunicacion.iniciarServidor();
 
-    // ===== 2) Módulos (solo si su flag de pruebas aisladas está en 1) =====
-    // config.h -> MODULOS.{servos, radar, bateria, oled, motores}.
-    // Con un flag en 0, el módulo NO se toca (ni se mueve ni se lee) y
-    // la telemetría manda valores neutros para que la GUI no grite.
+    // Cada módulo se inicializa solo si su flag está activo (ver config.h).
     if (MODULOS.servos) {
         servos.iniciar();
         Serial.println("MODULO servos   = activo");
@@ -114,22 +108,22 @@ void setup() {
 }
 
 
-// ============================= Loop principal =============================
-// Nada de delay(): todo avanza por intervalos de millis(). Así la red, el
-// radar (HC-SR04) y los servos nunca se congelan unos a otros.
+// Loop principal.
+// Sin delay(): todo avanza por intervalos de millis() para que la red, el
+// radar (HC-SR04) y los servos no se congelen entre sí.
 
 void loop() {
 
     uint32_t ahoraMs = millis();
 
-    esp_task_wdt_reset();   // "sigo vivo": solo se resetea si esto corre
+    esp_task_wdt_reset();   // "sigo vivo": si el loop se traba, deja de llegar
 
     // 1) Red: atiende al PC conectado y procesa sus comandos
     comunicacion.escucharCliente();
 
-    // 2) Seguridad: en modo manual, si no llega un comando del operador en
-    //    TIEMPO_MANUAL_TIMEOUT_MS, se detienen los motores (y se avisa 1 vez).
-    //    Al llegar un comando nuevo dentro del plazo, el aviso se rearma.
+    // 2) Seguridad: en modo manual, si el operador deja de mandar comandos, se
+    //    detienen los motores. El aviso sale una sola vez y se rearma cuando
+    //    vuelve el flujo de comandos.
     if (MODULOS.motores && comunicacion.modo() == "manual" &&
         (ahoraMs - comunicacion.ultimaOrdenMs()
          > (unsigned long)TIEMPO_MANUAL_TIMEOUT_MS)) {
@@ -153,7 +147,7 @@ void loop() {
 
     // 4) Sensores periódicos
     if (MODULOS.radar) {
-        radar.actualizar();          // máquina de estados del HC-SR04 (fijo)
+        radar.actualizar();
     }
 
     if (MODULOS.bateria &&
@@ -162,25 +156,24 @@ void loop() {
         s_ultimaBateriaMs = ahoraMs;
     }
 
-    // 5) Telemetría (estado -> app, cada ENVIO_ESTADO_MS)
+    // 5) Telemetría (estado -> app)
     if (ahoraMs - s_ultimaEnvioMs >= ENVIO_ESTADO_MS) {
 
         s_ultimaEnvioMs = ahoraMs;
 
-        // Distancia: -1 = sin lectura (radar apagado/lejos) -> null en JSON.
+        // Distancia -1 = sin lectura; Comunicacion la manda como null.
         float distancia = MODULOS.radar ? radar.distanciaCm() : -1.0f;
 
+        // Criterio de alertas, igual que el simulador de la app.
         bool advertencia = MODULOS.radar
                          && radar.obstaculoCercano(UMBRAL_OBSTACULO_CM);
 
-        // Error critico: batería al borde (mismo criterio que el simulador).
         bool error = MODULOS.bateria && bateria.nivel() < 0.10f;
 
-        // LEDs indicadores: rojo = alerta, amarillo = funcionando.
         leds.actualizar(advertencia, error);
 
-        // Posiciones de los servos: siempre se mandan las últimas ordenes
-        // que vino de la app (aunque el flag del módulo esté en 0).
+        // Se reportan siempre los últimos ángulos pedidos por la app, aunque el
+        // módulo de servos esté inactivo.
         int angulos[Servos::CANTIDAD];
         servos.angulosUsuario(angulos);
 
@@ -196,14 +189,14 @@ void loop() {
             bateria.minutosRestantes(),
             angulos, Servos::CANTIDAD);
 
-        // Pantalla OLED (no hace nada si el módulo está apagado)
+        // La pantalla no hace nada si el módulo está apagado.
         if (MODULOS.oled) {
             oled.mostrar(bateria.nivel(), distancia,
                          comunicacion.modo(), comunicacion.estaConectado());
         }
 
-        // Logs de alerta con cooldown: se avisan solo al TRANSICIONAR a la
-        // alerta, no en cada envío de estado mientras persiste.
+        // Logs con cooldown: solo al transicionar a la alerta, no en cada
+        // envío mientras persiste.
         if (advertencia && !s_advertenciaAnterior) {
             comunicacion.enviarLog(
                 "RADAR",

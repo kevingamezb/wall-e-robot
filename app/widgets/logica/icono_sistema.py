@@ -8,7 +8,7 @@ from ...nucleo.paleta import Paleta
 
 
 class TipoIcono(Enum):
-    """Los 5 íconos de sistema del mockup: una instancia por cada uno."""
+    """Identificadores de los iconos de sistema definidos en el mockup."""
 
     ADVERTENCIA = "advertencia"
     CARGANDO    = "cargando"
@@ -18,36 +18,14 @@ class TipoIcono(Enum):
 
 
 class IconoSistema:
-    """
-    Un ícono de sistema individual.
-
-    A diferencia de los ojos, estos íconos cambian SOLO de color (la forma
-    es siempre la misma). El plan de diseño lo llama "recoloreo": la forma
-    no cambia, lo que cambia es qué color tiene según el estado del robot.
-
-    Es LÓGICA PURA: responde si el ícono está ACTIVO (on/off) y de qué color,
-    pero no sabe cómo dibujarlo. El renderer dibuja el glifo correspondiente.
-
-    Colores por ícono activo (definidos aquí, de acuerdo al tema Axiom):
-      ADVERTENCIA -> NARANJA     ERROR       -> ROJO
-      CARGANDO    -> VERDE_LIMA  CONEXION    -> AXIOM_CYAN (holograma de la nave)
-      MODO_MANUAL -> AXIOM_CYAN
-    Inactivo -> GRIS (apagado).
-    """
+    """Determina el estado de activación y color de un icono de sistema según el estado del robot."""
 
     def __init__(self, estado: EstadoRobot, tipo: TipoIcono):
-        """
-        Constructor de un ícono.
-
-        estado: la 'caja maestra' (EstadoRobot). Solo se lee de ahí.
-        tipo:   cuál de los 5 íconos es este (TipoIcono).
-        """
         self.estado = estado
         self.tipo = tipo
 
     @property
     def activo(self) -> bool:
-        """Si este ícono debe verse encendido, según el estado del robot."""
         activadores = {
             TipoIcono.ADVERTENCIA: self.estado.hay_advertencia,
             TipoIcono.CARGANDO:    self.estado.cargando,
@@ -59,7 +37,6 @@ class IconoSistema:
 
     @property
     def color(self) -> str:
-        """Color del ícono activo (GRIS si está inactivo)."""
         if not self.activo:
             return Paleta.GRIS
 
@@ -74,33 +51,26 @@ class IconoSistema:
 
     @property
     def titulo(self) -> str:
-        """Texto legible del ícono (útil como tooltip)."""
         return self.tipo.value
 
-
 # Cajón de Pruebas
-#
-# Ejecutar desde la raíz del proyecto (donde está la carpeta 'app'):
+# Ejecutar desde la raíz del proyecto:
 #   python -m app.widgets.logica.icono_sistema
-
 if __name__ == "__main__":
     print("Prueba icono_sistema.py\n")
 
     estado = EstadoRobot()
     iconos = {tipo: IconoSistema(estado, tipo) for tipo in TipoIcono}
 
-    # 1. Estado inicial (conectado, automático, sin alertas)
-    #    Solo CONEXION activa; el resto apagado.
     print("=== Estado inicial ===")
     estado.conexion_activa = True
-    assert iconos[TipoIcono.CONEXION].activo, "Conectado -> CONEXION activo"
+    assert iconos[TipoIcono.CONEXION].activo
     assert iconos[TipoIcono.CONEXION].color == Paleta.AXIOM_CYAN
-    assert not iconos[TipoIcono.ADVERTENCIA].activo, "Sin advertencia -> apagado"
+    assert not iconos[TipoIcono.ADVERTENCIA].activo
     assert iconos[TipoIcono.ADVERTENCIA].color == Paleta.GRIS
-    assert not iconos[TipoIcono.MODO_MANUAL].activo, "Automático -> manual apagado"
+    assert not iconos[TipoIcono.MODO_MANUAL].activo
     print("OK: solo CONEXION activa\n")
 
-    # 2. Advertencia y error
     print("=== Advertencia + error ===")
     estado.hay_advertencia = True
     estado.hay_error = True
@@ -110,7 +80,6 @@ if __name__ == "__main__":
     assert iconos[TipoIcono.ERROR].color == Paleta.ROJO
     print("OK: ADVERTENCIA naranja, ERROR rojo\n")
 
-    # 3. Modo manual + cargando a la vez
     print("=== Manual + cargando ===")
     estado.modo = Modo.MANUAL
     estado.cargando = True

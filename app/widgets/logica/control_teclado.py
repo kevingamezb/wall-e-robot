@@ -1,10 +1,7 @@
 # wall-e-robot/app/widgets/logica/control_teclado.py
 # Kevin Gámez - 06/10/2026
 #
-# El "cable" del teclado al gamepad: traduce <KeyPress>/<KeyRelease> de Tk en
-# las mismas acciones que produce el ratón (cruceta, manos, reposo, ejes).
-# Reusa el cableado de comandos del Gamepad, así las teclas se ven en el
-# renderer y los comandos salen por la misma puerta (gated por habilitado).
+
 
 
 import tkinter as tk
@@ -14,17 +11,9 @@ from .mapeo_teclado import (
     ACCIONES, DISCRETO, EJE, MODIFICADORAS, Accion, MapeoTeclado, accion_por_id,
 )
 
-# Cuánto esperamos entre pasos de un EJE mientras se mantiene la tecla.
-# (Más lento que el auto-repetido del teclado: un deslizador de ±70° a 33 ms
-#  por tecla se barrería entero en ~2 s; 5° cada 120 ms es un movimiento suave.)
 INTERVALO_PASO_MS = 120
-
-# Las direcciones usan el auto-repetido del teclado: mientras se sostiene la
-# tecla, Tk re-lanza <KeyPress> y cada repetición vuelve a emitir el comando
-# motor. Así el robot no muere por el timeout de seguridad del firmware (~2 s).
 MOTOR_ACCIONES = {"arriba", "abajo", "izquierda", "derecha"}
 
-# Botón del gamepad que respalda cada acción discreta (para la visual y emitir).
 BOTONES = {
     "arriba": lambda g: g.direccion_arriba,
     "abajo": lambda g: g.direccion_abajo,
@@ -35,7 +24,6 @@ BOTONES = {
     "mano_cerrar": lambda g: g.mano_cerrar,
 }
 
-# (deslizador_del_gamepad, signo) por acción de eje.
 DESLIZADORES = {
     "cuello_mas": ("cuello", 1),
     "cuello_menos": ("cuello", -1),
@@ -47,36 +35,21 @@ DESLIZADORES = {
 
 
 class ControlTeclado:
-    """
-    Escucha las teclas de la ventana y las despacha al gamepad.
-
-    Reglas de comportamiento:
-      - Solo reacciona a teclas del perfil (MapeoTeclado); el resto se ignora.
-      - Discretas (manos/reposo): disparan UNA vez aunque el teclado repita
-        la pulsación; soltar resetea la visual.
-      - Direcciones de motor: cada <KeyPress> (incl. el auto-repetido) vuelve
-        a emitir el comando; soltar corta.
-      - Ejes (cuello/hombros): un paso cada INTERVALO_PASO_MS mientras se
-        sostiene; el Deslizador clampa el rango como con el ratón.
-      - Funciona solo con la ventana enfocada (igual que un emulador). Si el
-        foco se va (modal, otra app), se limpia el estado para no dejar una
-        tecla "clavada".
-    """
+    """Traduce eventos de teclado de Tk a acciones del gamepad."""
 
     def __init__(self, raiz: tk.Misc, mapeo: MapeoTeclado, gamepad):
         self.raiz = raiz
         self.mapeo = mapeo
         self.gamepad = gamepad
 
-        self._pulsadas = set()        # keysyms sostenidos en este momento
-        self._temporizadores = {}     # keysym -> id del after() de repetición
+        self._pulsadas = set()
+        self._temporizadores = {}
 
         raiz.bind("<KeyPress>", self._al_presionar)
         raiz.bind("<KeyRelease>", self._al_soltar)
         raiz.bind("<FocusOut>", lambda _e: self.limpiar_estado())
 
-    # --- Entrada de teclado ---
-
+    # Entrada de teclado 
     def _al_presionar(self, evento):
         keysym = evento.keysym
         if keysym in MODIFICADORAS:
@@ -91,12 +64,9 @@ class ControlTeclado:
             self._aplicar_paso(accion)
             self._programar_repite(keysym, accion)
         elif accion_id in MOTOR_ACCIONES:
-            # El auto-repetido del teclado re-dispara esto -> comando repetido.
             self._pulsadas.add(keysym)
             self._pulsar_boton(accion_id)
         elif keysym not in self._pulsadas:
-            # Discreta (manos/reposo): dispara UNA vez; lo que sigue del
-            # auto-repetido se ignora mientras la tecla siga sostenida.
             self._pulsadas.add(keysym)
             self._pulsar_boton(accion_id)
 
@@ -112,8 +82,6 @@ class ControlTeclado:
         if accion_id is not None and accion_id in BOTONES:
             self._soltar_boton(accion_id)
 
-    # --- Despacho ---
-
     def _pulsar_boton(self, accion_id: str):
         BOTONES[accion_id](self.gamepad).presionar()
 
@@ -121,13 +89,11 @@ class ControlTeclado:
         BOTONES[accion_id](self.gamepad).soltar()
 
     def _aplicar_paso(self, accion: Accion):
-        """Un paso del eje (+/- paso grados), como lo haría el ratón."""
         clave, signo = DESLIZADORES[accion.id]
         deslizador = getattr(self.gamepad, clave)
         deslizador.mover(deslizador.posicion + signo * accion.paso)
 
     def _programar_repite(self, keysym: str, accion: Accion):
-        """Agenda el siguiente paso del eje mientras se siga sosteniendo."""
         def repetir():
             if keysym in self._pulsadas:
                 self._aplicar_paso(accion)
@@ -135,17 +101,13 @@ class ControlTeclado:
         self._temporizadores[keysym] = self.raiz.after(INTERVALO_PASO_MS, repetir)
 
     def limpiar_estado(self):
-        """Cancela repeticiones y suelta los botones (foco perdido, etc.)."""
         for keysym in list(self._pulsadas):
             self._al_soltar(
                 types.SimpleNamespace(keysym=keysym))
 
-
 # Cajón de Pruebas
-#
-# Ejecutar desde la raíz del proyecto (donde está la carpeta 'app'):
+# Ejecutar desde la raíz del proyecto:
 #   python -m app.widgets.logica.control_teclado
-
 if __name__ == "__main__":
     print("Prueba control_teclado.py\n")
 

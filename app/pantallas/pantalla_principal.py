@@ -27,18 +27,6 @@ from ..widgets.renderizado.tarjeta import crear_tarjeta, subir_decoracion
 class PantallaPrincipal:
     """
     La pantalla única de la aplicación: un panel de control, sin navegación.
-
-    Layout (tema Axiom + Wall-E), todo dentro de tarjetas:
-      Fila 0: [BARRA DE SISTEMA (título + indicadores en vivo)]
-      Fila 1: [ESTADO]                      [TERMINAL]
-      Fila 2: [RADAR]                       [CONTROL MANUAL]
-
-    En la tarjeta CONTROL MANUAL viven: el estado de conexión (etiqueta),
-    los botones CONECTAR/DESCONECTAR/CONTROLES y el gamepad.
-
-    Espaciado: Paleta.UNIDAD y sus fracciones. La fila 2 estira ambas
-    tarjetas con sticky="nsew" para que el gamepad y el radar queden a la
-    misma altura; la tarjeta ESTADO se encoge a su contenido (sticky "nw").
     """
 
     def __init__(self, parent, estado: EstadoRobot,
@@ -47,16 +35,16 @@ class PantallaPrincipal:
         Constructor de la pantalla.
 
         parent         : el frame contenedor (en main.py).
-        estado         : la 'caja maestra' compartida con todo el programa.
+        estado         : el estado compartido con todo el programa.
         on_conectar    : callback al pulsar CONECTAR (abre el modal con la IP).
-        on_desconectar : callback al pulsar DESCONECTAR (cuelga el teléfono).
+        on_desconectar : callback al pulsar DESCONECTAR (cierra la conexión).
         on_controles   : callback al pulsar CONTROLES (abre el mapeo de teclado).
         """
         self.estado = estado
         self.frame = tk.Frame(parent, bg=Paleta.FONDO_APP)
         self.frame.pack(fill="both", expand=True)
 
-        # --- Widgets lógicos (vistas del mismo estado) ---
+        # Widgets lógicos
         self.ojos = Ojos(estado)
         self.iconos = [IconoSistema(estado, t) for t in TipoIcono]
         self.sol = SolBateria(estado)
@@ -74,10 +62,7 @@ class PantallaPrincipal:
         if on_controles is not None:
             self.boton_controles.suscribir(on_controles)
 
-        # --- Distribución de la gilla ---
-        # Columnas con peso áureo (10:16): el radar y el gamepad comparten
-        # espacio. Fila 0 = barra de sistema (alto fijo), fila 1 = estado y
-        # terminal (alto fijo), fila 2 = radar y control (la que crece).
+        # Distribución de la grilla
         self.frame.grid_columnconfigure(0, weight=10)
         self.frame.grid_columnconfigure(1, weight=16)
         self.frame.grid_rowconfigure(0, weight=0)
@@ -93,26 +78,20 @@ class PantallaPrincipal:
         # Arrancamos "sin conexión": main.py la marcará según corresponda.
         self.establecer_conexion(False, "SIN CONEXI\u00d3N")
 
-    # --- Construcción de cada bloque (dentro de su tarjeta) ---
+    # Construcción de cada bloque
 
     def _construir_barra_sistema(self):
-        """Barra HUD superior: identidad de la nave + indicadores en vivo.
-
-        Es la "cabecera del terminal": a la izquierda el título del módulo,
-        a la derecha tres lecturas que se actualizan solas en dibujar()
-        (enlace, modo y batería), con la misma guarda anti-repintado que el
-        resto de la pantalla.
-        """
+        """Barra HUD superior: identidad de la nave + indicadores en vivo."""
+        
         barra = tk.Frame(self.frame, bg=Paleta.FONDO_APP)
         barra.grid(row=0, column=0, columnspan=2, sticky="ew",
                    padx=Paleta.UNIDAD // 2,
                    pady=(Paleta.UNIDAD // 3, Paleta.UNIDAD // 3))
 
-        # Izquierda: AXIOM ▸ subtítulo del módulo.
         izq = tk.Frame(barra, bg=Paleta.FONDO_APP)
         izq.pack(side="left")
         tk.Label(
-            izq, text="AXIOM",
+            izq, text="Control Wall-E",
             bg=Paleta.FONDO_APP, fg=Paleta.AXIOM_CYAN,
             font=(Paleta.FUENTE_HUD, 15, "bold"),
         ).pack(side="left")
@@ -122,7 +101,6 @@ class PantallaPrincipal:
             font=(Paleta.FUENTE_HUD, 9),
         ).pack(side="left", padx=(8, 0))
 
-        # Derecha: los tres indicadores en vivo.
         der = tk.Frame(barra, bg=Paleta.FONDO_APP)
         der.pack(side="right")
 
@@ -139,7 +117,6 @@ class PantallaPrincipal:
         )
         self.lbl_ind_bateria.pack(side="left")
 
-        # Línea divisoria cian bajo la barra (el "borde luminoso").
         tk.Canvas(barra, height=2, bg=Paleta.CYAN_DIM,
                   highlightthickness=0).pack(fill="x", pady=(6, 0))
 
@@ -153,7 +130,7 @@ class PantallaPrincipal:
                 or self.lbl_ind_enlace.cget("fg") != color_enlace):
             self.lbl_ind_enlace.config(text=texto_enlace, fg=color_enlace)
 
-        # Modo: dorado en manual (es el del robot), tenue en automático.
+        # Modo: dorado en manual, tenue en automático.
         manual = self.estado.modo == Modo.MANUAL
         texto_modo = "MODO MANUAL" if manual else "MODO AUTOM\u00c1TICO"
         color_modo = Paleta.DORADO if manual else Paleta.TEXTO_TENUE
@@ -177,6 +154,7 @@ class PantallaPrincipal:
         Así no queda una franja apretada a la izquierda: cada grupo (ojos,
         consumo, sol) ocupa su tercio del ancho disponible, como el mockup.
         """
+        
         col = crear_tarjeta(self.frame, "ESTADO")
         col.grid(row=1, column=0, sticky="nsew",
                  padx=Paleta.UNIDAD // 2, pady=Paleta.UNIDAD // 2)
@@ -319,7 +297,7 @@ class PantallaPrincipal:
         self.render_gamepad = GamepadRenderer(self.gamepad, canvas_gamepad, 600, 300)
         subir_decoracion(marco)
 
-    # --- Conexión ---
+    # Conexión
 
     def conectar_gamepad(self, callback):
         """Conecta los comandos del gamepad hacia la conexión del robot."""
@@ -339,7 +317,7 @@ class PantallaPrincipal:
             fg=Paleta.DORADO if activa else Paleta.GRIS,
         )
 
-    # --- Ciclo de actualización ---
+    # Ciclo de actualización
 
     def dibujar(self):
         """Redibuja todos los bloques de la pantalla (se llama cada ciclo)."""

@@ -1,14 +1,10 @@
 # wall-e-robot/app/pantallas/modal_controles.py
 # Kevin Gámez - 06/10/2026
 #
-# La ventana de configuración del teclado, estilo emulador de consola
-# (PCSX2/Dolphin): una fila por acción y "clic en la acción -> presiona la
-# tecla". La captura se hace en esta ventana (tiene el foco con grab_set), así
-# las teclas que se asignan no disparan comandos de la pantalla principal.
+# La ventana de configuración del teclado.
 
 
 import tkinter as tk
-
 from ..nucleo.paleta import Paleta
 from ..widgets.logica.mapeo_teclado import (
     ACCIONES, MODIFICADORAS, MapeoTeclado, nombre_tecla,
@@ -82,7 +78,6 @@ class ModalControles:
         self.ventana.bind("<KeyPress>", self._al_tecla)
         self._refrescar_filas()
 
-    # --- Construcción ---
 
     def _construir_filas(self):
         """Crea una fila por acción. El contenido cambia; la estructura no."""
@@ -114,7 +109,6 @@ class ModalControles:
 
             self._filas[accion.id] = (btn_tecla, btn_limpiar)
 
-    # --- Captura ---
 
     def _empezar_captura(self, accion_id: str):
         """Entra en modo captura para la acción dada (hace toggle si es la misma)."""
@@ -150,7 +144,6 @@ class ModalControles:
         self._capturando = None
         self._refrescar_filas()
 
-    # --- Acciones ---
 
     def _limpiar(self, accion_id: str):
         self.mapeo.limpiar(accion_id)
@@ -167,7 +160,6 @@ class ModalControles:
                                fg=Paleta.DORADO)
         self._refrescar_filas()
 
-    # --- Internos ---
 
     def _accion(self, accion_id: str):
         for accion in ACCIONES:
@@ -191,9 +183,8 @@ class ModalControles:
             btn_limpiar.config(state="normal" if tecla else "disabled")
 
 
-# Cajón de Pruebas (abre y cierra la ventana sola)
-#
-# Ejecutar desde la raíz del proyecto (donde está la carpeta 'app'):
+# Cajón de Pruebas
+# Ejecutar desde la raíz del proyecto:
 #   python -m app.pantallas.modal_controles
 
 if __name__ == "__main__":

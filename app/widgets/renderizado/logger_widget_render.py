@@ -9,32 +9,19 @@ from ...nucleo.estado import NivelLog
 
 
 class LoggerWidgetRenderer:
-    """
-    Renderer (Tkinter) del widget del logger: la "terminal" de la app.
-
-    A diferencia del resto de los renderers (que pintan en un Canvas), este
-    usa un widget de Tkinter real: un `tk.Text`. Es lo adecuado para una
-    lista de líneas desplazable con colores por nivel de gravedad.
-
-    Se SUSCRIBE al widget lógico (LoggerWidget): cada vez que llega una
-    línea nueva al log, el renderer la agrega al terminal al instante, con
-    su color (info blanco, advertencia naranja, error rojo) y su hora.
-    Mantiene las últimas 30 líneas, como define el modelo de datos.
-    """
+    """Renderer del widget del logger: la terminal de la app."""
 
     MAX_LINEAS = 30
 
     def __init__(self, widget_logico, parent: tk.Widget):
         """
-        Constructor del renderer del logger.
-
-        widget_logico : el LoggerWidget lógico (recibe las líneas del Logger).
-        parent        : el frame/canvas que contendrá el terminal.
+        widget_logico : el LoggerWidget lógico, que recibe las líneas del Logger.
+        parent        : el frame o canvas que contendrá el terminal.
         """
         self.widget = widget_logico
-        self._lineas = 0  # cuántas líneas hay hoy en el terminal
+        self._lineas = 0  # cantidad de líneas presentes en el terminal
 
-        # Terminal: Text apagado (solo lectura) oscuro, como una consola.
+        # Terminal: Text de solo lectura, oscuro, estilo consola.
         self.texto = tk.Text(
             parent,
             bg=Paleta.FONDO_WIDGET,
@@ -49,7 +36,7 @@ class LoggerWidgetRenderer:
         )
         self.texto.pack(fill="both", expand=True)
 
-        # Etiquetas de color por nivel (las usamos con los rangos del Text).
+        # Etiquetas de color por nivel, aplicadas a rangos del Text.
         self.texto.tag_config("ts",   foreground=Paleta.CYAN_DIM)
         self.texto.tag_config("prmt", foreground=Paleta.AXIOM_CYAN)
         self.texto.tag_config("info", foreground=Paleta.TEXTO_LOG)
@@ -59,10 +46,10 @@ class LoggerWidgetRenderer:
         # Rueda del mouse para desplazar el historial.
         self.texto.bind("<MouseWheel>", self._al_rueda)
 
-        # Nos unimos al widget lógico: cada línea nueva llega aquí.
+        # Suscripción al widget lógico: cada línea nueva llega aquí.
         self.widget.suscribir(self._agregar_linea)
 
-        # Si ya había líneas antes de suscribirnos, las cargamos.
+        # Si ya había líneas antes de suscribirse, se cargan.
         for entrada in self.widget.obtener_lineas():
             self._agregar_linea(entrada)
 
@@ -80,9 +67,9 @@ class LoggerWidgetRenderer:
         }[nivel]
 
     def _agregar_linea(self, entrada):
-        """Inserta una línea nueva con formato, y recorta a las últimas 30."""
+        """Inserta una línea con formato y recorta a las últimas 30."""
         try:
-            self.texto.configure(state="normal")  # Text solo se edita aquí adentro
+            self.texto.configure(state="normal")  # el Text solo se edita aquí
 
             # Timestamp local con formato DD-MM-AAAA HH:MM (ej: [06-10-2026 20:02]).
             marca = datetime.fromtimestamp(entrada.timestamp).strftime(
@@ -116,14 +103,14 @@ class LoggerWidgetRenderer:
             self.texto.configure(state="disabled")
             self.texto.see("end")  # siempre mostrar la línea más reciente
         except tk.TclError:
-            # El terminal ya fue destruido (se cambió de pantalla): el
-            # callback viejo sigue vivo, pero ya no hay nada que pintar.
+            # El terminal ya fue destruido (cambio de pantalla): el callback
+            # sigue vivo, pero no hay nada que pintar.
             pass
 
     def dibujar(self):
         """
         API común con el resto de renderers.
 
-        El terminal se actualiza solo vía suscripción (cuando llega una
-        línea nueva), así que dibujar() no tiene nada que repintar.
+        El terminal se actualiza solo por suscripción, cuando llega una línea
+        nueva, así que dibujar() no tiene nada que repintar.
         """

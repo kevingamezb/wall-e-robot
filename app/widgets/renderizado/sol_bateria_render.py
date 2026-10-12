@@ -8,29 +8,13 @@ from .base_render import RenderizadorBase, interpolar_color
 
 
 class SolBateriaRenderer(RenderizadorBase):
-    """
-    Renderer (Tkinter) del Sol de batería.
-
-    Recrea el dibujo del mockup (walle_demo.html): un sol de 12 rayos con
-    un círculo en el centro. Los rayos encendidos son MÁS LARGOS (llegan
-    más lejos del centro) y del color del estado; los apagados son cortos
-    y azul-estructurales. Así "ver" cuánta energía queda es instantáneo.
-
-    Cada rayo encendido lleva UNA capa de halo detrás (más ancha y más
-    tenue) que da el "glow" del holograma sin blur real (Tk no lo tiene):
-    dos líneas superpuestas, creadas una sola vez.
-
-    Parámetros típicos: un canvas de ~100x100 con centro en (50, 50).
-    """
+    """Renderer del Sol de batería. """
 
     TOTAL_RAYOS = 12
 
     def __init__(self, widget, canvas, cx, cy, radio_interior=16,
                  radio_rayo_encendido=44, radio_rayo_apagado=30):
         """
-        Constructor del renderer del sol.
-
-        widget               : el SolBateria lógico.
         cx, cy               : centro del sol dentro del canvas.
         radio_interior       : radio del círculo central.
         radio_rayo_encendido : longitud de los rayos encendidos.
@@ -53,11 +37,7 @@ class SolBateriaRenderer(RenderizadorBase):
                 self.cy + vy * radio)
 
     def dibujar(self):
-        """Dibuja (o actualiza) los 12 rayos (con halo), el anillo y el núcleo.
-
-        La geometría se crea una sola vez; el estado se repinta solo cuando
-        cambia (encendidos, color), para no gastar coords/itemconfig de más.
-        """
+        """Dibuja o actualiza los 12 rayos, el anillo y el núcleo. """
         encendidos = self.widget.rayos_encendidos
         color = self.widget.color
         apagado = Paleta.HUD_LINE
@@ -106,14 +86,14 @@ class SolBateriaRenderer(RenderizadorBase):
             coords = self._punto_rayo(i, self.r_on if encendido else self.r_off)
             self.canvas.coords(rayo, *coords)
             self.canvas.itemconfig(rayo, fill=color if encendido else apagado)
-            # El halo solo aparece "encendido": detrás de cada rayo vivo.
+            # El halo solo aparece encendido, detrás de cada rayo vivo.
             self.canvas.coords(halo, *coords)
             self.canvas.itemconfig(
                 halo,
                 fill=color_halo if encendido else Paleta.FONDO_WIDGET,
             )
 
-        # Anillo central: todo encendido si hay energía/carga, tenue si no.
+        # Anillo central: del color del estado si hay energía; tenue si no.
         circulo = self._ids["circulo"]
         color_circulo = color if encendidos > 0 else Paleta.GRIS
         self.canvas.itemconfig(circulo, outline=color_circulo)

@@ -6,11 +6,8 @@
 #include "motores.h"
 
 
-//  Limites fisicos de cada servo
-// Cada servo tiene un rango de movimiento seguro.
-// Si la app envia un angulo fuera de este rango, se rechaza.
-// Estos valores deben coincidir con los limites reales del hardware.
-
+// Rango seguro de cada servo. Un ángulo fuera de rango se rechaza (debe
+// coincidir con los topes reales del hardware).
 struct LimiteServo {
     const char* nombre;
     int minimo;
@@ -27,8 +24,8 @@ static const LimiteServo LIMITES[] = {
 
 static const int CANTIDAD_SERVOS = sizeof(LIMITES) / sizeof(LIMITES[0]);
 
-// Busca el servo por nombre y devuelve true si el angulo esta en rango.
-// Si el servo no existe, devuelve false (rechazamos por seguridad).
+// True si el servo existe y el ángulo está dentro de su rango. Un servo
+// desconocido devuelve false (se rechaza por seguridad).
 static bool anguloValidoParaServo(const char* servo, int angulo) {
 
     for (int i = 0; i < CANTIDAD_SERVOS; i++) {
@@ -42,15 +39,11 @@ static bool anguloValidoParaServo(const char* servo, int angulo) {
 }
 
 
-//  Constructor
-
 Comunicacion::Comunicacion(int puerto)
     : puerto(puerto)
     , servidor(puerto)
     , mensajeEntrante("") {}
 
-
-//  Servidor TCP
 
 void Comunicacion::iniciarServidor() {
 
@@ -60,14 +53,9 @@ void Comunicacion::iniciarServidor() {
 }
 
 
-//  Recepcion de mensajes
-
-// TCP entrega bytes, no mensajes. Por eso acumulamos en 'mensajeEntrante'
-// byte a byte hasta encontrar '\n', que marca el fin de un mensaje completo.
-
 void Comunicacion::escucharCliente() {
 
-    // Paso 1: aceptar conexion si no hay cliente
+    // Acepta una conexión si no hay cliente activo.
     if (!cliente || !cliente.connected()) {
 
         cliente = servidor.available();
@@ -78,36 +66,30 @@ void Comunicacion::escucharCliente() {
         }
     }
 
-    // Si nadie esta conectado, no hay nada que hacer
     if (!cliente || !cliente.connected()) {
         return;
     }
 
-    // Paso 2: leer todos los bytes pendientes
+    // Acumula bytes hasta el '\n' que cierra cada mensaje.
     while (cliente.available() > 0) {
 
         char c = cliente.read();
 
         if (c == '\n') {
 
-            // Mensaje completo: procesarlo
             if (mensajeEntrante.length() > 0) {
                 procesarMensaje(mensajeEntrante);
             }
 
-            // Limpiar buffer para el siguiente mensaje
             mensajeEntrante = "";
 
         } else if (c != '\r') {
-
-            // Ignoramos '\r' (viene de "\r\n") y acumulamos el resto
+            // Ignora el '\r' que puede venir de "\r\n".
             mensajeEntrante += c;
         }
     }
 }
 
-
-//  Envio de mensajes
 
 void Comunicacion::enviarMensaje(const String& mensaje) {
 
@@ -120,14 +102,8 @@ void Comunicacion::enviarMensaje(const String& mensaje) {
 }
 
 
-//  Envio de telemetria (ESP32 -> Python)
-
-// La app Python espera este formato en conexion.py (parseo tolerante):
-//   mensaje["tipo"] == "estado"
-//   bateria, modo, distancia_cm, consumo_watts, conexion_activa
-//   hay_advertencia, hay_error, cargando, tiempo_restante_min
-//   posiciones_servos (objeto con los 5 servos de usuario)
-
+// La app Python (conexion.py) parsea este formato de forma tolerante: los
+// campos que no vienen (o vienen null) no pisan lo que ya sabía.
 void Comunicacion::enviarEstado(float bateria, const String& modo,
                                 bool hay_advertencia, bool hay_error,
                                 float distancia_cm, float consumo_watts,
@@ -147,7 +123,7 @@ void Comunicacion::enviarEstado(float bateria, const String& modo,
     doc["hay_advertencia"]    = hay_advertencia;
     doc["hay_error"]          = hay_error;
 
-    // Distancia negativa = sin lectura (radar apagado o lejos): null.
+    // Distancia negativa = sin lectura: null.
     if (distancia_cm >= 0.0f) {
         doc["distancia_cm"] = distancia_cm;
     } else {
@@ -165,9 +141,7 @@ void Comunicacion::enviarEstado(float bateria, const String& modo,
         doc["tiempo_restante_min"] = nullptr;
     }
 
-    // Posiciones de los servos de usuario. El orden del arreglo coincide
-    // con los canales 0-4 (cuello, hombro_izquierdo, hombro_derecho,
-    // pulgar_izquierdo, pulgar_derecho).
+    // Orden de posiciones_servos, igual al que usa la app.
     static const char* const NOMBRES_SERVOS_ESTADO[] = {
         "cuello", "hombro_izquierdo", "hombro_derecho",
         "pulgar_izquierdo", "pulgar_derecho",
@@ -187,8 +161,6 @@ void Comunicacion::enviarEstado(float bateria, const String& modo,
     enviarMensaje(buffer);
 }
 
-
-//  Envio de logs (ESP32 -> Python)
 
 void Comunicacion::enviarLog(const String& origen, const String& mensaje,
                              const String& nivel) {
@@ -210,16 +182,10 @@ void Comunicacion::enviarLog(const String& origen, const String& mensaje,
 }
 
 
-//  Comando: mover servo
-
-// La app Python envia:
-//   {"tipo":"servo","servo":"cuello","angulo":30}
-//
-// Validamos nombre y angulo (LIMITES[]), y le pedimos a la libreria
-// servos que mueva el servo. Si el módulo está deshabilitado en la
-// prueba aislada, moverServo() igualmente guarda el ángulo para que
-// la telemetría refleje lo que la GUI cree estar mandando.
-
+// {"tipo":"servo","servo":"cuello","angulo":30}
+// Valida nombre y ángulo (LIMITES[]) y delega el movimiento a la librería de
+// servos. Con el módulo deshabilitado, moverServo() igual guarda el ángulo
+// para que la telemetría refleje lo que la GUI cree que mandó.
 void Comunicacion::aplicarComando(const JsonVariantConst& comando) {
 
     const char* tipo = comando["tipo"];
@@ -285,8 +251,8 @@ void Comunicacion::aplicarComando(const JsonVariantConst& comando) {
             return;
         }
 
-        // motores.mover() ignora cualquier dirección no mapeada, y además
-        // no hace nada si el módulo está deshabilitado (prueba aislada).
+        // mover() ignora direcciones no mapeadas y no hace nada si el módulo
+        // está deshabilitado.
         motores.mover(direccion);
 
         Serial.print("Motor -> ");
@@ -295,19 +261,16 @@ void Comunicacion::aplicarComando(const JsonVariantConst& comando) {
     } else {
         Serial.print("Tipo desconocido: ");
         Serial.println(tipo);
-        // Avisamos también al operador en la app (si hay alguien conectado)
-        // para que no sea un fallo silencioso del protocolo.
+        // Avisa también a la app para que un comando no reconocido no sea un
+        // fallo silencioso del protocolo.
         enviarLog("COMANDO",
                   "Comando no reconocido: " + String(tipo), "advertencia");
     }
 }
 
 
-//  Despacho de mensajes
-
-// Recibe un JSON completo. Si "tipo" es "multi", recorre "comandos" y
-// aplica cada uno; si no, aplica el mensaje tal cual.
-
+// Aplica un mensaje completo. Si "tipo" es "multi", recorre "comandos"; si no,
+// aplica el mensaje tal cual.
 void Comunicacion::procesarMensaje(const String& lineaJson) {
 
     StaticJsonDocument<4096> doc;
@@ -320,8 +283,8 @@ void Comunicacion::procesarMensaje(const String& lineaJson) {
         return;
     }
 
-    // Toda orden completa cuenta como "presencia del operador": sirve para
-    // el timeout de seguridad de main.cpp (parar motores en modo manual).
+    // Toda orden válida cuenta como "presencia del operador" para el timeout
+    // de seguridad de main.cpp.
     _ultimaOrdenMs = millis();
 
     const char* tipo = doc["tipo"];
@@ -350,21 +313,15 @@ void Comunicacion::procesarMensaje(const String& lineaJson) {
 }
 
 
-//  Estado de conexion
-
 bool Comunicacion::estaConectado() {
     return cliente && cliente.connected();
 }
 
 
-//  Modo actual
-
 const String& Comunicacion::modo() const {
     return _modoActual;
 }
 
-
-//  Última orden recibida
 
 unsigned long Comunicacion::ultimaOrdenMs() const {
     return _ultimaOrdenMs;

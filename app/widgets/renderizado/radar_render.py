@@ -9,9 +9,9 @@ from .base_render import RenderizadorBase, interpolar_color, scanlines, texto_hu
 
 # Rango máximo de lectura (en cm) para mapear la distancia a la pantalla.
 RANGO_MAX_CM = 200
-# Ángulo (grados) que "lleva" el punto de detección detrás del borde activo.
+# Ángulo (grados) que el punto de detección va por detrás del borde activo.
 RETRASO_PUNTO = 10
-# Ancho (grados) del "filo" brillante que lidera el barrido.
+# Ancho (grados) del filo brillante que lidera el barrido.
 ANCHO_FILO = 4
 
 # Color de los radios y arcos estáticos de la retícula (línea estructural).
@@ -27,23 +27,10 @@ CAPAS_PUNTO = (
 
 
 class RadarRenderer(RenderizadorBase):
-    """
-    Renderer (Tkinter) del radar de barrido.
-
-    Estética holograma de la Nave: retícula azul-espacia, una "cuña" cian
-    que barre de 0° a 180° con un filo brillante al frente y un punto
-    naranja con halo donde se detecta el objeto (más cerca del centro =
-    más lejos; en el borde = muy cerca).
-
-    El barrido se anima en cada dibujar(): se llama a widget.avanzar(),
-    que mueve el ángulo lógico, y con ese ángulo se reconstruye la cuña.
-    Todo lo estático (retícula, scanlines, etiquetas) se crea 1 vez.
-    """
+    """Renderer (Tkinter) del radar de barrido."""
 
     def __init__(self, widget, canvas, cx, cy, radio):
         """
-        Constructor del renderer.
-
         cx, cy: centro del radar (en la base, hacia abajo).
         radio : radio del semicírculo.
         """
@@ -59,7 +46,7 @@ class RadarRenderer(RenderizadorBase):
                 self.cy - math.sin(rad) * radio)
 
     def _dibujar_fondo(self):
-        """Dibuja scanlines, arcos, radios, regla base y etiquetas (1 vez)."""
+        """Dibuja scanlines, arcos, radios, regla base y etiquetas (una vez)."""
         # Pantalla de barrido: líneas horizontales tenues de fondo.
         self._primera_vez(
             "scanlines",
@@ -88,7 +75,7 @@ class RadarRenderer(RenderizadorBase):
             ),
         )
 
-        # Regla base: la línea de suelo del radar con marcas cada 15°.
+        # Regla base: la línea de suelo del radar, con marcas cada 15°.
         self._primera_vez(
             "base",
             lambda: self.canvas.create_line(
@@ -130,7 +117,7 @@ class RadarRenderer(RenderizadorBase):
             )
 
     def _dibujar_barrido(self):
-        """Dibuja (o actualiza) la cuña radiante y su filo brillante."""
+        """Dibuja o actualiza la cuña radiante y su filo brillante."""
         self.widget.avanzar()
         angulo = self.widget.angulo
 
@@ -151,8 +138,8 @@ class RadarRenderer(RenderizadorBase):
         self.canvas.coords(cuna, *puntos)
         self.canvas.itemconfig(cuna, state="normal")
 
-        # Filo: línea viva desde el centro al frente del barrido + punto
-        # luminoso en el rim (lo que hace que se sienta "encendido").
+        # Filo: línea viva del centro al frente del barrido, con un punto
+        # luminoso en el borde que refuerza la sensación de encendido.
         xf, yf = self._punto(a2, self.radio)
         filo = self._primera_vez(
             "filo",
@@ -173,9 +160,8 @@ class RadarRenderer(RenderizadorBase):
         self.canvas.coords(punta, xf - 3, yf - 3, xf + 3, yf + 3)
 
     def _dibujar_punto(self):
-        """Dibuja (o actualiza) el punto naranja con halo del obstáculo."""
+        """Dibuja o actualiza el punto naranja con halo del obstáculo."""
         tiene_objeto = self.widget.hay_obstaculo
-        distancia = self.widget.distancia_cm if tiene_objeto else None
 
         # El halo completo se crea una vez (3 capas apiladas).
         puntos = self._primera_vez(
@@ -193,8 +179,14 @@ class RadarRenderer(RenderizadorBase):
                 self.canvas.itemconfig(pid, state="hidden")
             return
 
+        distancia = self.widget.distancia_cm
+        if distancia is None:
+            for pid in puntos:
+                self.canvas.itemconfig(pid, state="hidden")
+            return
+
         # Más lejos = más cerca del centro; muy cerca = pegado al borde.
-        fraccion = 1 - min(distancia, RANGO_MAX_CM) / RANGO_MAX_CM
+        fraccion = 1 - min(float(distancia), RANGO_MAX_CM) / RANGO_MAX_CM
         radio_punto = self.radio * (0.12 + 0.55 * fraccion)
 
         angulo_punto = self.widget.angulo - RETRASO_PUNTO
@@ -205,7 +197,7 @@ class RadarRenderer(RenderizadorBase):
             self.canvas.itemconfig(pid, state="normal")
 
     def dibujar(self):
-        """Redibuja el radar completo (fondo una vez, barrido y punto cada ciclo)."""
+        """Redibuja el radar: fondo una vez, barrido y punto en cada ciclo."""
         self._dibujar_fondo()
         self._dibujar_barrido()
         self._dibujar_punto()
