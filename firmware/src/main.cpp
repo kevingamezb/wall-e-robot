@@ -2,16 +2,20 @@
 // Kevin Gámez - 13/09/2026
 
 #include <Arduino.h>
+#include <Wire.h>
 #include <WiFi.h>
+#include <ESP32Servo.h>
 #include "esp_task_wdt.h"
 
 #include "config.h"
+#include "pines.h"
 #include "comunicacion.h"
 #include "servos.h"
 #include "motores.h"
 #include "radar.h"
 #include "bateria.h"
 #include "oled.h"
+#include "leds.h"
 
 
 // Instancia única del servidor de comunicación. La logica de negocio
@@ -43,6 +47,20 @@ void setup() {
     esp_task_wdt_init(10, true);
     esp_task_wdt_add(nullptr);
 
+    // I2C compartido (INA219 + OLED). Antes lo iniciaba la PCA9685; ahora
+    // debe hacerse explícito con los pines del proyecto (pines.h).
+    Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+
+    // Reservamos los timers LEDC una sola vez: los usan ESP32Servo (servos)
+    // y ESP32PWM (motores). Sin esto chocan y un servo deja de responder.
+    ESP32PWM::allocateTimer(0);
+    ESP32PWM::allocateTimer(1);
+    ESP32PWM::allocateTimer(2);
+    ESP32PWM::allocateTimer(3);
+
+    // LEDs indicadores (rojo/amarillo; el verde va al riel de 5 V).
+    leds.iniciar();
+
     // ===== 1) Red: el ESP32 crea su propia WiFi (modo AP) =====
     WiFi.mode(WIFI_AP);
     WiFi.softAP(WIFI_AP_SSID, WIFI_AP_CLAVE);
@@ -65,11 +83,6 @@ void setup() {
     }
 
     if (MODULOS.radar) {
-        // El barrido del radar necesita la placa PCA9685 para mover el
-        // servo (canal 5), aunque el modulo de servos esté en 0.
-        if (!MODULOS.servos) {
-            servos.iniciar();   // solo inicia la PCA9685, sin servos de usuario
-        }
         radar.iniciar();
         Serial.println("MODULO radar    = activo");
     } else {
@@ -140,8 +153,7 @@ void loop() {
 
     // 4) Sensores periódicos
     if (MODULOS.radar) {
-        radar.actualizar();          // máquina de estados del HC-SR04
-        barridoRadar.actualizar();   // mueve el servo del radar de a poco
+        radar.actualizar();          // máquina de estados del HC-SR04 (fijo)
     }
 
     if (MODULOS.bateria &&
@@ -163,6 +175,9 @@ void loop() {
 
         // Error critico: batería al borde (mismo criterio que el simulador).
         bool error = MODULOS.bateria && bateria.nivel() < 0.10f;
+
+        // LEDs indicadores: rojo = alerta, amarillo = funcionando.
+        leds.actualizar(advertencia, error);
 
         // Posiciones de los servos: siempre se mandan las últimas ordenes
         // que vino de la app (aunque el flag del módulo esté en 0).
