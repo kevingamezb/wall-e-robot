@@ -171,10 +171,10 @@ Al arrancar, el ESP32 imprime en el monitor algo así:
 AP iniciada: SSID='WALL-E' IP=192.168.4.1
 Servidor TCP listo en puerto 8080
 MODULO servos    = activo
-MODULO radar     = activo
-MODULO bateria   = INACTIVO (flag=0)
-MODULO motores   = INACTIVO (flag=0)
-MODULO oled      = INACTIVO (flag=0)
+MODULO radar     = INACTIVO (flag=0)
+MODULO bateria   = activo
+MODULO motores   = activo
+MODULO oled      = activo
 Setup completo.
 ```
 
@@ -190,29 +190,29 @@ módulo está cableado/activo en esta prueba, y en **0** si no. Se cambian a man
 
 ```cpp
 typedef struct {
-    bool servos;   // PCA9685 + servos de usuario (canales 0-4)
-    bool radar;    // HC-SR04 + servo de barrido (canal 5)
+    bool servos;   // 3 servos MG90S directos a GPIO (2 brazos + cuello)
+    bool radar;    // HC-SR04 fijo al frente (sin servo de barrido)
     bool bateria;  // INA219 (voltaje/corriente)
-    bool oled;     // SSD1306 0.96" (se dejó apagado en la 1ª entrega)
-    bool motores;  // L298N, 2 motores CC (d-pad)
+    bool oled;     // SSD1306 0.96"
+    bool motores;  // TB6612FNG, 2 motores CC (d-pad)
 } ModulosActivos;
 
-static const ModulosActivos MODULOS = { true, true, false, false, false };
+static const ModulosActivos MODULOS = { true, false, true, true, true };
 ```
 
-**Configuración de fábrica (1ª entrega):** `servos` y `radar` activos; `bateria`, `oled` y
-`motores` en 0.
+**Configuración actual:** `servos`, `bateria`, `oled` y `motores` activos; `radar` en 0 hasta
+conectar el HC-SR04.
 
 **Reglas de comportamiento:**
 
 - Un módulo en **0** no se inicializa, no se mueve ni se lee, y **la GUI ve valores neutros**
   (batería 1.0, consumo 0.0, distancia sin lectura). Así el panel no grita alertas falsas
   por hardware que no está conectado.
-- Los servos tienen su propio listado `SERVOS_ACTIVOS[]` (mismo orden que los canales 0-4):
-  `cuello, hombro_izquierdo, hombro_derecho, pulgar_izquierdo, pulgar_derecho`.
-  Incluso con un servo en 0, la telemetría manda el ángulo que la GUI cree que se pidió.
-- El **servo del radar (canal 5)** es autónomo: lo mueve el firmware en el barrido −45 a +45
-  grados. NO se le puede ordenar desde la app, y no va en `SERVOS_ACTIVOS[]`.
+- Los servos tienen su propio listado `SERVOS_ACTIVOS[]` (mismo orden que la app):
+  `cuello, hombro_izquierdo, hombro_derecho, pulgar_izquierdo, pulgar_derecho`. El hardware real solo
+  trae 3 servos (cuello + 2 brazos): los pulgares están en 0 y no se mueven, pero su nombre sigue en
+  el protocolo. Incluso con un servo en 0, la telemetría manda el ángulo que la GUI cree que se pidió.
+- El **HC-SR04** va fijo mirando al frente: no hay servo de barrido ni canal de radar.
 
 ### 5.1 Procedimiento genérico de prueba de un módulo
 
@@ -227,15 +227,16 @@ static const ModulosActivos MODULOS = { true, true, false, false, false };
 
 | Módulo | Cómo probarlo | Qué se espera |
 |---|---|---|
-| **Servos** (flag `servos=1`) | Mover el deslizador del **cuello** y los **pulgares** en la GUI; presionar **REPOSO**. | Los servos se mueven suaves. Serial: `Servo 'cuello' -> 30 grados.` |
-| **Motores** (flag `motores=1`) | Mantener el d-pad en direcciones: **arriba / abajo / izquierda / derecha**. | Las 2 ruedas giran: adelante, atrás, y giro en el sitio. Serial: `Motor -> arriba`. Las velocidades suben/bajan con rampa (sin tirón). **Seguridad:** si en modo manual no llega un comando en ~2 s, los motores se detienen solos con log `SEGURIDAD` ("Sin comando del operador..."). |
-| **Radar** (flags `servos=1, radar=1`) | Poner la mano frente al sensor a < 15 cm. | El servo del radar barre solo; al acercar la mano aparece la **advertencia** en la GUI y el log `Obstáculo muy cerca: X.Xcm`. |
-| **Batería** (flag `bateria=1`) | Mirar el Sol de batería y el consumo con el robot alimentado y en reposo/operando. | El nivel se calcula del voltaje medido por el INA219 y baja conforme se descarga la batería. Log crítico (rojo) si el nivel cae por debajo de 0.10. |
+| **Servos** (flag `servos=1`) | Mover el deslizador del **cuello** y los **hombros** en la GUI; presionar **REPOSO**. | El cuello y los 2 brazos se mueven suaves (10°..170°). Los pulgares no tienen servo y no se mueven. Serial: `Servo 'cuello' -> 30 grados.` |
+| **Motores** (flag `motores=1`) | Mantener el d-pad en direcciones: **arriba / abajo / izquierda / derecha**. | Las 2 ruedas giran: adelante, atrás, y giro en el sitio (a ~70 % de PWM, por ser motores de 6 V). Serial: `Motor -> arriba`. Las velocidades suben/bajan con rampa (sin tirón). **Seguridad:** si en modo manual no llega un comando en ~2 s, los motores se detienen solos con log `SEGURIDAD` ("Sin comando del operador..."). |
+| **Radar** (flag `radar=1`) | Poner la mano frente al sensor (fijo al frente) a < 15 cm. | Al acercar la mano aparece la **advertencia** en la GUI, se enciende el LED **rojo** y sale el log `Obstáculo muy cerca: X.Xcm`. |
+| **Batería** (flag `bateria=1`) | Mirar el Sol de batería y el consumo con el robot alimentado y en reposo/operando. | El nivel se calcula del voltaje medido por el INA219 y baja conforme se descarga la batería. Log crítico (rojo) y LED **rojo** si el nivel cae por debajo de 0.10 (< ~6,8 V). |
 | **OLED** (flag `oled=1`) | Ninguna acción extra. | La pantalla 0.96" muestra BAT / DIS / MODO / CONECTADO. |
+| **LEDs** (siempre) | Ninguna acción extra. | Amarillo encendido cuando todo está normal; rojo cuando hay advertencia o error. El verde de encendido va directo al riel de 5 V. |
 
 > **IMPORTANTE — cables todavía sin confirmar:** los pines de `firmware/include/pines.h` y el
-> sentido A/B de las ruedas del L298N son **propuesta de arranque**. Antes de la primera prueba
-> de motores, verificar: qué rueda es A y cuál B (IN1/IN2 vs IN3/IN4) y que girar "arriba"
+> sentido A/B de las ruedas del TB6612FNG son **propuesta de arranque**. Antes de la primera prueba
+> de motores, verificar: qué rueda es A y cuál B (AIN1/AIN2 vs BIN1/BIN2) y que girar "arriba"
 > mueve el robot hacia adelante. Si sale al revés, se canjea A↔B en `lib/motores/motores.cpp`.
 
 ### 5.3 Cableado resumido (según `pines.h`)
@@ -243,14 +244,16 @@ static const ModulosActivos MODULOS = { true, true, false, false, false };
 | Señal | Pin ESP32 |
 |---|---|
 | I2C SDA / SCL | 21 / 22 |
-| HC-SR04 TRIG / ECHO | 5 / 18 |
-| L298N IN1..IN4 / ENA / ENB | 13, 12, 14, 27 / 26 / 25 |
+| HC-SR04 TRIG / ECHO | 17 / 16 (ECHO con divisor 1k/2k) |
+| TB6612 PWMA / AIN1 / AIN2 (izq.) | 25 / 26 / 27 |
+| TB6612 PWMB / BIN1 / BIN2 (der.) | 33 / 32 / 14 |
+| TB6612 STBY | 4 (HIGH habilita) |
+| Servo brazo izq. / brazo der. / cuello | 18 / 19 / 23 |
+| LED rojo / amarillo | 13 / 2 |
 
-- PCA9685 en dirección **0x41** (puente A0 soldado; de fábrica viene en 0x40).
-- INA219 en dirección **0x40** (sin puentes).
-- Canales PCA9685: 0 cuello, 1 hombro_izquierdo, 2 hombro_derecho, 3 pulgar_izquierdo,
-  4 pulgar_derecho, **5 radar**.
-- Fuente externa para los servos; GND común con el ESP32.
+- INA219 en dirección **0x40** y OLED en **0x3C** (sin puentes).
+- Servos alimentados por un buck de 5 V; motores por el buck del TB6612 (`VM`); GND común con el ESP32.
+- **Nunca** meter 5 V a un GPIO: el ECHO del HC-SR04 pasa por un divisor de 1 kΩ / 2 kΩ.
 
 ---
 
@@ -317,8 +320,9 @@ no llenar el Logger de repeticiones.
 | Monitor serial no da la línea "AP iniciada..." | Bajar la velocidad del monitor a **115200**; revisar el puerto USB (Upload). |
 | "No se pudo conectar" en la GUI | El PC no está en la red **WALL-E**, el ESP32 no arrancó, o la IP no es `192.168.4.1`. Revisar Serial. |
 | La GUI no marca falso el hardware ausente | Un módulo en **0** reporta neutro; si algo alerta sin hardware, revisar que su flag esté en 0. |
-| Un servo no se mueve | Verificar fuente externa de 5-6V para servos, GND común, y el puente A0 del PCA9685 (0x41). |
-| Las ruedas giran al revés / invertidas | Cangejar A↔B en `lib/motores/motores.cpp` y confirmar ruedas en `pines.h`. |
+| Un servo no se mueve | Verificar la alimentación de 5 V (buck) y el GND común, y que `servos` esté en 1 en `config.h`. Recuerda: los pulgares no tienen servo físico. |
+| Los motores no giran | Revisar que `STBY` del TB6612 esté en HIGH y que `motores=1`. El amarillo encendido confirma que el setup terminó. |
+| Las ruedas giran al revés / invertidas | Intercambiar A↔B en `lib/motores/motores.cpp` y confirmar ruedas en `pines.h`. |
 | WARNING "Ignore unknown configuration option `monitor_filter`" | Inofensivo: el pio local no reconoce esa clave opcional. Ignorar. |
 
 ---
@@ -333,7 +337,7 @@ no llenar el Logger de repeticiones.
 - [ ] Con el gamepad conectado al simulador, el teclado mueve el estado (flechas reproducen el comando motor; Q/A mueven el cuello; abrir mano dispara una vez).
 
 **Lado firmware aislado:**
-- [ ] Firma con solo `servos=1`: deslizadores mueven cuello y pulgares; REPOSO los centra.
+- [ ] Firma con solo `servos=1`: deslizadores mueven el cuello y los hombros; REPOSO los centra.
 - [ ] Solo `motores=1`: d-pad mueve las ruedas en las 4 direcciones.
-- [ ] `radar=1` (+ servos=1): el servo del radar barre solo y la mano cerca (< 15 cm) dispara advertencia.
+- [ ] `radar=1`: el HC-SR04 fijo detecta y la mano cerca (< 15 cm) dispara advertencia y enciende el LED rojo.
 - [ ] La GUI conectada a `192.168.4.1` muestra el estado real (no neutro) de los módulos activos.

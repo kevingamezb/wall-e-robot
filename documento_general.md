@@ -14,15 +14,16 @@
 
 ## 1. Qué es el proyecto
 
-Un robot Wall-E con mínimo 6 servos articulados (cuello, hombros, pulgares, radar) capaz de:
+Un robot Wall-E con servos articulados (cuello y 2 brazos) y radar de ultrasonido fijo, capaz de:
 
 - Moverse de forma autónoma evadiendo obstáculos y detectando huecos en el piso.
 - Ser controlado manualmente desde una app de PC vía WiFi.
 - Mostrar su estado (batería, modo, sensores) en una pantalla con estética inspirada en la película.
 - Apagarse de forma segura y vigilar su propio consumo energético.
 
-**Hardware:** ESP32 (WiFi integrado), driver PCA9685 para servos (dir. 0x41), fuente separada para servos,
-INA219 para consumo real (dir. 0x40), OLED I2C 0.96" (aún off), HC-SR04 (radar), L298N con 2 motores CC.
+**Hardware:** ESP32 (WiFi integrado), 3 servos MG90S conectados directo a GPIO con fuente aparte (buck de
+5 V), driver TB6612FNG con 2 motores CC, INA219 para consumo real (dir. 0x40), OLED I2C 0.96" (dir. 0x3C),
+HC-SR04 (radar fijo al frente) y 2 LEDs indicadores (rojo/amarillo; el verde va al riel de 5 V).
 **Software PC:** app Python con Tkinter (interfaz gráfica), particionada en lógica + renderer.
 **Software ESP32:** firmware en C++ (PlatformIO), con pruebas aisladas por módulo (flags en `config.h`).
 **Comunicación:** WiFi/TCP, JSON una línea por mensaje. El ESP32 actúa en **modo AP** (red `WALL-E`).
@@ -108,11 +109,12 @@ Nunca conoce `EstadoRobot`, widgets ni Tkinter. Está dividido en **una librerí
 `lib/` y orquestada por `src/main.cpp`, un loop **no bloqueante** (`millis()`, sin `delay()`):
 
 - `lib/comunicacion` — servidor TCP + JSON: comandos `servo`, `modo`, `motor`, `multi`; telemetría ampliada.
-- `lib/servos` — PCA9685 (0x41), nombre→canal, canal 5 = radar.
-- `lib/motores` — L298N diferencial (arriba/abajo/izquierda/derecha).
-- `lib/radar` — HC-SR04 no bloqueante (máquina de estados por `micros()`) + barrido del servo-radar.
+- `lib/servos` — 3 servos MG90S (ESP32Servo), nombre→servo físico, centro 0°→90° y clamp 10..170°.
+- `lib/motores` — TB6612FNG diferencial (arriba/abajo/izquierda/derecha), PWM por ESP32PWM + STBY.
+- `lib/radar` — HC-SR04 no bloqueante (máquina de estados por `micros()`), sensor fijo al frente.
 - `lib/bateria` — INA219 (0x40): nivel, corriente, watts, estimación de minutos.
-- `lib/oled` — SSD1306 (código listo, flag `oled=0` en la 1ª entrega).
+- `lib/oled` — SSD1306 (0x3C): estado, batería, distancia y modo.
+- `lib/leds` — 2 LEDs indicadores de estado (rojo = alerta, amarillo = funcionando).
 
 Cada módulo se activa con su flag en `include/config.h`. Con el flag en **0**, el módulo no se toca y la
 telemetría manda valores neutros (baterías 1.0, consumo 0.0, distancia `null`) para que la GUI no grite
@@ -153,19 +155,20 @@ wall-e-robot/
 │   │   └── iconos/          ⬜ vacío      # sin PNG: los íconos se dibujan por código
 │   ├── main.py              ✅ hecho      # arranca la GUI: SIMULADOR → CONECTAR(IP) → DESCONECTAR
 │   └── (sin requirements.txt — solo stdlib: tkinter, socket, json, random, time)
-├── firmware/                            # ESP32 (PlatformIO) — COMPILA (Flash ~60%, RAM ~14%)
+├── firmware/                            # ESP32 (PlatformIO) — COMPILA (Flash ~62%, RAM ~14%)
 │   ├── include/
-│   │   ├── pines.h          ✅ hecho     # GPIO, I2C (PCA9685 0x41, INA219 0x40), canales servo 0-4 + radar 5
+│   │   ├── pines.h          ✅ hecho     # GPIO: I2C (INA219 0x40, OLED 0x3C), TB6612, 3 servos, HC-SR04 y LEDs
 │   │   └── config.h         ✅ hecho     # MODULOS (flags 0/1 de pruebas aisladas), AP WALL-E, umbrales y periodos
-│   ├── src/main.cpp         ✅ hecho     # loop no bloqueante millis(); AP; init de módulos por flag; telemetría 500ms
+│   ├── src/main.cpp         ✅ hecho     # loop no bloqueante millis(); AP; Wire.begin; init de módulos por flag; LEDs; telemetría 500ms
 │   ├── lib/
 │   │   ├── comunicacion/    ✅ hecho     # servidor TCP; servo/modo/motor/multi; enviarEstado() ampliado; modo()
-│   │   ├── servos/          ✅ hecho     # PCA9685, nombre→canal, moverRadar() (canal 5), angulosUsuario()
-│   │   ├── motores/         ✅ hecho     # L298N diferencial (arriba/abajo/izquierda/derecha)
-│   │   ├── radar/           ✅ hecho     # HC-SR04 no bloqueante + BarridoRadar (-45..45°)
+│   │   ├── servos/          ✅ hecho     # 3 servos MG90S (ESP32Servo), nombre→servo físico, angulosUsuario()
+│   │   ├── motores/         ✅ hecho     # TB6612FNG diferencial (arriba/abajo/izquierda/derecha), ESP32PWM + STBY
+│   │   ├── radar/           ✅ hecho     # HC-SR04 no bloqueante (sensor fijo al frente)
 │   │   ├── bateria/         ✅ hecho     # INA219: nivel, corriente, watts, minutos restantes
-│   │   └── oled/            ✅ hecho     # SSD1306 (flag oled=0 por ahora; código listo)
-│   └── platformio.ini       ✅ hecho     # libs Adafruit (Servo Driver, INA219, SSD1306/GFX) + ArduinoJson + -Iinclude
+│   │   ├── oled/            ✅ hecho     # SSD1306: estado, batería, distancia y modo
+│   │   └── leds/            ✅ hecho     # 2 LEDs indicadores (rojo alerta / amarillo funcionando)
+│   └── platformio.ini       ✅ hecho     # ESP32Servo + Adafruit (INA219, SSD1306/GFX) + ArduinoJson + -Iinclude
 ├── pruebas/
 │   └── guia_de_pruebas.md   ✅ hecho     # cómo operar cajones, GUI simulado y pruebas aisladas de hardware
 ├── walle_demo.html                     # MOCKUP visual (NO es la app real; no refleja la pantalla única)
@@ -202,7 +205,8 @@ documentos de referencia, deben usar estos nombres.
   consumo_watts, conexion_activa, cargando, tiempo_restante_min, posiciones_servos`.
   `distancia_cm` y `tiempo_restante_min` se mandan `null` cuando no hay lectura/estimación.
 - **Límites calibrados en firmware** (`comunicacion.cpp` `LIMITES[]`), iguales al mockup: cuello ±70°,
-  hombros ±50°, pulgares ±22°. El canal 5 (radar) queda fuera de `LIMITES[]` y gira autónomo.
+  hombros ±50°, pulgares ±22°. El radar no está en `LIMITES[]` (es un sensor fijo y no recibe comandos de la
+  app); los pulgares siguen por compatibilidad con la app, pero no tienen servo físico y se ignoran.
 - **Módulos (`config.h`):** flags de pruebas aisladas; módulo en 0 = no se inicializa y telemetría neutra.
 
 ---
@@ -251,7 +255,7 @@ Fases del plan, con su estado **al 13/09/2026**:
 | 2 · Conexión | `Conexion` (ABC), `ComunicacionSimulada`, `Comunicacion` (TCP), `ConexionOffline` | ✅ **Hecho** |
 | 3 · Interfaz gráfica | Widgets lógicos + renderers + pantalla única + `main.py` | ✅ **Hecho** (pruebas en `pruebas/`) |
 | 4 · Lectura de sensores | Primer contacto con hardware real (ESP32 → PC) | 🔶 **Parcial**: radar (HC-SR04) y batería (INA219) leídos en firmware; falta integrar y calibrar |
-| 5 · Movimiento de servos/motores | GUI → ESP32 real, servos físicos | 🔶 **Parcial**: servos (PCA9685) y motores (L298N) implementados; **pendiente verificar cableado y dirección A/B de ruedas** |
+| 5 · Movimiento de servos/motores | GUI → ESP32 real, servos físicos | 🔶 **Parcial**: servos (ESP32Servo) y motores (TB6612FNG) implementados; **pendiente verificar cableado y dirección A/B de ruedas** |
 | 6 · Modo automático | Máquina de estados de evasión en ESP32 | ⬜ Pendiente |
 
 **En paralelo (hardware/mecánico):** diseño 3D → cableado → integración → pulido. El software no se
@@ -266,7 +270,7 @@ bloquea por el hardware: la interfaz se termina aparte con `ComunicacionSimulada
 1. **Modo automático en el firmware** (`src/main.cpp`): evasión por estados, aplicar la histéresis
    auto↔manual (`TIEMPO_MANUAL_TIMEOUT_MS`) y detener/evitar los motores ante obstáculo cercano.
 2. **Confirmar cableado real y direcciones de motores**: los pines de `pines.h` son propuesta de
-   arranque; verificar qué rueda es A/B en el L298N y que "arriba" avance hacia adelante.
+   arranque; verificar qué rueda es A/B en el TB6612FNG y que "arriba" avance hacia adelante.
 3. **Calibración fina**: umbrales de batería (`BATERIA_VOLTAJE_MIN/MAX`, `CAPACIDAD_MAH`) contra el
    pack real; límites `LIMITES[]` contra las piezas impresas; `UMBRAL_OBSTACULO_CM` según el entorno.
 4. **Activar el OLED** (flag `oled` → 1 en `config.h`) cuando la pantalla 0.96" esté cableada.
@@ -282,7 +286,7 @@ bloquea por el hardware: la interfaz se termina aparte con `ComunicacionSimulada
 2. **Servos de los "ojos"**: el hardware los marca opcional/recomendado; en `PosicionServos` están
    comentados con "Aún no se ha decidido".
 3. **Seguridad del movimiento**: en modo automático, política exacta para detener motores ante
-   obstáculo (freno del L298N vs. giro) — a definir con la mecánica.
+   obstáculo (freno del TB6612FNG vs. giro) — a definir con la mecánica.
 
 ### 7.3 Calibraciones (valores de arranque, no definitivos)
 
