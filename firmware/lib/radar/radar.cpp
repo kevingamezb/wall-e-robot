@@ -2,7 +2,6 @@
 // Kevin Gámez - 13/09/2026
 
 #include "radar.h"
-#include "servos.h"
 #include "config.h"
 #include "pines.h"
 
@@ -15,7 +14,6 @@ static const float MAX_DISTANCIA_CM           = 400.0f; // filtrar ruido lejano
 
 
 Radar radar(PIN_RADAR_TRIG, PIN_RADAR_ECHO);
-BarridoRadar barridoRadar;
 
 
 Radar::Radar(uint8_t pinTrig, uint8_t pinEcho)
@@ -124,45 +122,4 @@ float Radar::distanciaCm() const {
 
 bool Radar::obstaculoCercano(float umbralCm) const {
     return _distanciaCm >= 0.0f && _distanciaCm <= umbralCm;
-}
-
-
-// =========================== Barrido del radar ===========================
-
-BarridoRadar::BarridoRadar()
-    : _angulo(RADAR_SERVO_GRAUS_MIN)
-    , _paso(3)
-    , _ultimoPasoMs(0)
-    , _activo(MODULOS.radar) {}   // si el módulo radar está apagado, no barrer
-
-
-void BarridoRadar::actualizar() {
-
-    if (!_activo) {
-        return;
-    }
-
-    uint32_t ahoraMs = millis();
-    if ((ahoraMs - _ultimoPasoMs) < PASO_BARRIDO_MS) {
-        return;   // aún no toca avanzar el barrido
-    }
-
-    _ultimoPasoMs = ahoraMs;
-    _angulo += _paso;
-
-    // Rebote en los extremos y vuelve al revés.
-    if (_angulo >= RADAR_SERVO_GRAUS_MAX) {
-        _angulo = RADAR_SERVO_GRAUS_MAX;
-        _paso = -abs(_paso);
-    } else if (_angulo <= RADAR_SERVO_GRAUS_MIN) {
-        _angulo = RADAR_SERVO_GRAUS_MIN;
-        _paso = abs(_paso);
-    }
-
-    servos.moverRadar(_angulo);
-}
-
-
-bool BarridoRadar::estaActivo() const {
-    return _activo;
 }

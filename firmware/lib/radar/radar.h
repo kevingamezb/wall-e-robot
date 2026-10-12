@@ -18,13 +18,12 @@
  *                       -> (si sube) MEDIDO
  *      MEDIDO         -> esperar que baje ECO, calcular cm -> ESPERANDO
  *
- *  El propio barrido del servo (ángulo -45..45 yendo y volviendo) vive
- *  aquí en BarridoRadar(), que llama a servos.moverRadar(). Así main.cpp
- *  solo tiene que llamar hasta_actualizar() en cada vuelta del loop().
+ *  En este hardware el sensor va FIJO mirando al frente: no hay servo de
+ *  barrido. main.cpp solo tiene que llamar actualizar() en cada vuelta.
  *
  *  Reglas de la versión de pruebas aisladas:
  *   - Nada se inicializa si MODULOS.radar == 0.
- *   - distanciaCm() devuelve -1 (sin lectura) si no hay placa/sensor.
+ *   - distanciaCm() devuelve -1 (sin lectura) si no hay sensor.
  */
 
 class Radar {
@@ -59,9 +58,6 @@ private:
         FASE_MIDIENDO_ECO,      // esperando borde descendente del ECO
     };
 
-    // mide distancia desde el ciclo que empezó en FASE_PULSO_ENVIADO.
-    void _medir();
-
     uint8_t _pinTrig;
     uint8_t _pinEcho;
 
@@ -75,25 +71,7 @@ private:
     uint32_t _ultimaLecturaMs;  // último ciclo de medición completo (para el intervalo)
 };
 
-
-// Barrido autónomo del servo del radar sobre CANAL_RADAR.
-class BarridoRadar {
-
-public:
-
-    BarridoRadar();
-    void actualizar();
-    bool estaActivo() const;
-
-private:
-    int      _angulo;
-    int      _paso;           // +3 / -3 grados por avance
-    uint32_t _ultimoPasoMs;
-    bool     _activo;         // false si el radar está deshabilitado
-};
-
-// Instancias únicas globales (main.cpp).
+// Instancia única global (main.cpp).
 extern Radar radar;
-extern BarridoRadar barridoRadar;
 
 #endif // RADAR_H
