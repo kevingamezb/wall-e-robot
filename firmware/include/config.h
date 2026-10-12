@@ -6,7 +6,6 @@
 
 #include <Arduino.h>
 
-// ============================================================
 // MODULOS: el "interruptor" de pruebas aisladas.
 //
 // 1 = el módulo está cableado/activo en esta prueba.
@@ -15,25 +14,22 @@
 //
 // Cambiada estas variables para probar SOLO lo que haya
 // conectado en el banco, sin tocar el resto del código.
-// ============================================================
+
 typedef struct {
-    bool servos;   // PCA9685 + servos de usuario (canales 0-4)
-    bool radar;    // HC-SR04 + servo de barrido (canal 5)
+    bool servos;   // 3 servos MG90S directos a GPIO (2 brazos + cuello)
+    bool radar;    // HC-SR04 fijo al frente (sin servo de barrido)
     bool bateria;  // INA219 (voltaje/corriente)
-    bool oled;     // SSD1306 0.96" (se deja apagado en la 1ª entrega)
-    bool motores;  // L298N, 2 motores CC (d-pad)
+    bool oled;     // SSD1306 0.96"
+    bool motores;  // TB6612FNG, 2 motores CC (d-pad)
 } ModulosActivos;
 
-static const ModulosActivos MODULOS = { true, true, false, false, false };
+static const ModulosActivos MODULOS = { true, false, true, true, true };
 
-// --- Habilitación por servo de usuario (mismo orden que los canales 0-4) ---
+// --- Habilitación por servo de usuario (mismo orden que la app) ---
 // cuello, hombro_izquierdo, hombro_derecho, pulgar_izquierdo, pulgar_derecho.
-// El servo del radar (canal 5) NO va aquí: lo gobierna el firmware en el
-// barrido autónomo (ver CANAL_RADAR), no recibe comandos "servo" de la app.
-static const bool SERVOS_ACTIVOS[] = { true, true, true, true, true };
-
-// --- Canales de la PCA9685 ---
-static const uint8_t CANAL_RADAR = 5;
+// El hardware real solo trae 3 servos (cuello + los 2 brazos): los pulgares
+// quedan en 0, pero su nombre sigue vivo en el protocolo para no tocar la app.
+static const bool SERVOS_ACTIVOS[] = { true, true, true, false, false };
 
 // --- Red (modo AP: el ESP32 crea su propia red) ---
 static const char* WIFI_AP_SSID        = "WALL-E";
@@ -46,11 +42,6 @@ static const float   UMBRAL_OBSTACULO_CM  = 15.0;   // "obstáculo cercano"
 // comando de la app en este tiempo, se detienen los motores (seguridad)
 // y el robot puede volver a modo automático (histéresis auto->manual).
 static const int     TIEMPO_MANUAL_TIMEOUT_MS = 2000;
-
-// --- Barrido del servo del radar ---
-static const int      RADAR_SERVO_GRAUS_MIN = -45;
-static const int      RADAR_SERVO_GRAUS_MAX = 45;
-static const uint32_t PASO_BARRIDO_MS       = 50;
 
 // --- Periodos de telemetría (loop no bloqueante por millis()) ---
 static const uint32_t ENVIO_ESTADO_MS      = 500;
