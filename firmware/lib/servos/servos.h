@@ -5,56 +5,61 @@
 #define SERVOS_H
 
 #include <Arduino.h>
-#include <Adafruit_PWMServoDriver.h>
+#include <ESP32Servo.h>
 
 /*
- *  Servos: capa limpia sobre la PCA9685 para los 5 servos de
- *  usuario + el servo del radar.
+ *  Servos: capa limpia sobre 3 servos MG90S conectados directo a GPIO.
  *
- *  - Traduce el nombre que manda la app ("cuello", "pulgar_izquierdo"...)
- *    al canal físico de la placa (MAPA_SERVOS[]).
+ *  - Traduce el nombre que manda la app ("cuello", "hombro_izquierdo"...)
+ *    al servo físico (MAPA_SERVOS[] en servos.cpp).
  *  - Respeta SERVOS_ACTIVOS[]: cada servo se mueve solo si su flag
  *    está en 1 (pruebas aisladas).
  *  - Guarda SIEMPRE el último ángulo comandado aunque el servo esté
  *    inactivo, para que la telemetría (enviarEstado) refleje lo que
  *    la GUI cree que está mandando.
  *
- *  El servo del radar (CANAL_RADAR) es aparte: no aparece en
- *  MAPA_SERVOS porque no es una articulación de usuario. Se mueve
- *  con moverRadar(), que llama el firmware en su barrido autónomo.
+ *  El hardware real no trae pulgares ni servo de radar: esos nombres
+ *  se aceptan (para no romper el protocolo de la app) pero no mueven
+ *  nada.
  */
 
 class Servos {
 
 public:
 
-    static const int CANTIDAD = 5;   // cuántos servos de usuario hay
+    static const int CANTIDAD        = 5;   // servos que reporta la app
+    static const int CANTIDAD_FISICA = 3;   // servos realmente cableados
 
     Servos();
 
-    // Inicia la placa (llamar solo si MODULOS.servos o radar está activo).
-    // Si no se llama, moverServo()/moverRadar() solo guardan el ángulo.
+    // Configura los 3 servos (llamar solo si MODULOS.servos está activo).
+    // Si no se llama, moverServo() solo guarda el ángulo.
     void iniciar();
 
     // Mueve un servo de usuario por nombre (lo que manda "{"tipo":"servo"}").
     void moverServo(const char* nombre, int angulo);
-
-    // Mueve el servo del radar (canal 5). No depende de SERVOS_ACTIVOS,
-    // si no de que la placa esté iniciada (MODULOS.radar o servos).
-    void moverRadar(int angulo);
 
     // Copia los ángulos actuales (últimos comandados) al arreglo destino.
     void angulosUsuario(int destino[CANTIDAD]) const;
 
 private:
 
-    uint8_t canalDe(const char* nombre) const;
-    bool    habilitado(uint8_t canal) const;
-    void    escribirPulso(uint8_t canal, int angulo);
+    // Orden del arreglo _servos[] y de SERVOS_ACTIVOS[].
+    enum IndiceServo {
+        IDX_CUELLO = 0,
+        IDX_HOMBRO_IZQ,
+        IDX_HOMBRO_DER,
+        IDX_PULGAR_IZQ,
+        IDX_PULGAR_DER,
+    };
 
-    Adafruit_PWMServoDriver _placa;
-    bool   _placaLista;
-    int    _angulos[CANTIDAD];
+    int  indiceDe(const char* nombre) const;
+    bool habilitado(int indice) const;
+    void escribirServo(int indice, int angulo);
+
+    Servo _servos[CANTIDAD_FISICA];
+    bool  _listo;
+    int   _angulos[CANTIDAD];
 };
 
 // Instancia única global (la usan comunicacion.cpp y main.cpp).
