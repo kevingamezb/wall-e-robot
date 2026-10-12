@@ -18,15 +18,13 @@
 #include "leds.h"
 
 
-// main() solo orquesta: la red y el JSON viven en Comunicacion.
 Comunicacion comunicacion(PUERTO_SERVIDOR);
 
 // Marcas de tiempo del loop no bloqueante.
 static uint32_t s_ultimaEnvioMs   = 0;
 static uint32_t s_ultimaBateriaMs = 0;
 
-// Estado anterior de las alertas: permite loguear solo la transición a la
-// alerta, no cada envío mientras persiste.
+// Estado anterior de las alertas
 static bool s_advertenciaAnterior = false;
 static bool s_errorAnterior       = false;
 
@@ -37,11 +35,9 @@ static bool s_timeoutAvisado = false;
 void setup() {
 
     Serial.begin(115200);
-    delay(300);   // deja que el monitor USB termine de arrancar
+    delay(300);
 
-    // Watchdog: si el loop se cuelga (p.ej. un periférico trabado en I2C), el
-    // ESP32 se reinicia solo. Timeout largo para no interferir con el flasheo;
-    // panic activado para forzar el reset ante bloqueo.
+    // Si el loop se cuelga ESP32 se reinicia solo.
     esp_task_wdt_init(10, true);
     esp_task_wdt_add(nullptr);
 
@@ -111,19 +107,17 @@ void setup() {
 // Loop principal.
 // Sin delay(): todo avanza por intervalos de millis() para que la red, el
 // radar (HC-SR04) y los servos no se congelen entre sí.
-
 void loop() {
 
     uint32_t ahoraMs = millis();
 
     esp_task_wdt_reset();   // "sigo vivo": si el loop se traba, deja de llegar
 
-    // 1) Red: atiende al PC conectado y procesa sus comandos
+    // Red
     comunicacion.escucharCliente();
 
-    // 2) Seguridad: en modo manual, si el operador deja de mandar comandos, se
-    //    detienen los motores. El aviso sale una sola vez y se rearma cuando
-    //    vuelve el flujo de comandos.
+    // Seguridad: en modo manual, si el operador deja de mandar comandos, se
+    // detienen los motores.
     if (MODULOS.motores && comunicacion.modo() == "manual" &&
         (ahoraMs - comunicacion.ultimaOrdenMs()
          > (unsigned long)TIEMPO_MANUAL_TIMEOUT_MS)) {
@@ -140,12 +134,12 @@ void loop() {
         s_timeoutAvisado = false;
     }
 
-    // 3) Rampa de los motores (frenado/acelerado suaves)
+    // Rampa de los motores
     if (MODULOS.motores) {
         motores.actualizar();
     }
 
-    // 4) Sensores periódicos
+    // Sensores periódicos
     if (MODULOS.radar) {
         radar.actualizar();
     }
@@ -156,7 +150,7 @@ void loop() {
         s_ultimaBateriaMs = ahoraMs;
     }
 
-    // 5) Telemetría (estado -> app)
+    // Telemetría
     if (ahoraMs - s_ultimaEnvioMs >= ENVIO_ESTADO_MS) {
 
         s_ultimaEnvioMs = ahoraMs;
@@ -164,7 +158,7 @@ void loop() {
         // Distancia -1 = sin lectura; Comunicacion la manda como null.
         float distancia = MODULOS.radar ? radar.distanciaCm() : -1.0f;
 
-        // Criterio de alertas, igual que el simulador de la app.
+        // Criterio de alertas.
         bool advertencia = MODULOS.radar
                          && radar.obstaculoCercano(UMBRAL_OBSTACULO_CM);
 
