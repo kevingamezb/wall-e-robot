@@ -10,7 +10,6 @@ from . import carga_recursos
 
 # Geometría base de los ojos (fallback procedural).
 OJO_ANCHO = 44
-SEP_ENTRE_OJOS = 12
 OJO_ALTO_ABIERTO = 30
 OJO_ALTO_OBSTACULO = 12
 PUPILA_ABIERTA = 9
@@ -52,7 +51,7 @@ class OjosRenderer(RenderizadorBase):
     def _centros(self):
         """Centros (cx) del ojo izquierdo y derecho."""
         cx_izq = self.x + OJO_ANCHO / 2
-        cx_der = self.x + OJO_ANCHO + SEP_ENTRE_OJOS + OJO_ANCHO / 2
+        cx_der = self.x + OJO_ANCHO + OJO_ANCHO / 2
         return cx_izq, cx_der
 
     # Selección de modo (imágenes vs. procedural)
