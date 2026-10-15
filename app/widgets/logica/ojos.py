@@ -9,9 +9,10 @@ from ...nucleo.paleta import Paleta
 
 class ExpresionOjos(Enum):
     """Expresiones visuales de los ojos según el estado del robot."""
-    NORMAL = "normal"
-    MANUAL = "manual"
+    NORMAL    = "normal"
+    MANUAL    = "manual"
     OBSTACULO = "obstaculo"
+    ERROR     = "error"
     SIN_DATOS = "sin_datos"
 
 
