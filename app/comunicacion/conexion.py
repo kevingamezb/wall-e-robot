@@ -3,12 +3,28 @@
 
 
 from abc import ABC, abstractmethod
-from ..nucleo.estado import EstadoRobot, NivelLog, Modo, Maniobra
+from ..nucleo.estado import EstadoRobot, NivelLog, Modo, Maniobra, NivelConexion
 import socket
 import json
 import time
 import random
 from typing import cast
+
+
+# Umbrales de frescura para el nivel de señal.
+SEGUNDOS_SENAL_ALTA  = 0.8
+SEGUNDOS_SENAL_MEDIA = 2.0
+
+
+def nivel_por_frescura(segundos: float | None) -> NivelConexion:
+    """Traduce la antigüedad del último estado a un nivel de conexión."""
+    if segundos is None:
+        return NivelConexion.NULA
+    if segundos < SEGUNDOS_SENAL_ALTA:
+        return NivelConexion.ALTA
+    if segundos < SEGUNDOS_SENAL_MEDIA:
+        return NivelConexion.MEDIA
+    return NivelConexion.BAJA
 
 
 class Conexion(ABC):
@@ -26,7 +42,7 @@ class Conexion(ABC):
 
 class Comunicacion(Conexion):
     """Conexión real con el ESP32 por WiFi (TCP + JSON)."""
-    def __init__(self, ip: str, puerto: int = 8080):  # TODO: descubrir la IP del ESP32 automáticamente.
+    def __init__(self, ip: str, puerto: int = 8080):
         self.conexion = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.conexion.connect((ip, puerto))
         # No bloqueante: recv() lanza BlockingIOError de inmediato si no hay
@@ -34,6 +50,7 @@ class Comunicacion(Conexion):
         self.conexion.setblocking(False)
         self._mensaje_entrante = ''
         self._perdida          = False    # True si la conexión se rompió en el aire
+        self._ultima_recepcion = None     # time() del último estado recibido
 
     @property
     def perdida(self) -> bool:
@@ -53,6 +70,7 @@ class Comunicacion(Conexion):
         except OSError:
             # El ESP32 se reinició/apagó o se cortó la conexión
             self._perdida = True
+            estado.nivel_conexion = NivelConexion.NULA
             return
 
         # Procesa cada mensaje completo (delimitado por '\n') que haya en el buffer.
@@ -69,6 +87,12 @@ class Comunicacion(Conexion):
 
             self._procesar_mensaje(mensaje, estado)
 
+        # El nivel de señal sale de qué tan fresca es la última lectura.
+        segundos = None
+        if getattr(self, "_ultima_recepcion", None) is not None:
+            segundos = time.time() - self._ultima_recepcion # Ignorar error PyLance
+        estado.nivel_conexion = nivel_por_frescura(segundos)
+
     def _procesar_mensaje(self, mensaje, estado: EstadoRobot):
         """Interpreta UN mensaje JSON ya deserializado y lo escribe en EstadoRobot."""
 
@@ -78,11 +102,10 @@ class Comunicacion(Conexion):
         tipo = mensaje["tipo"]
 
         if tipo == "estado":
+            self._ultima_recepcion = time.time()
             self._aplicar_estado(mensaje, estado)
 
         elif tipo == "log":
-            # Un nivel desconocido o ausente no debe tumbar la app: se degrada
-            # a INFO y la línea igual entra al logger.
             try:
                 nivel = NivelLog(mensaje.get("nivel", "info"))
             except ValueError:
@@ -191,8 +214,12 @@ class ComunicacionSimulada(Conexion): # Para pruebas sin un ESP32 real.
         estado.consumo_watts = round(random.uniform(1.2, 4.8), 2)
         estado.conexion_activa = True
 
-        # Maniobra decidida (el firmware la manda en automático): obstáculo
-        # cercano -> alto; si no, sigue recto.
+        # Nivel de señal simulado
+        secuencia_senal = (NivelConexion.ALTA, NivelConexion.ALTA,
+                           NivelConexion.MEDIA, NivelConexion.BAJA)
+        estado.nivel_conexion = secuencia_senal[int(time.time() / 8) % len(secuencia_senal)]
+
+        # Maniobra decidida (el firmware la manda en automático)
         estado.navegacion = (Maniobra.ALTO if self._distancia_simulada < 15.0
                              else Maniobra.RECTO)
 
@@ -256,6 +283,7 @@ class ConexionOffline(Conexion):
     def actualizar_estado(self, estado: EstadoRobot):
         """No hay robot que leer: solo se marca que no hay conexión."""
         estado.conexion_activa = False
+        estado.nivel_conexion = NivelConexion.NULA
 
     def enviar_mensaje(self, comando: dict):
         """Sin robot no hay destino: el comando se descarta."""
@@ -282,6 +310,18 @@ if __name__ == "__main__":
     print(f"distancia_obstaculo= {estado.distancia_obstaculo_cm} cm")
     print(f"consumo_watts      = {estado.consumo_watts} W")
     print(f"conexion_activa    = {estado.conexion_activa}")
+
+    assert estado.nivel_conexion in (NivelConexion.ALTA, NivelConexion.MEDIA,
+                                     NivelConexion.BAJA), \
+        "El simulador siempre reporta un enlace, nunca nulo"
+    print(f"nivel_conexion     = {estado.nivel_conexion.value}\n")
+
+    print("Umbrales de nivel de señal (frescura)")
+    assert nivel_por_frescura(None) == NivelConexion.NULA, "Sin dato -> nula"
+    assert nivel_por_frescura(0.1) == NivelConexion.ALTA, "Fresco < 0.8s -> alta"
+    assert nivel_por_frescura(1.0) == NivelConexion.MEDIA, "1s -> media"
+    assert nivel_por_frescura(5.0) == NivelConexion.BAJA, "Viejo -> baja"
+    print("OK: nula/alta/media/baja\n")
 
     # Un comando "modo" debe cambiar el modo simulado interno
     print("\nEnviando comando modo -> 'manual'")
@@ -336,8 +376,9 @@ if __name__ == "__main__":
     offline = ConexionOffline()
     offline.actualizar_estado(estado)
     assert estado.conexion_activa is False, "Offline debe apagar conexion_activa"
+    assert estado.nivel_conexion == NivelConexion.NULA, "Offline no tiene señal"
     offline.enviar_mensaje({"tipo": "motor", "direccion": "arriba"})  # no lanza
-    print("OK: conexion_activa=False y los comandos se descartan")
+    print("OK: conexion_activa=False, nivel NULA y los comandos se descartan")
 
     # Parseo del protocolo real sin abrir sockets: se instancia con __new__ y
     # se alimenta _procesar_mensaje con diccionarios puros.
