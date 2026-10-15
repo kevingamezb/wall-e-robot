@@ -15,8 +15,8 @@
 
 // HC-SR04 fijo mirando al frente.
 // TODO(hardware): el ECHO llega a 5 V; debe pasar por un divisor 1k/2k antes del GPIO.
-#define PIN_RADAR_TRIG      17
-#define PIN_RADAR_ECHO      16
+#define PIN_US_TRIG      17
+#define PIN_US_ECHO      16
 
 // TB6612FNG, 2 motores CC. Canal A = rueda izquierda, B = derecha
 #define PIN_MOTOR_PWMA      25

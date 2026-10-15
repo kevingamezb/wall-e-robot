@@ -13,7 +13,7 @@ static const uint32_t TIMEOUT_SIN_ECO_US      = 40000;  // ~7 m: más allá, no 
 static const float MAX_DISTANCIA_CM           = 400.0f; // filtra ecos lejanos/ruido
 
 
-SensorDistancia sensorDistancia(PIN_DISTANCIA_TRIG, PIN_DISTANCIA_ECHO);
+SensorDistancia sensorDistancia(PIN_US_TRIG, PIN_US_ECHO);
 
 
 SensorDistancia::SensorDistancia(uint8_t pinTrig, uint8_t pinEcho)
