@@ -30,6 +30,7 @@ void PantallaOled::iniciar() {
     _pantalla.setCursor(0, 0);
     _pantalla.print("WALL-E ROBOT");
     _pantalla.display();
+    _pantalla.setRotation(2); // El hardware del robot tiene la pantalla al revés, así que la giramos 180º.
 
     _activo = true;
     Serial.println("OLED: pantalla lista.");
