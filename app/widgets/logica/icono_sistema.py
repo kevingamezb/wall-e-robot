@@ -3,7 +3,7 @@
 
 
 from enum import Enum
-from ...nucleo.estado import EstadoRobot, Modo
+from ...nucleo.estado import EstadoRobot, Modo, NivelConexion
 from ...nucleo.paleta import Paleta
 
 
@@ -51,6 +51,24 @@ class IconoSistema:
     def titulo(self) -> str:
         return self.tipo.value
 
+    @property
+    def archivo(self) -> str:
+        """Nombre (sin extensión) del PNG del recurso para este ícono."""
+        if self.tipo == TipoIcono.CONEXION:
+            return {
+                NivelConexion.ALTA:  "conectividad_alta",
+                NivelConexion.MEDIA: "conectividad_media",
+                NivelConexion.BAJA:  "conectividad_baja",
+                NivelConexion.NULA:  "conectividad_alta",
+            }[self.estado.nivel_conexion]
+
+        return {
+            TipoIcono.ADVERTENCIA: "advertencia",
+            TipoIcono.CARGANDO:    "cargando",
+            TipoIcono.MODO_MANUAL: "controlador",
+            TipoIcono.ERROR:       "error",
+        }[self.tipo]
+
 # Cajón de Pruebas
 # Ejecutar desde la raíz del proyecto:
 #   python -m app.widgets.logica.icono_sistema
@@ -87,5 +105,18 @@ if __name__ == "__main__":
     assert iconos[TipoIcono.CARGANDO].activo
     assert iconos[TipoIcono.CARGANDO].color == Paleta.VERDE_LIMA
     print("OK: MODO_MANUAL cian, CARGANDO verde lima\n")
+
+    print("Recursos por tipo")
+    estado.nivel_conexion = NivelConexion.ALTA
+    assert iconos[TipoIcono.ADVERTENCIA].archivo == "advertencia"
+    assert iconos[TipoIcono.CARGANDO].archivo == "cargando"
+    assert iconos[TipoIcono.MODO_MANUAL].archivo == "controlador"
+    assert iconos[TipoIcono.ERROR].archivo == "error"
+    assert iconos[TipoIcono.CONEXION].archivo == "conectividad_alta"
+    estado.nivel_conexion = NivelConexion.MEDIA
+    assert iconos[TipoIcono.CONEXION].archivo == "conectividad_media"
+    estado.nivel_conexion = NivelConexion.BAJA
+    assert iconos[TipoIcono.CONEXION].archivo == "conectividad_baja"
+    print("OK: cada ícono apunta a su PNG\n")
 
     print("Pruebas OK")

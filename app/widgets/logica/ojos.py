@@ -9,11 +9,11 @@ from ...nucleo.paleta import Paleta
 
 class ExpresionOjos(Enum):
     """Expresiones visuales de los ojos según el estado del robot."""
-    NORMAL    = "normal"
-    MANUAL    = "manual"
+    NORMAL = "normal"
+    MANUAL = "manual"
     OBSTACULO = "obstaculo"
-    ERROR     = "error"
     SIN_DATOS = "sin_datos"
+    ERROR = "error"
 
 
 UMBRAL_OBSTACULO_CM = 15.0
@@ -28,6 +28,9 @@ class Ojos:
     def expresion(self) -> ExpresionOjos:
         if not self.estado.conexion_activa:
             return ExpresionOjos.SIN_DATOS
+
+        if self.estado.hay_error:
+            return ExpresionOjos.ERROR
 
         if self.estado.modo == Modo.MANUAL:
             return ExpresionOjos.MANUAL
@@ -45,6 +48,7 @@ class Ojos:
             ExpresionOjos.MANUAL:    Paleta.NARANJA,
             ExpresionOjos.OBSTACULO: Paleta.ROJO,
             ExpresionOjos.SIN_DATOS: Paleta.GRIS,
+            ExpresionOjos.ERROR:     Paleta.ROJO,
         }
         return colores[self.expresion]
 
@@ -89,6 +93,29 @@ if __name__ == "__main__":
     assert ojos.expresion == ExpresionOjos.SIN_DATOS
     assert ojos.color == Paleta.GRIS
     print(f"OK: {ojos.descripcion} / {ojos.color}\n")
+
+    print("Error crítico (batería)")
+    estado.conexion_activa = True
+    estado.modo = Modo.AUTOMATICO
+    estado.hay_error = True
+    assert ojos.expresion == ExpresionOjos.ERROR
+    assert ojos.color == Paleta.ROJO
+    print(f"OK: {ojos.descripcion} / {ojos.color}\n")
+
+    print("Error pesa más que manual y obstáculo")
+    estado.modo = Modo.MANUAL
+    estado.distancia_obstaculo_cm = 3.0
+    assert ojos.expresion == ExpresionOjos.ERROR
+    print(f"OK: {ojos.descripcion}\n")
+
+    print("Sin conexión pesa más que error")
+    estado.conexion_activa = False
+    assert ojos.expresion == ExpresionOjos.SIN_DATOS
+    print(f"OK: {ojos.descripcion}\n")
+
+    estado.conexion_activa = True
+    estado.hay_error = False
+    estado.modo = Modo.AUTOMATICO
 
     print("Conectado pero sin dato de distancia")
     estado.conexion_activa = True
