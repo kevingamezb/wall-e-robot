@@ -24,6 +24,15 @@ class Maniobra(Enum):
     ALTO = 'alto'
 
 
+class NivelConexion(Enum):
+    """Calidad del enlace con el robot, según qué tan fresca es la última lectura."""
+
+    ALTA  = 'alta'
+    MEDIA = 'media'
+    BAJA  = 'baja'
+    NULA  = 'nula'
+
+
 class NivelLog(Enum):
     """Severidad de una línea de log; el widget del logger la usa para colorearla."""
 
@@ -89,6 +98,7 @@ class EstadoRobot:
     distancia_obstaculo_cm: float | None = None                                    # SensorDistancia y Ojos (None = sin lectura)
     navegacion:             Maniobra = Maniobra.RECTO                              # PanelNavegacion (decisión del ESP32)
     conexion_activa:        bool  = False                                          # IconoEstadoConexión
+    nivel_conexion:         NivelConexion = NivelConexion.NULA                      # IconoEstadoConexión (fuerza de señal)
     hay_advertencia:        bool  = False                                          # IconoAdvertencia
     hay_error:              bool  = False                                          # IconoError
     posiciones_servos:      PosicionServos = field(default_factory=PosicionServos) # Gamepad
@@ -121,3 +131,10 @@ if __name__ == '__main__':
     ultima_linea = estado.logger.obtener_lineas()[-1]
     print(ultima_linea.nivel)         # NivelLog.ADVERTENCIA
     print(ultima_linea.nivel.value)   # advertencia
+
+    print("\nNivel de conexión")
+    assert estado.nivel_conexion == NivelConexion.NULA, \
+        "El estado arranca sin enlace"
+    estado.nivel_conexion = NivelConexion.ALTA
+    print(f"OK: nivel_conexion = {estado.nivel_conexion.value}")
+    print("Pruebas OK")
