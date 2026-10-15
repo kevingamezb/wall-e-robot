@@ -166,6 +166,32 @@ con el sensor caído. Solo actúa cuando el sensor avisa `hayLecturaNueva()` (ci
 7. En paralelo, `lib/auto` decide la maniobra del movimiento a partir del sensor de distancia cuando el
    modo es automático; esa decisión es la que viaja en el campo `navegacion` del siguiente estado.
 
+### 3.4 Ojos e íconos: assets PNG teñidos con la Paleta
+
+Los ojos y los íconos de sistema tienen ahora **assets** (diseñados en Inkscape, `app/recursos/*.svg`) y se
+dibujan con **imágenes**, no con trazos hechos a mano. Tkinter no lee SVG, así que cada SVG se exporta a
+**PNG con fondo transparente** y `carga_recursos.py` lo **tiñe con un color de la `Paleta`** (usando el canal
+alfa), lo escala conservando aspecto y lo cachea como `PhotoImage`. Así el color sigue saliendo de un único
+lugar (regla de oro de pintado). Si un PNG **no** está exportado, el renderer cae al **dibujo procedural** de
+siempre (fallback), de modo que la GUI nunca se rompe por un asset ausente.
+
+**Expresiones de ojos** (`ExpresionOjos`, una imagen por ojo; el derecho se dibuja espejado). Se evalúan en
+este orden de prioridad:
+
+| Prioridad | Expresión | Disparador | Asset | Color |
+|---|---|---|---|---|
+| 1 | `SIN_DATOS` | sin enlace | `ojos_desconectado` | gris |
+| 2 | `ERROR` | `hay_error` (batería crítica) | `ojos_error` | rojo |
+| 3 | `MANUAL` | modo manual | `ojos_manual` | naranja |
+| 4 | `OBSTACULO` | obstáculo ≤ 15 cm | `ojos_obstaculo` | rojo |
+| 5 | `NORMAL` | resto | `ojos_normal` | dorado |
+
+**Íconos de sistema** (`TipoIcono` → asset): `ADVERTENCIA→advertencia`, `CARGANDO→cargando`,
+`MODO_MANUAL→controlador`, `ERROR→error`, `CONEXION→conectividad_*`. El de conexión usa **tres niveles**
+(`conectividad_alta/media/baja`) según `EstadoRobot.nivel_conexion`. Ese nivel **lo deriva la app** por la
+**frescura** del último `estado` recibido (el firmware manda cada 500 ms): `alta` < 0.8 s, `media` < 2 s,
+`baja` el resto, `nula` sin enlace (`conexion.py` `nivel_por_frescura()`). No viaja en el protocolo JSON.
+
 ---
 
 ## 4. Estado REAL del repositorio (actualizado)
@@ -174,7 +200,8 @@ con el sensor caído. Solo actúa cuando el sensor avisa `hayLecturaNueva()` (ci
 wall-e-robot/
 ├── app/                                  # App de escritorio (Python). Paquete con __init__.py
 │   ├── nucleo/
-│   │   ├── estado.py        ✅ hecho     # Modo, NivelLog, EntradaLog, Logger, PosicionServos, EstadoRobot
+│   │   ├── estado.py        ✅ hecho     # Modo, Maniobra, NivelConexion, NivelLog, EntradaLog, Logger,
+│   │   │                                 #   PosicionServos, EstadoRobot
 │   │   └── paleta.py        ✅ hecho     # Paleta, PROPORCION_AUREA, color_por_umbral()
 │   ├── comunicacion/
 │   │   └── conexion.py      ✅ hecho     # Conexion (ABC), Comunicacion (TCP/real), ComunicacionSimulada,
@@ -183,17 +210,19 @@ wall-e-robot/
 │   │   ├── logica/          ✅ 12/12     # boton, deslizador, sol_bateria, barras_consumo, ojos, icono_sistema,
 │   │   │                                 # proximidad, navegacion, logger_widget, gamepad, mapeo_teclado,
 │   │   │                                 # control_teclado — TODOS con cajón de pruebas (sin tkinter)
-│   │   └── renderizado/     ✅ 11/12     # *_render.py + base_render.py (helpers HUD: scanlines, corchetes_hud,
+│   │   └── renderizado/     ✅ 12/13     # *_render.py + base_render.py (helpers HUD: scanlines, corchetes_hud,
 │   │   │                                 #   borde_panel, fulgor_radial, banda_gradiente, anillo_con_halo…)
-│   │   │                                 #   + tarjeta.py (corchetes en las esquinas). recoloreo.py ⬜ vacío
+│   │   │                                 #   + tarjeta.py (corchetes en las esquinas) + carga_recursos.py
+│   │   │                                 #   (PNG de recursos: carga, tinte, escala y espejo). recoloreo.py ⬜ vacío
 │   ├── pantallas/
 │   │   ├── pantalla_principal.py ✅      # la única pantalla del sistema (monitoreo/control_manual eliminados);
 │   │   │                                 #   barra de sistema (ENLACE/MODO/BATERÍA) + corchetes HUD
 │   │   ├── modal_controles.py ✅         # modal de configuración de teclas del control manual
 │   │   └── iconos/          ⬜ vacío      # sin PNG: los íconos se dibujan por código
-│   ├── recursos/            ⬜ vacío      # reservado para assets; hoy la GUI no usa imagen alguna
+│   ├── recursos/            ✅ hecho     # 12 SVG + PNG exportados (ojos e íconos de sistema); los PNG se
+│   │                                     #   tiñen con la Paleta al cargarse (ver §3.4)
 │   ├── main.py              ✅ hecho      # arranca la GUI: SIMULADOR → CONECTAR(IP) → DESCONECTAR
-│   └── (sin requirements.txt — solo stdlib: tkinter, socket, json, random, time)
+│   └── (dependencia: Pillow — ver requirements.txt en la raíz)
 ├── firmware/                            # ESP32 (PlatformIO) — COMPILA (Flash ~62%, RAM ~14%)
 │   ├── include/
 │   │   ├── pines.h          ✅ hecho     # GPIO: I2C (INA219 0x40, OLED 0x3C), TB6612, 3 servos,
@@ -213,9 +242,10 @@ wall-e-robot/
 ├── configuracion/
 │   └── controles.json      ✅ hecho     # mapeo persistente de teclas del control manual
 ├── pruebas/
-│   ├── ejecutar_cajones.py  ✅ hecho     # corre los 16 cajones sin GUI y resume resultados
+│   ├── ejecutar_cajones.py  ✅ hecho     # corre los 17 cajones sin GUI y resume resultados
 │   └── guia_de_pruebas.md   ✅ hecho     # cómo operar cajones, GUI simulado y pruebas aisladas de hardware
 ├── platformio.ini          ✅ hecho     # [platformio] apunta a firmware/{src,lib,include}; lib_deps
+├── requirements.txt        ✅ hecho     # dependencia de la app: Pillow (assets PNG)
 ├── esquema_de_conexion.md  ✅ hecho     # cableado por componente (incluye alimentación y tierra común)
 ├── LICENSE
 └── documento_general.md                  # este documento
@@ -237,6 +267,8 @@ Leyenda: ✅ implementado/presente · ⬜ placeholder/por hacer.
 | Posición de ángulo | `distancia_obstaculo_cm` → `PosicionServos` | ojos comentados |
 | Sensor de distancia | `Radar` / `radar.py` / `radar_us` / pines `PIN_RADAR_*` | `SensorDistancia` / `proximidad.py` / campo `navegacion` / pines `PIN_US_*` |
 | Navegación | (no existía) | `Maniobra` (enum) + `lib/auto`; tarjeta GUI **NAVEGACIÓN** |
+| Expresión de ojos | (no existía) | `ExpresionOjos` (enum) + asset `ojos_<expresión>.png` |
+| Nivel de conexión | (no existía) | `NivelConexion` (enum) derivado por frescura; assets `conectividad_alta/media/baja` |
 | Renderers | `*_renderer.py` | `*_render.py` |
 | Pantallas | `monitoreo.py` + `control_manual.py` | `pantalla_principal.py` (una sola) |
 
@@ -293,6 +325,8 @@ Reglas vigentes:
 - `navegacion` toma uno de `recto` | `izquierda` | `derecha` | `alto` (enum `Maniobra` en
   `app/nucleo/estado.py`). **Lo decide el ESP32** (`lib/auto`, ver §3.2.1); la app solo lo dibuja en
   la tarjeta NAVEGACIÓN. En modo manual siempre llega `"recto"`: la maniobra es del operador.
+- `nivel_conexion` (`NivelConexion`) **no viaja en el JSON**: lo deriva la app por la frescura del último
+  `estado` (ver §3.4). El robot solo manda el booleano `conexion_activa`.
 - Envío de estado cada **~500 ms** (`config.h` `ENVIO_ESTADO_MS`). La GUI redibuja cada 60 ms.
 
 Detalle, ejemplos de código y justificaciones (buffer de línea media, `setblocking(False)`, TCP como
@@ -336,8 +370,9 @@ bloquea por el hardware: la interfaz se termina aparte con `ComunicacionSimulada
 4. **Calibración fina**: umbrales de batería (`BATERIA_VOLTAJE_MIN/MAX`, `CAPACIDAD_MAH`) contra el
    pack real; límites `LIMITES[]` contra las piezas impresas; `UMBRAL_OBSTACULO_CM` según el entorno.
 5. **Activar el OLED** (flag `oled` → 1 en `config.h`) cuando la pantalla 0.96" esté cableada.
-6. **Llenar `app/widgets/renderizado/recoloreo.py`** o documentar su supresión: hoy la GUI dibuja
-   íconos por código Tkinter y no usa Pillow/PNG (decisión v3).
+6. **Pulir los assets de `app/recursos/`**: exportar los SVG a PNG (fondo transparente) y ajustar tamaño
+   de los ojos (`ALTO_OJO_IMAGEN` en `ojos_render.py`) y del recorte. `recoloreo.py` sigue vacío: hoy el
+   tinte de los PNG lo hace `carga_recursos.py`; decidir si `recoloreo.py` se llena o se elimina.
 7. **Alinear los documentos de referencia** (`protocolo_comunicacion_wifi_json.md`, `estructura_archivos…`)
    con los nombres y el protocolo vigentes (§4.1 y §5).
 
@@ -380,8 +415,8 @@ bloquea por el hardware: la interfaz se termina aparte con `ComunicacionSimulada
 5. **Vigente** — Los documentos de referencia (`protocolo_comunicacion_wifi_json.md`, `estructura_archivos…`)
    siguen con nombres/estructura antiguos (§4.1). El mockup `walle_demo.html` ya **no está** en el repo.
    Este documento, `esquema_de_conexion.md` y `pruebas/` son el punto de referencia.
-6. **Vigente** — `recoloreo.py` está vacío y la GUI no usa Pillow (íconos por código); definir si se
-   llena con el helper o se elimina.
+6. **Vigente** — `recoloreo.py` está vacío, pero la GUI **ya usa Pillow** para teñir los PNG de
+   `app/recursos/` (`carga_recursos.py`, §3.4); definir si `recoloreo.py` se llena con ese helper o se elimina.
 7. ✅ **RESUELTO (15/10/2026)** — Se eliminó el concepto "radar": `lib/radar` → `lib/distancia`,
    `Radar` → `SensorDistancia`, pines `PIN_RADAR_*` → `PIN_US_*`, y la tarjeta GUI RADAR → **NAVEGACIÓN**
    (medidor de proximidad + maniobra). El HC-SR04 quedó como sensor fijo al frente.

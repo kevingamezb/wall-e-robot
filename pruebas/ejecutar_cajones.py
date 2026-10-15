@@ -14,6 +14,7 @@ CAJONES = [
     "app.nucleo.paleta",
     "app.nucleo.estado",
     "app.widgets.renderizado.base_render",
+    "app.widgets.renderizado.carga_recursos",
     "app.widgets.logica.boton",
     "app.widgets.logica.deslizador",
     "app.widgets.logica.gamepad",

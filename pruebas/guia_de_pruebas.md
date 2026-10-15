@@ -45,6 +45,7 @@ python -m app.nucleo.estado
 python -m app.nucleo.paleta
 python -m app.comunicacion.conexion
 python -m app.widgets.renderizado.base_render
+python -m app.widgets.renderizado.carga_recursos
 python -m app.widgets.logica.boton
 python -m app.widgets.logica.deslizador
 python -m app.widgets.logica.gamepad
@@ -68,7 +69,7 @@ python -m app.pantallas.modal_controles
 > ```
 >
 > Imprime `[OK]`/`[FALLA]` por módulo y termina con código de salida 0 si todo está verde
-> (a la fecha: **16 cajones en verde**, incluye lógica y `base_render`, que cierra su ventana solo).
+> (a la fecha: **17 cajones en verde**, incluye lógica y `base_render`, que cierra su ventana solo).
 
 Qué revisa cada uno (resumen):
 
@@ -78,6 +79,8 @@ Qué revisa cada uno (resumen):
 | `nucleo.paleta` | Colores centralizados y `color_por_umbral()` |
 | `comunicacion.conexion` | Simulador, `ConexionOffline` y **el parseo tolerante del protocolo real** (campos nuevos, `null`, `navegacion`, `posiciones_servos`, `multi`, y la pérdida de conexión marcada sin romper la app) |
 | `widgets.renderizado.base_render` | Helpers HUD (`scanlines`, `corchetes_hud`, `banda_gradiente`, `fulgor_radial`, `anillo_con_halo`, `borde_panel`, `rectangulo_redondeado`, `interpolar_color`) |
+| `widgets.renderizado.carga_recursos` | Loader de assets PNG: carga, tinte con la `Paleta` (por canal alfa), escala conservando aspecto, espejo y caché; con Tk retirado genera PNG temporales |
+| `widgets.logica.ojos` / `icono_sistema` | Prioridad de `ExpresionOjos` (incluye `ERROR`) y mapeo `TipoIcono` → asset (incluye los 3 niveles de conexión) |
 | `widgets.logica.gamepad` | Direcciones del d-pad (`{"tipo":"motor",...}`), cuello, **manos/reposo en un único `{"tipo":"multi",...}`**, que **sin conexión no envía nada** y que **reposo devuelve los deslizadores al centro** |
 | `widgets.logica.mapeo_teclado` | Perfil de controles: defaults, persistencia JSON, conflictos una-tecla-una-acción |
 | `widgets.logica.control_teclado` | El driver teclado->gamepad: auto-repetido de motores, pasos de ejes y discretas de un solo disparo |
@@ -137,6 +140,12 @@ Comportamiento al usar el teclado en la pantalla principal:
 - No hay animaciones nuevas: solo los ojos, el medidor de proximidad, el fade de
   botones y el brillo al interactuar; el resto se dibuja **una sola vez**
   (dirty-check) para no recargar el ciclo.
+- **Ojos e íconos usan assets PNG** de `app/recursos/` (los SVG del diseño exportados con fondo
+  transparente). `carga_recursos.py` los tiñe con la `Paleta` y los cachea; si falta un PNG, el
+  renderer cae al **dibujo procedural** de siempre (la GUI no se rompe). Requiere **Pillow**
+  (`pip install -r requirements.txt`). Los ojos tienen 5 expresiones por prioridad
+  `SIN_DATOS → ERROR → MANUAL → OBSTACULO → NORMAL`, y el ícono de conexión tiene 3 niveles
+  (`conectividad_alta/media/baja`) derivados por la frescura del último estado recibido.
 
 > Para revisar la estética en vivo: `python -m app.main` en el simulador.
 > Para revisar el layout en frío: `python -m app.pantallas.pantalla_principal`.
@@ -309,7 +318,7 @@ Detalles útiles:
 | Señal | Criterio actual (firmware) | Qué ves en la GUI |
 |---|---|---|
 | `hay_advertencia` | Sensor de distancia activo y distancia ≤ **15 cm** | Ícono de advertencia + log naranja `DISTANCIA` |
-| `hay_error` | Batería activa y nivel < **0.10** | Ícono de error + log rojo `BATERIA` |
+| `hay_error` | Batería activa y nivel < **0.10** | Ícono de error + log rojo `BATERIA` + ojos en **ERROR** (rojo) |
 
 Los logs de alerta se emiten **solo al transicionar** (se posan mientras la alerta persiste), para
 no llenar el Logger de repeticiones.
@@ -340,6 +349,7 @@ no llenar el Logger de repeticiones.
 - [ ] El gamepad sin conexión no emite comandos (overlay SIN CONEXIÓN visible).
 - [ ] CONTROLES: asignar una tecla, limpiar una acción y restaurar por defecto; al cerrar, `configuracion/controles.json` refleja los cambios.
 - [ ] Con el gamepad conectado al simulador, el teclado mueve el estado (flechas reproducen el comando motor; Q/A mueven el cuello; abrir mano dispara una vez).
+- [ ] Ojos e íconos se dibujan con los **assets PNG** de `app/recursos/` (instalar Pillow); al desconectar, los ojos pasan a **SIN_DATOS** y el ícono de conexión refleja el nivel por frescura. Si faltara un PNG, se ve el dibujo procedural.
 
 **Lado firmware aislado:**
 - [ ] Firma con solo `servos=1`: deslizadores mueven el cuello y los hombros; REPOSO los centra.
