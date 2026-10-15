@@ -52,7 +52,8 @@ python -m app.widgets.logica.ojos
 python -m app.widgets.logica.icono_sistema
 python -m app.widgets.logica.sol_bateria
 python -m app.widgets.logica.barras_consumo
-python -m app.widgets.logica.radar
+python -m app.widgets.logica.proximidad
+python -m app.widgets.logica.navegacion
 python -m app.widgets.logica.logger_widget
 python -m app.widgets.logica.mapeo_teclado
 python -m app.widgets.logica.control_teclado
@@ -67,7 +68,7 @@ python -m app.pantallas.modal_controles
 > ```
 >
 > Imprime `[OK]`/`[FALLA]` por módulo y termina con código de salida 0 si todo está verde
-> (a la fecha: **15 cajones en verde**, incluye ±lógica y `base_render`, que cierra su ventana solo).
+> (a la fecha: **16 cajones en verde**, incluye lógica y `base_render`, que cierra su ventana solo).
 
 Qué revisa cada uno (resumen):
 
@@ -75,7 +76,7 @@ Qué revisa cada uno (resumen):
 |---|---|
 | `nucleo.estado` | `EstadoRobot`, `Modo`, `NivelLog`, `Logger` |
 | `nucleo.paleta` | Colores centralizados y `color_por_umbral()` |
-| `comunicacion.conexion` | Simulador, `ConexionOffline` y **el parseo tolerante del protocolo real** (campos nuevos, `null`, `posiciones_servos`, `multi`, y la pérdida de conexión marcada sin romper la app) |
+| `comunicacion.conexion` | Simulador, `ConexionOffline` y **el parseo tolerante del protocolo real** (campos nuevos, `null`, `navegacion`, `posiciones_servos`, `multi`, y la pérdida de conexión marcada sin romper la app) |
 | `widgets.renderizado.base_render` | Helpers HUD (`scanlines`, `corchetes_hud`, `banda_gradiente`, `fulgor_radial`, `anillo_con_halo`, `borde_panel`, `rectangulo_redondeado`, `interpolar_color`) |
 | `widgets.logica.gamepad` | Direcciones del d-pad (`{"tipo":"motor",...}`), cuello, **manos/reposo en un único `{"tipo":"multi",...}`**, que **sin conexión no envía nada** y que **reposo devuelve los deslizadores al centro** |
 | `widgets.logica.mapeo_teclado` | Perfil de controles: defaults, persistencia JSON, conflictos una-tecla-una-acción |
@@ -90,8 +91,9 @@ python -m app.main
 ```
 
 - Arranca con **`SIMULADOR`** conectado (no requiere ESP32).
-- Debe mostrarse la pantalla única con: Estado (columna central con 5 barras), Radar, Ojos,
-  Sol de batería, Consumo, Logger, Gamepad y botones **CONECTAR / DESCONECTAR**.
+- Debe mostrarse la pantalla única con: Estado (columna central con 5 barras), Navegación
+  (medidor de proximidad + maniobra), Ojos, Sol de batería, Consumo, Logger, Gamepad y botones
+  **CONECTAR / DESCONECTAR**.
 - El simulador genera datos que cambian solos (batería baja lentamente, distancia varía,
   log de prueba cada 10 s) y alertas (obstáculo cerca < 15 cm, batería baja < 0.25).
 - Para cerrar: `Ctrl+C` en la terminal o cerrar la ventana.
@@ -126,13 +128,13 @@ Comportamiento al usar el teclado en la pantalla principal:
 
 - Tema de la GUI: **nave Axiom / Wall-E** — azul espacial de fondo,
   paneles con scanners y corchetes HUD en cian (glow de EVE), y el robot en
-  dorado/naranja (botones, deslizadores, radar).
+  dorado/naranja (botones, deslizadores, medidor de proximidad).
 - **Regla de oro de pintado:** ningún color en hexadecimal fuera de
   `Paleta` (`app/nucleo/paleta.py`). Botones = placa metálica con borde y
   halo dorado al presionar; deslizadores con marcas de 0°/extremos y halo en
   el thumb; logger = terminal de la nave (`[ts] ▸ mensaje`, niveles con
-  color); radar con barrido y retícula; batería como sol con rayos.
-- No hay animaciones nuevas: solo los ojos, el barrido del radar, el fade de
+  color); navegación con medidor de proximidad y retícula; batería como sol con rayos.
+- No hay animaciones nuevas: solo los ojos, el medidor de proximidad, el fade de
   botones y el brillo al interactuar; el resto se dibuja **una sola vez**
   (dirty-check) para no recargar el ciclo.
 
@@ -171,7 +173,7 @@ Al arrancar, el ESP32 imprime en el monitor algo así:
 AP iniciada: SSID='WALL-E' IP=192.168.4.1
 Servidor TCP listo en puerto 8080
 MODULO servos    = activo
-MODULO radar     = INACTIVO (flag=0)
+MODULO distancia = INACTIVO (flag=0)
 MODULO bateria   = activo
 MODULO motores   = activo
 MODULO oled      = activo
@@ -190,17 +192,17 @@ módulo está cableado/activo en esta prueba, y en **0** si no. Se cambian a man
 
 ```cpp
 typedef struct {
-    bool servos;   // 3 servos MG90S directos a GPIO (2 brazos + cuello)
-    bool radar;    // HC-SR04 fijo al frente (sin servo de barrido)
-    bool bateria;  // INA219 (voltaje/corriente)
-    bool oled;     // SSD1306 0.96"
-    bool motores;  // TB6612FNG, 2 motores CC (d-pad)
+    bool servos;     // 3 servos MG90S directos a GPIO (2 brazos + cuello)
+    bool distancia;  // HC-SR04 fijo al frente (mide distancia, sin barrido)
+    bool bateria;    // INA219 (voltaje/corriente)
+    bool oled;       // SSD1306 0.96"
+    bool motores;    // TB6612FNG, 2 motores CC (d-pad)
 } ModulosActivos;
 
 static const ModulosActivos MODULOS = { true, false, true, true, true };
 ```
 
-**Configuración actual:** `servos`, `bateria`, `oled` y `motores` activos; `radar` en 0 hasta
+**Configuración actual:** `servos`, `bateria`, `oled` y `motores` activos; `distancia` en 0 hasta
 conectar el HC-SR04.
 
 **Reglas de comportamiento:**
@@ -212,7 +214,8 @@ conectar el HC-SR04.
   `cuello, hombro_izquierdo, hombro_derecho, pulgar_izquierdo, pulgar_derecho`. El hardware real solo
   trae 3 servos (cuello + 2 brazos): los pulgares están en 0 y no se mueven, pero su nombre sigue en
   el protocolo. Incluso con un servo en 0, la telemetría manda el ángulo que la GUI cree que se pidió.
-- El **HC-SR04** va fijo mirando al frente: no hay servo de barrido ni canal de radar.
+- El **HC-SR04** va fijo y pegado al frente: no hay servo de barrido; solo
+  mide la distancia al obstáculo que tenga delante.
 
 ### 5.1 Procedimiento genérico de prueba de un módulo
 
@@ -229,7 +232,7 @@ conectar el HC-SR04.
 |---|---|---|
 | **Servos** (flag `servos=1`) | Mover el deslizador del **cuello** y los **hombros** en la GUI; presionar **REPOSO**. | El cuello y los 2 brazos se mueven suaves (10°..170°). Los pulgares no tienen servo y no se mueven. Serial: `Servo 'cuello' -> 30 grados.` |
 | **Motores** (flag `motores=1`) | Mantener el d-pad en direcciones: **arriba / abajo / izquierda / derecha**. | Las 2 ruedas giran: adelante, atrás, y giro en el sitio (a ~70 % de PWM, por ser motores de 6 V). Serial: `Motor -> arriba`. Las velocidades suben/bajan con rampa (sin tirón). **Seguridad:** si en modo manual no llega un comando en ~2 s, los motores se detienen solos con log `SEGURIDAD` ("Sin comando del operador..."). |
-| **Radar** (flag `radar=1`) | Poner la mano frente al sensor (fijo al frente) a < 15 cm. | Al acercar la mano aparece la **advertencia** en la GUI, se enciende el LED **rojo** y sale el log `Obstáculo muy cerca: X.Xcm`. |
+| **Distancia** (flag `distancia=1`) | Poner la mano frente al sensor (fijo al frente) a < 15 cm. | Al acercar la mano aparece la **advertencia** en la GUI, el medidor de proximidad se llena, se enciende el LED **rojo** y sale el log `Obstáculo muy cerca: X.Xcm`. |
 | **Batería** (flag `bateria=1`) | Mirar el Sol de batería y el consumo con el robot alimentado y en reposo/operando. | El nivel se calcula del voltaje medido por el INA219 y baja conforme se descarga la batería. Log crítico (rojo) y LED **rojo** si el nivel cae por debajo de 0.10 (< ~6,8 V). |
 | **OLED** (flag `oled=1`) | Ninguna acción extra. | La pantalla 0.96" muestra BAT / DIS / MODO / CONECTADO. |
 | **LEDs** (siempre) | Ninguna acción extra. | Amarillo encendido cuando todo está normal; rojo cuando hay advertencia o error. El verde de encendido va directo al riel de 5 V. |
@@ -285,14 +288,16 @@ Medio: **WiFi TCP**, el ESP32 es el **servidor** y la PC el cliente. JSON, **un 
 **ESP32 → PC (estado ampliado y logs):**
 ```json
 {"tipo":"estado","bateria":0.83,"modo":"manual","hay_advertencia":true,"hay_error":false,
- "distancia_cm":12.3,"consumo_watts":3.4,"conexion_activa":true,"cargando":false,
+ "distancia_cm":12.3,"navegacion":"alto","consumo_watts":3.4,"conexion_activa":true,"cargando":false,
  "tiempo_restante_min":42,"posiciones_servos":{"cuello":0,"hombro_izquierdo":10,"hombro_derecho":0,"pulgar_izquierdo":5,"pulgar_derecho":-5}}
-{"tipo":"log","origen":"RADAR","mensaje":"Obstáculo muy cerca: 8.0cm","nivel":"advertencia"}
+{"tipo":"log","origen":"DISTANCIA","mensaje":"Obstáculo muy cerca: 8.0cm","nivel":"advertencia"}
 ```
 
 Detalles útiles:
-- `distancia_cm` y `tiempo_restante_min` pueden venir como **null** (sin lectura de radar /
-  sin estimación de batería). La app lo interpreta como "no tocar ese dato".
+- `distancia_cm` y `tiempo_restante_min` pueden venir como **null** (sin lectura del sensor de
+  distancia / sin estimación de batería). La app lo interpreta como "no tocar ese dato".
+- `navegacion` es la maniobra decidida en automático (`recto`/`izquierda`/`derecha`/`alto`); un
+  valor desconocido se ignora y se conserva el anterior.
 - Límites físicos validados en el firmware (`LIMITES[]` en `lib/comunicacion`):
   cuello ±70°, hombros ±50°, pulgares ±22°. Un ángulo fuera de rango se rechaza.
 - El ESP32 envía un estado cada **~500 ms**; la GUI redibuja cada 60 ms.
@@ -303,7 +308,7 @@ Detalles útiles:
 
 | Señal | Criterio actual (firmware) | Qué ves en la GUI |
 |---|---|---|
-| `hay_advertencia` | Radar activo y distancia ≤ **15 cm** | Ícono de advertencia + log naranja `RADAR` |
+| `hay_advertencia` | Sensor de distancia activo y distancia ≤ **15 cm** | Ícono de advertencia + log naranja `DISTANCIA` |
 | `hay_error` | Batería activa y nivel < **0.10** | Ícono de error + log rojo `BATERIA` |
 
 Los logs de alerta se emiten **solo al transicionar** (se posan mientras la alerta persiste), para
@@ -339,5 +344,5 @@ no llenar el Logger de repeticiones.
 **Lado firmware aislado:**
 - [ ] Firma con solo `servos=1`: deslizadores mueven el cuello y los hombros; REPOSO los centra.
 - [ ] Solo `motores=1`: d-pad mueve las ruedas en las 4 direcciones.
-- [ ] `radar=1`: el HC-SR04 fijo detecta y la mano cerca (< 15 cm) dispara advertencia y enciende el LED rojo.
+- [ ] `distancia=1`: el HC-SR04 fijo detecta y la mano cerca (< 15 cm) dispara advertencia, llena el medidor de proximidad y enciende el LED rojo.
 - [ ] La GUI conectada a `192.168.4.1` muestra el estado real (no neutro) de los módulos activos.

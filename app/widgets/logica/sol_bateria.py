@@ -8,7 +8,6 @@ from ...nucleo.paleta import Paleta
 
 class SolBateria:
     """Representa el nivel de batería mediante los rayos del sol y proporciona color y etiqueta para su renderizado."""
-
     TOTAL_RAYOS = 12
     UMBRAL_ROJO = 4
     UMBRAL_NARANJA = 7
@@ -49,31 +48,32 @@ class SolBateria:
 # Cajón de Pruebas
 # Ejecutar desde la raíz del proyecto:
 #   python -m app.widgets.logica.sol_bateria
+
 if __name__ == "__main__":
     print("Prueba sol_bateria.py\n")
 
     estado = EstadoRobot()
 
-    print("=== Batería llena (1.0) ===")
+    print("Batería llena (1.0)")
     sol = SolBateria(estado)
     assert sol.rayos_encendidos == 12
     assert sol.color == Paleta.DORADO
     assert sol.etiqueta == "12/12"
     print(f"OK: {sol.etiqueta} / {sol.color}\n")
 
-    print("=== Batería media (0.5) ===")
+    print("Batería media (0.5)")
     estado.bateria = 0.5
     assert sol.rayos_encendidos == 6
     assert sol.color == Paleta.NARANJA
     print(f"OK: {sol.etiqueta} / {sol.color}\n")
 
-    print("=== Batería baja (0.2) ===")
+    print("Batería baja (0.2)")
     estado.bateria = 0.2
     assert sol.rayos_encendidos == 2
     assert sol.color == Paleta.ROJO
     print(f"OK: {sol.etiqueta} / {sol.color}\n")
 
-    print("=== Cargando ===")
+    print("Cargando")
     estado.bateria = 0.2
     estado.cargando = True
     assert sol.rayos_encendidos == 12

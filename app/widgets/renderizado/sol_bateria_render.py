@@ -9,7 +9,6 @@ from .base_render import RenderizadorBase, interpolar_color
 
 class SolBateriaRenderer(RenderizadorBase):
     """Renderer del Sol de batería. """
-
     TOTAL_RAYOS = 12
 
     def __init__(self, widget, canvas, cx, cy, radio_interior=16,

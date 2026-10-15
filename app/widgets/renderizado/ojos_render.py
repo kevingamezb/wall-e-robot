@@ -1,14 +1,15 @@
 # wall-e-robot/app/widgets/renderizado/ojos_render.py
 # Kevin Gámez - 13/09/2026
 
+# TODO(gui): implementar la silueta realista de los ojos. y de paso los íconos.
+
 
 from ...nucleo.paleta import Paleta
 from ...widgets.logica.ojos import ExpresionOjos
 from .base_render import RenderizadorBase, interpolar_color, rectangulo_redondeado
 
 
-# Geometría base de los ojos (silueta en "caja" estilo Wall-E).
-# TODO(gui): implementar la silueta realista de los ojos.
+# Geometría base de los ojos.
 OJO_ANCHO = 44
 SEP_ENTRE_OJOS = 12
 OJO_ALTO_ABIERTO = 30
@@ -19,12 +20,7 @@ PUPILA_OBSTACULO = 6
 
 class OjosRenderer(RenderizadorBase):
     """Renderer de los ojos de Wall-E."""
-
     def __init__(self, widget, canvas, x=20, y=8):
-        """
-        x, y: origen de la caja de dibujo. El ancho total necesario es
-        2*OJO_ANCHO + SEP_ENTRE_OJOS = 100px y el alto ~46px.
-        """
         super().__init__(canvas)
         self.widget = widget
         self.x = x

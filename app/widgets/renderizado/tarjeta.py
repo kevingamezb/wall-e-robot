@@ -34,8 +34,7 @@ def _corchete(parent, ancla, relx, rely, dx, dy, esquina):
     else:  # inf-der
         pts = (j, i, j, j, i, j)
 
-    # Ignorar error
-    can.create_line(*pts, fill=Paleta.CYAN_DIM, width=2, joinstyle="miter")
+    can.create_line(*pts, fill=Paleta.CYAN_DIM, width=2, joinstyle="miter") # Ignorar error de Pylance.
     return can
 
 

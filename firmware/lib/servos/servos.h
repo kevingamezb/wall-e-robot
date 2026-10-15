@@ -9,25 +9,17 @@
 
 /*
  *  Servos: capa sobre los 3 servos MG90S conectados directo a GPIO.
- *
- *  - Traduce el nombre que manda la app ("cuello", "hombro_izquierdo"...)
- *    al servo físico (MAPA_SERVOS[]).
- *  - Respeta SERVOS_ACTIVOS[] (pruebas aisladas): un servo se mueve solo si
- *    su flag está en 1.
- *  - El hardware no trae pulgares: esos nombres se aceptan para no romper el
- *    protocolo, pero no mueven nada.
  */
 class Servos {
 
 public:
 
-    static const int CANTIDAD        = 5;   // servos que reporta la app
+    static const int CANTIDAD        = 3;   // servos que reporta la app TODO(calibrar): ajustar contra app.
     static const int CANTIDAD_FISICA = 3;   // servos realmente cableados
 
     Servos();
 
-    // Configura los 3 servos. Llamar solo si MODULOS.servos está activo;
-    // si no, moverServo() igual guarda el ángulo pedido.
+    // Configura los 3 servos.
     void iniciar();
 
     // Mueve un servo por nombre, como llega en {"tipo":"servo"}.
@@ -42,9 +34,7 @@ private:
     enum IndiceServo {
         IDX_CUELLO = 0,
         IDX_HOMBRO_IZQ,
-        IDX_HOMBRO_DER,
-        IDX_PULGAR_IZQ,
-        IDX_PULGAR_DER,
+        IDX_HOMBRO_DER
     };
 
     int  indiceDe(const char* nombre) const;
@@ -56,7 +46,7 @@ private:
     int   _angulos[CANTIDAD];
 };
 
-// Instancia única global (la usan comunicacion.cpp y main.cpp).
+// Instancia única global.
 extern Servos servos;
 
 #endif // SERVOS_H

@@ -12,7 +12,7 @@
 #include "comunicacion.h"
 #include "servos.h"
 #include "motores.h"
-#include "radar.h"
+#include "distancia.h"
 #include "bateria.h"
 #include "oled.h"
 #include "leds.h"
@@ -45,8 +45,7 @@ void setup() {
     Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
 
     // Los timers LEDC se reservan una sola vez porque los comparten ESP32Servo
-    // (servos) y ESP32PWM (motores): si se autoasignan, chocan y un servo deja
-    // de responder.
+    // (servos) y ESP32PWM (motores).
     ESP32PWM::allocateTimer(0);
     ESP32PWM::allocateTimer(1);
     ESP32PWM::allocateTimer(2);
@@ -72,11 +71,11 @@ void setup() {
         Serial.println("MODULO servos   = INACTIVO (flag=0)");
     }
 
-    if (MODULOS.radar) {
-        radar.iniciar();
-        Serial.println("MODULO radar    = activo");
+    if (MODULOS.distancia) {
+        sensorDistancia.iniciar();
+        Serial.println("MODULO distancia = activo");
     } else {
-        Serial.println("MODULO radar    = INACTIVO (flag=0)");
+        Serial.println("MODULO distancia = INACTIVO (flag=0)");
     }
 
     if (MODULOS.bateria) {
@@ -105,13 +104,11 @@ void setup() {
 
 
 // Loop principal.
-// Sin delay(): todo avanza por intervalos de millis() para que la red, el
-// radar (HC-SR04) y los servos no se congelen entre sí.
 void loop() {
 
     uint32_t ahoraMs = millis();
 
-    esp_task_wdt_reset();   // "sigo vivo": si el loop se traba, deja de llegar
+    esp_task_wdt_reset();   // evita que el watchdog reinicie el ESP32 si el loop tarda mucho
 
     // Red
     comunicacion.escucharCliente();
@@ -140,8 +137,8 @@ void loop() {
     }
 
     // Sensores periódicos
-    if (MODULOS.radar) {
-        radar.actualizar();
+    if (MODULOS.distancia) {
+        sensorDistancia.actualizar();
     }
 
     if (MODULOS.bateria &&
@@ -156,18 +153,28 @@ void loop() {
         s_ultimaEnvioMs = ahoraMs;
 
         // Distancia -1 = sin lectura; Comunicacion la manda como null.
-        float distancia = MODULOS.radar ? radar.distanciaCm() : -1.0f;
+        float distancia = MODULOS.distancia ? sensorDistancia.distanciaCm()
+                                            : -1.0f;
 
         // Criterio de alertas.
-        bool advertencia = MODULOS.radar
-                         && radar.obstaculoCercano(UMBRAL_OBSTACULO_CM);
+        bool advertencia = MODULOS.distancia
+                         && sensorDistancia.obstaculoCercano(UMBRAL_OBSTACULO_CM);
 
         bool error = MODULOS.bateria && bateria.nivel() < 0.10f;
 
+        // Navegación: heurística mínima mientras no exista la máquina de
+        // estados de evasión (Fase 6). En automático, un obstáculo cercano
+        // detiene el avance; en manual decide el operador (la app ya conoce el
+        // modo, así que aquí se reporta "recto").
+        // TODO(Fase 6): reemplazar por la decisión real de evasión.
+        String navegacion = "recto";
+        if (comunicacion.modo() != "manual" && advertencia) {
+            navegacion = "alto";
+        }
+
         leds.actualizar(advertencia, error);
 
-        // Se reportan siempre los últimos ángulos pedidos por la app, aunque el
-        // módulo de servos esté inactivo.
+        // Se reportan siempre los últimos ángulos pedidos por la app.
         int angulos[Servos::CANTIDAD];
         servos.angulosUsuario(angulos);
 
@@ -177,6 +184,7 @@ void loop() {
             advertencia,
             error,
             distancia,
+            navegacion,
             bateria.consumoWatts(),
             comunicacion.estaConectado(),
             bateria.cargando(),
@@ -189,12 +197,11 @@ void loop() {
                          comunicacion.modo(), comunicacion.estaConectado());
         }
 
-        // Logs con cooldown: solo al transicionar a la alerta, no en cada
-        // envío mientras persiste.
+        // Logs con cooldown
         if (advertencia && !s_advertenciaAnterior) {
             comunicacion.enviarLog(
-                "RADAR",
-                "Obstáculo muy cerca: " + String(radar.distanciaCm(), 1) + "cm",
+                "DISTANCIA",
+                "Obstáculo muy cerca: " + String(sensorDistancia.distanciaCm(), 1) + "cm",
                 "advertencia");
         }
         if (error && !s_errorAnterior) {

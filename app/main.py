@@ -1,6 +1,6 @@
 # wall-e-robot/app/main.py
 # Kevin Gámez - 13/09/2026
-#
+
 # Punto de entrada de la aplicación de escritorio del Wall-E.
 # Para arrancar (desde la raíz del proyecto, donde está la carpeta 'app'):
 #   python -m app.main
@@ -17,8 +17,6 @@ from .widgets.logica.control_teclado import ControlTeclado
 
 
 # Cada cuántos milisegundos se lee el "robot" y se redibuja la pantalla.
-# 60 ms ~ 16 cuadros por segundo: suficiente para la GUI sin cargar al
-# procesador (un ESP32 real tampoco actualiza más rápido).
 INTERVALO_CICLO_MS = 60
 
 # Puerto en el que escucha el ESP32 (firmware y socket deben coincidir).
@@ -26,20 +24,7 @@ PUERTO = 8080
 
 
 class Aplicacion:
-    """
-    Coordina estado + conexión + pantalla.
-
-    Es una sola pantalla (PantallaPrincipal): todo está siempre a la vista y
-    la conexión se administra desde ahí con CONECTAR / DESCONECTAR. En cada
-    ciclo se lee el estado, se pasan los comandos del gamepad a la conexión
-    activa y se redibuja la pantalla.
-
-    Estados de conexión manejados aquí:
-        - simulador   (arranque)         : ComunicacionSimulada
-        - robot por IP (tras CONECTAR)    : Comunicacion
-        - sin conexión (tras DESCONECTAR) : ConexionOffline
-    """
-
+    """Coordina estado + conexión + pantalla. """
     def __init__(self, root: tk.Tk):
         """Monta la ventana, el estado, la conexión y la pantalla."""
         self.root = root
@@ -49,7 +34,7 @@ class Aplicacion:
         # Estado compartido del que leen todos los widgets.
         self.estado = EstadoRobot()
 
-        # Arranca en simulador; el usuario puede conectar a un ESP32 real.
+        # Arranca en simulador
         self.conexion = ComunicacionSimulada()
 
         self.contenedor = tk.Frame(root, bg=Paleta.FONDO_APP)
@@ -62,14 +47,11 @@ class Aplicacion:
             on_desconectar=self._desconectar,
             on_controles=self._abrir_controles,
         )
-        # El gamepad dispara siempre hacia la conexión ACTIVA: la lambda cierra
-        # sobre self.conexion, así al cambiar de conexión el mando empieza a
-        # hablar con el robot nuevo sin recablear nada.
+        # El gamepad dispara siempre hacia la conexión activa (simulada o real).
         self.pantalla.conectar_gamepad(lambda cmd: self.conexion.enviar_mensaje(cmd))
         self.pantalla.establecer_conexion(True, "SIMULADOR")
 
-        # Mapeo de teclado: perfil persistido (o de fábrica) + el driver que
-        # traduce cada tecla en la acción correspondiente del gamepad.
+        # Mapeo de teclado: perfil persistido (o de fábrica).
         self.mapeo = MapeoTeclado.cargar()
         self.control_teclado = ControlTeclado(self.root, self.mapeo,
                                               self.pantalla.gamepad)

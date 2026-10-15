@@ -3,14 +3,12 @@
 
 
 class Paleta:
-    """
-    Paleta de colores y sistema visual de la GUI.
-    """
+    """Paleta de colores y sistema visual de la GUI."""
 
     # Fondos
     FONDO_APP    = "#0a111f"   # fondo general de la ventana
     FONDO_WIDGET = "#0c1626"   # cara de los paneles (tarjetas)
-    FONDO_CANVAS = "#080f1c"   # lienzo interno (radar, gamepad): aún más oscuro
+    FONDO_CANVAS = "#080f1c"   # lienzo interno (navegación, gamepad): aún más oscuro
 
     # Acentos del robot
     DORADO       = "#cba135"   # chassis/ojos del robot
@@ -50,13 +48,7 @@ PROPORCION_AUREA = 1.618  # proporción usada en las dimensiones del layout
 
 
 def color_por_umbral(fraccion: float, invertido: bool = False) -> str:
-    """
-    Regla de color por umbral de la UX/UI.
-
-    fraccion: 0.0 a 1.0
-    invertido: True cuando "más" es peor (ej. consumo),
-               False cuando "más" es mejor (ej. batería)
-    """
+    """Devuelve un color de la paleta según el valor de 'fraccion' y el modo 'invertido'."""
 
     if invertido:
         if fraccion > 0.7:
@@ -88,6 +80,7 @@ def color_por_umbral(fraccion: float, invertido: bool = False) -> str:
 # Cajón de Pruebas
 # Ejecutar desde la raíz del proyecto:
 #   python -m app.nucleo.paleta
+
 if __name__ == '__main__':
     print("Prueba paleta.py\n")
 
@@ -104,7 +97,7 @@ if __name__ == '__main__':
     print(f"0.75 -> {color_por_umbral(0.75, invertido=True)}")  # esperado: ROJO
     print(f"0.50 -> {color_por_umbral(0.50, invertido=True)}")  # esperado: NARANJA
     print(f"0.20 -> {color_por_umbral(0.20, invertido=True)}")  # esperado: DORADO
-    print(f"0.00 -> {color_por_umbral(0.00, invertido=True)}")  # esperado: GRIS (sin actividad)
+    print(f"0.00 -> {color_por_umbral(0.00, invertido=True)}")  # esperado: GRIS
 
     print("\nVerificación cruzada: colores deben ser strings hexadecimales")
     color_prueba = color_por_umbral(1.00, invertido=True)

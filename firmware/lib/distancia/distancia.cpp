@@ -1,7 +1,7 @@
-// wall-e-robot/firmware/lib/radar/radar.cpp
+// wall-e-robot/firmware/lib/distancia/distancia.cpp
 // Kevin Gámez - 13/09/2026
 
-#include "radar.h"
+#include "distancia.h"
 #include "config.h"
 #include "pines.h"
 
@@ -13,10 +13,10 @@ static const uint32_t TIMEOUT_SIN_ECO_US      = 40000;  // ~7 m: más allá, no 
 static const float MAX_DISTANCIA_CM           = 400.0f; // filtra ecos lejanos/ruido
 
 
-Radar radar(PIN_RADAR_TRIG, PIN_RADAR_ECHO);
+SensorDistancia sensorDistancia(PIN_DISTANCIA_TRIG, PIN_DISTANCIA_ECHO);
 
 
-Radar::Radar(uint8_t pinTrig, uint8_t pinEcho)
+SensorDistancia::SensorDistancia(uint8_t pinTrig, uint8_t pinEcho)
     : _pinTrig(pinTrig)
     , _pinEcho(pinEcho)
     , _fase(FASE_ESPERANDO)
@@ -28,7 +28,7 @@ Radar::Radar(uint8_t pinTrig, uint8_t pinEcho)
     , _ultimaLecturaMs(0) {}
 
 
-void Radar::iniciar() {
+void SensorDistancia::iniciar() {
 
     pinMode(_pinTrig, OUTPUT);
     pinMode(_pinEcho, INPUT);
@@ -39,10 +39,10 @@ void Radar::iniciar() {
 }
 
 
-void Radar::actualizar() {
+void SensorDistancia::actualizar() {
 
     if (!_sensorListo) {
-        return;   // módulo deshabilitado en esta prueba
+        return;
     }
 
     switch (_fase) {
@@ -51,7 +51,7 @@ void Radar::actualizar() {
 
         // Arranca un ciclo solo después del intervalo de muestreo.
         uint32_t ahoraMs = millis();
-        if ((ahoraMs - _ultimaLecturaMs) < LECTURA_RADAR_MS) {
+        if ((ahoraMs - _ultimaLecturaMs) < LECTURA_DISTANCIA_MS) {
             break;
         }
 
@@ -95,7 +95,7 @@ void Radar::actualizar() {
             uint32_t duracion = (uint32_t)(micros() - _microsEco);
             float cm = (float)duracion * VELOCIDAD_SONIDO_CM_POR_US / 2.0f;
 
-            // Descarta valores absurdos (eco rebotado, ruido del aula).
+            // Descarta valores absurdos.
             _distanciaCm = (cm > MAX_DISTANCIA_CM) ? -1.0f : cm;
 
             _lecturaNueva = true;
@@ -107,17 +107,17 @@ void Radar::actualizar() {
 }
 
 
-bool Radar::hayLecturaNueva() const {
+bool SensorDistancia::hayLecturaNueva() const {
     return _lecturaNueva;
 }
 
 
-float Radar::distanciaCm() const {
+float SensorDistancia::distanciaCm() const {
     // -1 se propaga hasta main.cpp, que decide mandar null en el JSON.
     return _distanciaCm;
 }
 
 
-bool Radar::obstaculoCercano(float umbralCm) const {
+bool SensorDistancia::obstaculoCercano(float umbralCm) const {
     return _distanciaCm >= 0.0f && _distanciaCm <= umbralCm;
 }

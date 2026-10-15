@@ -7,7 +7,6 @@ from ...nucleo.paleta import Paleta
 
 class Boton:
     """Gestiona el estado y la notificación a suscriptores de un botón de la interfaz."""
-
     def __init__(self, texto: str):
         self.texto = texto
         self.presionado = False
@@ -47,6 +46,7 @@ class Boton:
 # Cajón de Pruebas
 # Ejecutar desde la raíz del proyecto:
 #   python -m app.widgets.logica.boton
+
 if __name__ == "__main__":
     print("Prueba boton.py\n")
 

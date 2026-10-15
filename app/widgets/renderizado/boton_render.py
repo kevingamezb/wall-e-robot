@@ -7,24 +7,23 @@ from ...nucleo.paleta import Paleta
 from .base_render import RenderizadorBase, rectangulo_redondeado, interpolar_color
 
 
-# Parámetros de la transición de color: un fundido corto en vez de un salto seco.
+# Parámetros de la transición de color
 PASOS_TRANSICION = 6
 INTERVALO_TRANSICION_MS = 16
 
 
 class BotonRenderer(RenderizadorBase):
     """Renderer de un Boton lógico."""
-
     def __init__(self, widget, canvas, x, y, ancho, alto,
                  texto=None, radio_esquinas=Paleta.RADIO_BOTON, tamano_fuente=9):
         super().__init__(canvas)
         
-        self.widget = widget
-        self.x, self.y = x, y
+        self.widget           = widget
+        self.x, self.y        = x, y
         self.ancho, self.alto = ancho, alto
-        self.texto = texto if texto is not None else widget.texto
-        self.radio_esquinas = radio_esquinas
-        self.tamano_fuente = tamano_fuente
+        self.texto            = texto if texto is not None else widget.texto
+        self.radio_esquinas   = radio_esquinas
+        self.tamano_fuente    = tamano_fuente
 
         # Estado de la animación de color.
         self._color_visual = None   # color aplicado actualmente (lo que se ve)
@@ -33,7 +32,6 @@ class BotonRenderer(RenderizadorBase):
         self._paso = 0
 
     # Traducción de eventos del mouse a estados lógicos
-
     def _al_presionar(self, _evento):
         self.widget.presionar()
 
@@ -71,16 +69,12 @@ class BotonRenderer(RenderizadorBase):
             else:
                 self._color_destino = None
         except tk.TclError:
-            # El canvas ya fue destruido (cambio de pantalla): no queda nada
-            # que animar y el 'after' pendiente deja de dispararse.
+            # El canvas ya fue destruido
             self._color_destino = None
 
     def dibujar(self):
         """Dibuja o actualiza el botón y reenlaza sus eventos."""
         # Bezel (placa metálica) y halo, detrás del fondo animado
-        # El bezel es un borde fijo que enmarca el botón; el halo es el brillo
-        # que se enciende al presionar. Ambos van detrás del fondo para que la
-        # transición de color los cubra.
         self._primera_vez(
             "bezel",
             lambda: rectangulo_redondeado(
@@ -101,7 +95,7 @@ class BotonRenderer(RenderizadorBase):
             ),
         )
 
-        # Fondo del botón (rectángulo redondeado, color según estado)
+        # Fondo del botón
         fondo = self._primera_vez(
             "fondo",
             lambda: rectangulo_redondeado(
@@ -124,8 +118,7 @@ class BotonRenderer(RenderizadorBase):
             self.canvas.after(INTERVALO_TRANSICION_MS, self._animar_hacia)
 
         # (Re)enlaza los eventos sobre el fondo. El hover se enlaza solo al
-        # fondo (no a la etiqueta) para evitar parpadeos al cruzar el texto; el
-        # cursor es del canvas completo porque Tk no lo define por ítem.
+        # fondo (no a la etiqueta) para evitar parpadeos al cruzar el texto;
         self.canvas.tag_bind(fondo, "<ButtonPress-1>", self._al_presionar)
         self.canvas.tag_bind(fondo, "<ButtonRelease-1>", self._al_soltar)
         self.canvas.tag_bind(fondo, "<Enter>", self._al_entrar)

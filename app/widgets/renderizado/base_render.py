@@ -6,8 +6,7 @@ from ...nucleo.paleta import Paleta
 
 
 def rectangulo_redondeado(canvas, x1, y1, x2, y2, radio, **opciones):
-    """
-    Dibuja un rectángulo de esquinas redondeadas y devuelve su id."""
+    """Dibuja un rectángulo de esquinas redondeadas y devuelve su id."""
     puntos = [
         x1 + radio, y1,
         x2 - radio, y1,
@@ -22,13 +21,7 @@ def rectangulo_redondeado(canvas, x1, y1, x2, y2, radio, **opciones):
 
 
 def interpolar_color(hex1, hex2, t):
-    """
-    Devuelve el color intermedio entre hex1 (t=0) y hex2 (t=1), con t
-    recortado al rango [0.0, 1.0].
-
-    Tkinter no interpola colores por sí solo: toda transición gradual debe
-    calcularse a mano.
-    """
+    """Devuelve el color intermedio entre hex1 (t=0) y hex2 (t=1)."""
     t = max(0.0, min(1.0, t))
     c1 = tuple(int(hex1[i:i + 2], 16) for i in (1, 3, 5))
     c2 = tuple(int(hex2[i:i + 2], 16) for i in (1, 3, 5))
@@ -37,13 +30,7 @@ def interpolar_color(hex1, hex2, t):
 
 
 def borde_panel(canvas, radio=Paleta.RADIO_TARJETA, margen=2, color=Paleta.BORDE_SUAVE):
-    """
-    Dibuja el marco redondeado de un panel y devuelve su id.
-
-    Es la variante fiel al mockup (esquinas realmente redondeadas), frente al
-    borde recto de 1px de crear_tarjeta() en tarjeta.py. Se dibuja sobre un
-    canvas existente; para el borde recto, usar crear_tarjeta().
-    """
+    """Dibuja el marco redondeado de un panel y devuelve su id."""
     ancho = int(canvas.cget("width"))
     alto = int(canvas.cget("height"))
     return rectangulo_redondeado(
@@ -54,21 +41,9 @@ def borde_panel(canvas, radio=Paleta.RADIO_TARJETA, margen=2, color=Paleta.BORDE
     )
 
 
-# --- Primitivas de "holograma" (sistema visual Axiom + Wall-E) ---
-#
-# Tkinter no soporta desenfoque, sombras, translucidez ni degradados: estos
-# efectos se aproximan apilando primitivas opacas. Se crean una sola vez
-# (RenderizadorBase._primera_vez) y solo se repintan cuando cambia su estado,
-# según la regla de rendimiento del dirty-check usada en toda la GUI.
-
+# Primitivas de "holograma"
 def fulgor_radial(canvas, cx, cy, radio, color, capas=4):
-    """
-    Brillo radial tipo holograma: anillos rellenos que van del color (centro)
-    al fondo del panel (borde).
-
-    Devuelve los ids creados, de mayor (tenue) a menor (intenso), para poder
-    moverlos u ocultarlos después.
-    """
+    """Brillo radial tipo holograma."""
     ids = []
     for i in range(capas, 0, -1):
         r = radio * (i / capas)
@@ -82,13 +57,7 @@ def fulgor_radial(canvas, cx, cy, radio, color, capas=4):
 
 
 def anillo_con_halo(canvas, cx, cy, radio, grosor, color, capas=3):
-    """
-    Círculo con halo: aros concéntricos cada vez más anchos y tenues alrededor
-    del aro central. Devuelve los ids creados.
-
-    Pensado para el punto del radar, el thumb del deslizador o el LED de un
-    ícono.
-    """
+    """Círculo con halo."""
     ids = []
     for i in range(capas, 0, -1):
         desfase = (capas - i) * grosor
@@ -104,13 +73,7 @@ def anillo_con_halo(canvas, cx, cy, radio, grosor, color, capas=3):
 
 def banda_gradiente(canvas, x1, y1, x2, y2, color_a, color_b,
                     tiras=16, orientacion="vertical"):
-    """
-    Degradado rectangular a base de tiras apiladas que interpolan entre
-    color_a y color_b. Devuelve los ids creados.
-
-    'orientacion' define el eje: 'vertical' (de arriba a abajo) u 'horizontal'
-    (de izquierda a derecha).
-    """
+    """Degradado rectangular."""
     ids = []
     for i in range(tiras):
         t = i / max(1, tiras - 1)
@@ -131,13 +94,7 @@ def banda_gradiente(canvas, x1, y1, x2, y2, color_a, color_b,
 
 def corchetes_hud(canvas, x1, y1, x2, y2, largo=12, color=None,
                   grosor=2, nivel=1):
-    """
-    Corchetes HUD en las 4 esquinas de un rectángulo, el sello visual de los
-    paneles de la Nave. Devuelve los ids creados.
-
-    'nivel' apila corchetes concéntricos (el exterior más tenue) para dar
-    profundidad sin desenfoque.
-    """
+    """Corchetes HUD en las 4 esquinas de un rectángulo."""
     if color is None:
         color = Paleta.CYAN_DIM
     ids = []
@@ -160,10 +117,7 @@ def corchetes_hud(canvas, x1, y1, x2, y2, largo=12, color=None,
 
 
 def scanlines(canvas, x1, y1, x2, y2, separacion=4, color=None):
-    """
-    Rejilla de líneas horizontales finas de la estética de pantalla de la Nave.
-    Se dibuja una sola vez y no se repinta. Devuelve los ids creados.
-    """
+    """Rejilla de líneas horizontales."""
     if color is None:
         color = Paleta.ESCANEO
     return [
@@ -174,10 +128,7 @@ def scanlines(canvas, x1, y1, x2, y2, separacion=4, color=None):
 
 def texto_hud(canvas, x, y, contenido, ancla="nw", color=None,
               tamano=9, negrita=True):
-    """
-    Etiqueta de texto monoespaciada en mayúsculas, para que los datos se lean
-    de forma uniforme en toda la app. Devuelve el id del ítem.
-    """
+    """Etiqueta de texto monoespaciada en mayúsculas."""
     if color is None:
         color = Paleta.AXIOM_CYAN
     return canvas.create_text(
@@ -188,13 +139,7 @@ def texto_hud(canvas, x, y, contenido, ancla="nw", color=None,
 
 
 class RenderizadorBase:
-    """
-    Base de todos los renderers: cachea los ids de los ítems dibujados.
-
-    En vez de borrar y redibujar el canvas en cada ciclo (lo que parpadearía),
-    cada renderer guarda los ids en _ids y solo actualiza los ítems
-    (itemconfig/coords) cuando vuelve a dibujar.
-    """
+    """Base de todos los renderers: cachea los ids de los ítems dibujados."""
 
     def __init__(self, canvas):
         """Asocia el renderer a 'canvas' e inicializa sus cachés de estado."""
@@ -203,25 +148,13 @@ class RenderizadorBase:
         self._valores = {}
 
     def _primera_vez(self, nombre, creador):
-        """
-        Crea el ítem la primera vez y devuelve su id; si ya existía, lo
-        devuelve sin recrearlo.
-
-        nombre : clave única del ítem dentro del renderer.
-        creador: función sin argumentos que crea el ítem.
-        """
+        """Crea el ítem la primera vez y devuelve su id. Si ya existe, devuelve el id existente."""
         if nombre not in self._ids:
             self._ids[nombre] = creador()
         return self._ids[nombre]
 
     def _hay_cambio(self, clave, valor):
-        """
-        Devuelve True si 'valor' cambió respecto al último registrado con 'clave'.
-
-        Es el interruptor de suciedad de los renderers: evita repintar el canvas
-        en cada ciclo comparando el valor derivado de la lógica antes de
-        redibujar. La clave es un string propio de cada renderer.
-        """
+        """Devuelve True si 'valor' cambió respecto al último registrado con 'clave'."""
         if clave in self._valores and self._valores[clave] == valor:
             return False
         self._valores[clave] = valor
@@ -231,8 +164,8 @@ class RenderizadorBase:
 # Cajón de Pruebas
 # Ejecutar desde la raíz del proyecto:
 #   python -m app.widgets.renderizado.base_render
-#
-# Usa una raíz de Tkinter retirada (withdraw) para ejecutarse sin mostrar
+
+# Usa una raíz de Tkinter retirada para ejecutarse sin mostrar
 # ninguna ventana.
 
 if __name__ == "__main__":
@@ -244,7 +177,7 @@ if __name__ == "__main__":
         reconfigure(encoding="utf-8")  # evita errores en consolas cp1252
     print("Prueba base_render.py (helpers HUD)\n")
 
-    print("=== rectangulo_redondeado ===")
+    print("rectangulo_redondeado")
     raiz = tk.Tk()
     raiz.withdraw()
     lienzo = tk.Canvas(raiz, width=320, height=220, bg=Paleta.FONDO_WIDGET)
@@ -254,23 +187,23 @@ if __name__ == "__main__":
     assert isinstance(rid, int) and rid > 0, "El rectángulo redondeado debe devolver un id"
     print("OK: ítem creado\n")
 
-    print("=== interpolar_color ===")
+    print("interpolar_color")
     assert interpolar_color("#000000", "#ffffff", 0.0) == "#000000", "t=0 da el color inicial"
     assert interpolar_color("#000000", "#ffffff", 1.0) == "#ffffff", "t=1 da el color final"
     assert interpolar_color("#000000", "#ffffff", 0.5) == "#808080", "t=0.5 da el gris medio"
     print("OK: extremos y punto medio\n")
 
-    print("=== fulgor_radial ===")
+    print("fulgor_radial")
     ids_fulgor = fulgor_radial(lienzo, 60, 170, 24, Paleta.AXIOM_CYAN, capas=4)
     assert len(ids_fulgor) == 4, "Debe crear el número de capas pedido"
     print(f"OK: {len(ids_fulgor)} anillos de brillo\n")
 
-    print("=== anillo_con_halo ===")
+    print("anillo_con_halo")
     ids_halo = anillo_con_halo(lienzo, 150, 170, 8, 2, Paleta.NARANJA, capas=3)
     assert len(ids_halo) == 3, "Halo = aro central + capas"
     print(f"OK: {len(ids_halo)} aros concéntricos\n")
 
-    print("=== banda_gradiente ===")
+    print("banda_gradiente")
     ids_v = banda_gradiente(lienzo, 200, 150, 230, 200,
                             Paleta.AXIOM_CYAN, Paleta.FONDO_WIDGET, tiras=8)
     ids_h = banda_gradiente(lienzo, 240, 150, 310, 170,
@@ -279,17 +212,17 @@ if __name__ == "__main__":
     assert len(ids_v) == 8 and len(ids_h) == 8, "Cada orientación debe crear sus tiras"
     print("OK: degradados vertical y horizontal\n")
 
-    print("=== corchetes_hud ===")
+    print("corchetes_hud")
     ids_c = corchetes_hud(lienzo, 20, 20, 300, 130, largo=14, nivel=2)
     assert len(ids_c) == 8, "2 niveles x 4 esquinas x 1 polilínea = 8"
     print("OK: corchetes de las 4 esquinas\n")
 
-    print("=== scanlines ===")
+    print("scanlines")
     ids_s = scanlines(lienzo, 20, 20, 300, 130, separacion=4)
     assert len(ids_s) == 28, f"Se esperaban 28 scanlines, llegaron {len(ids_s)}"
     print(f"OK: {len(ids_s)} líneas de barrido\n")
 
-    print("=== texto_hud ===")
+    print("texto_hud")
     tid = texto_hud(lienzo, 20, 140, "MODO MANUAL", tamano=9)
     assert isinstance(tid, int) and tid > 0, "El texto HUD debe devolver un id"
     print("OK: etiqueta monoespaciada creada\n")

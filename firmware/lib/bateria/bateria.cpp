@@ -19,7 +19,7 @@ void Bateria::iniciar() {
 
     if (!_sensor.begin()) {
         Serial.println("BATERIA: no se encontró el INA219 en el bus I2C.");
-        return;   // _activo queda en false: los captadores dan neutro
+        return;   // _activo queda en false
     }
 
     _activo = true;
