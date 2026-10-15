@@ -36,7 +36,6 @@ DESLIZADORES = {
 
 class ControlTeclado:
     """Traduce eventos de teclado de Tk a acciones del gamepad."""
-
     def __init__(self, raiz: tk.Misc, mapeo: MapeoTeclado, gamepad):
         self.raiz = raiz
         self.mapeo = mapeo
@@ -108,6 +107,7 @@ class ControlTeclado:
 # Cajón de Pruebas
 # Ejecutar desde la raíz del proyecto:
 #   python -m app.widgets.logica.control_teclado
+
 if __name__ == "__main__":
     print("Prueba control_teclado.py\n")
 
@@ -128,8 +128,8 @@ if __name__ == "__main__":
     gamepad.suscribir_comando(comandos.append)
     control = ControlTeclado(raiz, MapeoTeclado(), gamepad)
 
-    # 1. Flecha arriba -> comando motor (el renderer queda presionado)
-    print("=== Dirección con motor (auto-repetido) ===")
+    # Flecha arriba -> comando motor
+    print("Dirección con motor (auto-repetido)")
     control._al_presionar(_tecla("Up"))
     assert comandos[-1] == {"tipo": "motor", "direccion": "arriba"}
     assert gamepad.direccion_arriba.presionado, "La tecla debe encender el botón"
@@ -139,8 +139,8 @@ if __name__ == "__main__":
     assert not gamepad.direccion_arriba.presionado, "Soltar apaga el botón"
     print(f"OK: {len(comandos)} emisiones de motor sueltas\n")
 
-    # 2. Mano abrir -> UN disparo, aunque el teclado repita la pulsación
-    print("=== Discreta dispara una sola vez ===")
+    # Mano abrir -> UN disparo
+    print("Discreta dispara una sola vez")
     n = len(comandos)
     control._al_presionar(_tecla("space"))
     control._al_presionar(_tecla("space"))  # auto-repetido: NO debe multiplicar
@@ -149,8 +149,8 @@ if __name__ == "__main__":
     control._al_soltar(_tecla("space"))
     print("OK: auto-repetido ignorado en discretas\n")
 
-    # 3. Eje: paso a paso mientras se sostiene, se detiene al soltar
-    print("=== Eje (cuello) paso a paso ===")
+    # Eje: paso a paso mientras se sostiene
+    print("Eje (cuello) paso a paso")
     n = len(comandos)
     control._al_presionar(_tecla("q"))  # cuello_mas
     assert len(comandos) == n + 1, "El primer paso sí se emite"
@@ -164,8 +164,8 @@ if __name__ == "__main__":
     assert gamepad.cuello.posicion == 10, "Al soltar el eje no debe seguir avanzando"
     print(f"OK: pasos de 5°, se detiene en {gamepad.cuello.posicion}\n")
 
-    # 4. Reposo por teclado
-    print("=== Reposo ===")
+    # Reposo por teclado
+    print("Reposo")
     n = len(comandos)
     control._al_presionar(_tecla("r"))
     control._al_soltar(_tecla("r"))
@@ -173,8 +173,8 @@ if __name__ == "__main__":
     assert comandos[-1]["tipo"] == "multi"
     print("OK: reposo dispara UN multi\n")
 
-    # 5. Teclas sin mapear se ignoran; modificadores también
-    print("=== Teclas ignoradas ===")
+    # Teclas sin mapear se ignoran
+    print("Teclas ignoradas")
     n = len(comandos)
     control._al_presionar(_tecla("F12"))
     control._al_presionar(_tecla("Shift_L"))
@@ -182,8 +182,8 @@ if __name__ == "__main__":
     control._al_soltar(_tecla("Shift_L"))
     print("OK: teclas ajenas al perfil no hacen nada\n")
 
-    # 6. Direcciones opuestas no chocan: soltar la izquierda no apaga derecha
-    print("=== Presiones simultáneas ===")
+    # Direcciones opuestas no chocan
+    print("Presiones simultáneas")
     control._al_presionar(_tecla("Up"))
     control._al_presionar(_tecla("Left"))
     control._al_soltar(_tecla("Left"))
@@ -192,8 +192,8 @@ if __name__ == "__main__":
     assert not gamepad.direccion_arriba.presionado
     print("OK: cada tecla con su propio estado\n")
 
-    # 7. limpiar_estado al perder el foco
-    print("=== Pérdida de foco ===")
+    # Limpiar estado al perder el foco
+    print("Pérdida de foco")
     control._al_presionar(_tecla("r"))
     control.limpiar_estado()
     assert not gamepad.reposo.presionado, "Al perder el foco se sueltan los botones"

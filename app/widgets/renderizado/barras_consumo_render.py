@@ -7,25 +7,20 @@ from .base_render import RenderizadorBase, interpolar_color
 
 
 class BarrasConsumoRenderer(RenderizadorBase):
-    """
-    Renderer (Tkinter) de las barritas de consumo apiladas."""
+    """Renderer (Tkinter) de las barritas de consumo apiladas."""
 
     def __init__(self, widget, canvas, x, y, ancho_barra=26,
                  alto_barra=4, separacion=3):
         """x, y: esquina inferior-izquierda (las barras crecen hacia arriba)."""
         super().__init__(canvas)
-        self.widget = widget
-        self.x, self.y = x, y
+        self.widget      = widget
+        self.x, self.y   = x, y
         self.ancho_barra = ancho_barra
-        self.alto_barra = alto_barra
-        self.separacion = separacion
+        self.alto_barra  = alto_barra
+        self.separacion  = separacion
 
     def dibujar(self):
-        """Dibuja o actualiza las 10 barritas apiladas de abajo hacia arriba.
-
-        La geometría se crea una sola vez; el coloreo se repite solo cuando
-        cambia (encendidas, color), para no gastar itemconfig en cada ciclo.
-        """
+        """Dibuja o actualiza las 10 barritas apiladas de abajo hacia arriba."""
         total = self.widget.TOTAL_BARRISTAS
         encendidas = self.widget.barritas_encendidas
         color = self.widget.color

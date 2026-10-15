@@ -6,8 +6,7 @@
 #include "motores.h"
 
 
-// Rango seguro de cada servo. Un ángulo fuera de rango se rechaza (debe
-// coincidir con los topes reales del hardware).
+// Rango seguro de cada servo.
 struct LimiteServo {
     const char* nombre;
     int minimo;
@@ -17,15 +16,12 @@ struct LimiteServo {
 static const LimiteServo LIMITES[] = {
     { "cuello",            -70,  70 },
     { "hombro_izquierdo",  -50,  50 },
-    { "hombro_derecho",    -50,  50 },
-    { "pulgar_izquierdo",  -22,  22 },
-    { "pulgar_derecho",    -22,  22 },
+    { "hombro_derecho",    -50,  50 }
 };
 
 static const int CANTIDAD_SERVOS = sizeof(LIMITES) / sizeof(LIMITES[0]);
 
-// True si el servo existe y el ángulo está dentro de su rango. Un servo
-// desconocido devuelve false (se rechaza por seguridad).
+// True si el servo existe y el ángulo está dentro de su rango seguro.
 static bool anguloValidoParaServo(const char* servo, int angulo) {
 
     for (int i = 0; i < CANTIDAD_SERVOS; i++) {
@@ -102,11 +98,11 @@ void Comunicacion::enviarMensaje(const String& mensaje) {
 }
 
 
-// La app Python (conexion.py) parsea este formato de forma tolerante: los
-// campos que no vienen (o vienen null) no pisan lo que ya sabía.
+// La app Python (conexion.py) parsea este formato de forma tolerante.
 void Comunicacion::enviarEstado(float bateria, const String& modo,
                                 bool hay_advertencia, bool hay_error,
-                                float distancia_cm, float consumo_watts,
+                                float distancia_cm, const String& navegacion,
+                                float consumo_watts,
                                 bool conexion_activa, bool cargando,
                                 float tiempo_restante_min,
                                 const int* angulos_servos, int cantidad_servos) {
@@ -130,6 +126,7 @@ void Comunicacion::enviarEstado(float bateria, const String& modo,
         doc["distancia_cm"] = nullptr;
     }
 
+    doc["navegacion"]         = navegacion;
     doc["consumo_watts"]      = consumo_watts;
     doc["conexion_activa"]    = conexion_activa;
     doc["cargando"]           = cargando;
@@ -182,10 +179,7 @@ void Comunicacion::enviarLog(const String& origen, const String& mensaje,
 }
 
 
-// {"tipo":"servo","servo":"cuello","angulo":30}
-// Valida nombre y ángulo (LIMITES[]) y delega el movimiento a la librería de
-// servos. Con el módulo deshabilitado, moverServo() igual guarda el ángulo
-// para que la telemetría refleje lo que la GUI cree que mandó.
+// Valida nombre y ángulo (LIMITES[]) y delega el movimiento a la librería de servos.
 void Comunicacion::aplicarComando(const JsonVariantConst& comando) {
 
     const char* tipo = comando["tipo"];

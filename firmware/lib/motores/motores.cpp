@@ -52,9 +52,6 @@ void Motores::iniciar() {
 
 
 // Aplica una velocidad con signo a una rueda del TB6612FNG:
-//   > 0 -> inA=HIGH, inB=LOW  (adelante)
-//   < 0 -> inA=LOW,  inB=HIGH (atrás)
-//   = 0 -> ambos LOW          (parada libre)
 void Motores::_rueda(uint8_t inA, uint8_t inB, ESP32PWM& pwm, int velocidad) {
 
     if (velocidad > 0) {
@@ -68,7 +65,7 @@ void Motores::_rueda(uint8_t inA, uint8_t inB, ESP32PWM& pwm, int velocidad) {
         digitalWrite(inB, LOW);
     }
 
-    pwm.writeScaled(abs(velocidad) / 255.0f);   // duty 0.0 .. 1.0
+    pwm.writeScaled(abs(velocidad) / 255.0f);   // duty 0.0-1.0
 }
 
 
@@ -101,7 +98,6 @@ void Motores::mover(const String& direccion) {
 void Motores::detener() {
 
     // Se frenan las metas: la rampa baja las velocidades reales de a poco
-    // (frenado suave en vez de un corte seco).
     _metaA = 0;
     _metaB = 0;
 }

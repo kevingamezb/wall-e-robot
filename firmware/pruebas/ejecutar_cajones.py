@@ -1,10 +1,6 @@
 # wall-e-robot/pruebas/ejecutar_cajones.py
 # Kevin Gámez - 13/09/2026
-#
-# Ejecuta TODOS los cajones de pruebas que NO abren ventanas (todo excepto
-# la GUI completa de app/main.py). Cada uno se corre en un proceso aparte,
-# igual que si se ejecutara a mano, y se reporta OK/FALLA.
-#
+
 # Uso (desde la raíz del proyecto, donde está la carpeta 'app'):
 #   python pruebas/ejecutar_cajones.py
 
@@ -25,7 +21,8 @@ CAJONES = [
     "app.widgets.logica.icono_sistema",
     "app.widgets.logica.sol_bateria",
     "app.widgets.logica.barras_consumo",
-    "app.widgets.logica.radar",
+    "app.widgets.logica.proximidad",
+    "app.widgets.logica.navegacion",
     "app.widgets.logica.logger_widget",
     "app.comunicacion.conexion",
     "app.widgets.logica.mapeo_teclado",

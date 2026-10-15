@@ -9,7 +9,7 @@
 /*
  *  Leds: 2 indicadores de estado.
  *   - Amarillo: robot funcionando sin alertas.
- *   - Rojo    : advertencia de radar o error de batería.
+ *   - Rojo    : advertencia de obstáculo o error de batería.
  *
  *  El LED verde de "encendido" va directo al riel de 5 V, sin GPIO.
  */
@@ -29,7 +29,6 @@ private:
     bool _activo;
 };
 
-// Instancia única global.
 extern Leds leds;
 
 #endif // LEDS_H

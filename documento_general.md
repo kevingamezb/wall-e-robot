@@ -14,7 +14,7 @@
 
 ## 1. Qué es el proyecto
 
-Un robot Wall-E con servos articulados (cuello y 2 brazos) y radar de ultrasonido fijo, capaz de:
+Un robot Wall-E con servos articulados (cuello y 2 brazos) y sensor de distancia ultrasónico fijo, capaz de:
 
 - Moverse de forma autónoma evadiendo obstáculos y detectando huecos en el piso.
 - Ser controlado manualmente desde una app de PC vía WiFi.
@@ -23,7 +23,7 @@ Un robot Wall-E con servos articulados (cuello y 2 brazos) y radar de ultrasonid
 
 **Hardware:** ESP32 (WiFi integrado), 3 servos MG90S conectados directo a GPIO con fuente aparte (buck de
 5 V), driver TB6612FNG con 2 motores CC, INA219 para consumo real (dir. 0x40), OLED I2C 0.96" (dir. 0x3C),
-HC-SR04 (radar fijo al frente) y 2 LEDs indicadores (rojo/amarillo; el verde va al riel de 5 V).
+HC-SR04 (sensor de distancia fijo al frente) y 2 LEDs indicadores (rojo/amarillo; el verde va al riel de 5 V).
 **Software PC:** app Python con Tkinter (interfaz gráfica), particionada en lógica + renderer.
 **Software ESP32:** firmware en C++ (PlatformIO), con pruebas aisladas por módulo (flags en `config.h`).
 **Comunicación:** WiFi/TCP, JSON una línea por mensaje. El ESP32 actúa en **modo AP** (red `WALL-E`).
@@ -78,8 +78,8 @@ nunca hacen polling ni dependen de revisar condiciones "a mano".
 | Comunicación | WiFi/TCP, **JSON una por línea** (`\n`), ESP32 como **servidor en modo AP** (`WALL-E`, IP 192.168.4.1, puerto 8080) |
 | Pruebas de hardware aisladas | Flags 0/1 `MODULOS` en `firmware/include/config.h`; módulo en 0 reporta **valores neutros** a la GUI |
 | Apagado | Corte físico de alimentación (relé/MOSFET), no sleep de software |
-| Look & feel | **"Holograma Axiom + Wall-E"**: azul espacial de fondo, scanlines y corchetes HUD en cian (EVE) en los paneles, robot en dorado/naranja; **brillo estático sutil**, sin animaciones nuevas (solo ojos, barrido del radar, fade de botones y brillo al interactuar) |
-| Estructura de la pantalla | **Barra de sistema** superior (ENLACE · MODO · BATERÍA) + tarjetas con 4 **corchetes HUD** en las esquinas (que sobreviven al redimensionado); grilla fija: fila 1 ESTADO + TERMINAL, fila 2 RADAR + CONTROL MANUAL |
+| Look & feel | **"Holograma Axiom + Wall-E"**: azul espacial de fondo, scanlines y corchetes HUD en cian (EVE) en los paneles, robot en dorado/naranja; **brillo estático sutil**, sin animaciones nuevas (solo ojos, medidor de proximidad, fade de botones y brillo al interactuar) |
+| Estructura de la pantalla | **Barra de sistema** superior (ENLACE · MODO · BATERÍA) + tarjetas con 4 **corchetes HUD** en las esquinas (que sobreviven al redimensionado); grilla fija: fila 1 ESTADO + TERMINAL, fila 2 NAVEGACIÓN + CONTROL MANUAL |
 
 ---
 
@@ -111,7 +111,7 @@ Nunca conoce `EstadoRobot`, widgets ni Tkinter. Está dividido en **una librerí
 - `lib/comunicacion` — servidor TCP + JSON: comandos `servo`, `modo`, `motor`, `multi`; telemetría ampliada.
 - `lib/servos` — 3 servos MG90S (ESP32Servo), nombre→servo físico, centro 0°→90° y clamp 10..170°.
 - `lib/motores` — TB6612FNG diferencial (arriba/abajo/izquierda/derecha), PWM por ESP32PWM + STBY.
-- `lib/radar` — HC-SR04 no bloqueante (máquina de estados por `micros()`), sensor fijo al frente.
+- `lib/distancia` — HC-SR04 no bloqueante (máquina de estados por `micros()`), sensor fijo al frente.
 - `lib/bateria` — INA219 (0x40): nivel, corriente, watts, estimación de minutos.
 - `lib/oled` — SSD1306 (0x3C): estado, batería, distancia y modo.
 - `lib/leds` — 2 LEDs indicadores de estado (rojo = alerta, amarillo = funcionando).
@@ -144,8 +144,8 @@ wall-e-robot/
 │   │   └── conexion.py      ✅ hecho     # Conexion (ABC), Comunicacion (TCP/real), ComunicacionSimulada,
 │   │                                      # ConexionOffline, _procesar_mensaje() tolerante (protocolo ampliado)
 │   ├── widgets/
-│   │   ├── logica/          ✅ 9/9       # boton, deslizador, sol_bateria, barras_consumo, ojos,
-│   │   │                                 # icono_sistema, radar, logger_widget, gamepad — TODOS con cajón de pruebas
+│   │   ├── logica/          ✅ 10/10     # boton, deslizador, sol_bateria, barras_consumo, ojos,
+│   │   │                                 # icono_sistema, proximidad, navegacion, logger_widget, gamepad — TODOS con cajón de pruebas
 │   │   └── renderizado/     ✅ 11/12     # *_render.py + base_render.py (helpers HUD: scanlines, corchetes_hud,
 │   │   │                                 #   borde_panel, fulgor_radial, banda_gradiente, anillo_con_halo…)
 │   │   │                                 #   + tarjeta.py (corchetes en las esquinas). recoloreo.py ⬜ vacío
@@ -164,7 +164,7 @@ wall-e-robot/
 │   │   ├── comunicacion/    ✅ hecho     # servidor TCP; servo/modo/motor/multi; enviarEstado() ampliado; modo()
 │   │   ├── servos/          ✅ hecho     # 3 servos MG90S (ESP32Servo), nombre→servo físico, angulosUsuario()
 │   │   ├── motores/         ✅ hecho     # TB6612FNG diferencial (arriba/abajo/izquierda/derecha), ESP32PWM + STBY
-│   │   ├── radar/           ✅ hecho     # HC-SR04 no bloqueante (sensor fijo al frente)
+│   │   ├── distancia/       ✅ hecho     # HC-SR04 no bloqueante (sensor fijo al frente)
 │   │   ├── bateria/         ✅ hecho     # INA219: nivel, corriente, watts, minutos restantes
 │   │   ├── oled/            ✅ hecho     # SSD1306: estado, batería, distancia y modo
 │   │   └── leds/            ✅ hecho     # 2 LEDs indicadores (rojo alerta / amarillo funcionando)
@@ -188,7 +188,7 @@ Leyenda: ✅ implementado/presente · ⬜ placeholder/por hacer.
 | Comunicación | `ConexionRobot` + `ConexionReal`/`ConexionSimulada` | `Conexion` + `Comunicacion`/`ComunicacionSimulada` + `ConexionOffline` |
 | Consumo máximo | `consumo_max_watts` | `max_consumo_watts` |
 | Slider | `slider.py` / `SliderVertical` | `deslizador.py` / `Deslizador` + `MovimientoDeslizador` |
-| Posición de ángulo | `distancia_obstaculo_cm` → `PosicionServos` | incluye `radar_us`; ojos comentados |
+| Posición de ángulo | `distancia_obstaculo_cm` → `PosicionServos` | ojos comentados |
 | Renderers | `*_renderer.py` | `*_render.py` |
 | Pantallas | `monitoreo.py` + `control_manual.py` | `pantalla_principal.py` (una sola) |
 
@@ -202,10 +202,11 @@ documentos de referencia, deben usar estos nombres.
 - **Comandos entrantes:** `servo` (valida nombre + rango con `LIMITES[]`), `modo` (solo `automatico`/`manual`),
   `motor` (direcciones del d-pad), `multi` (lista de comandos en un mensaje).
 - **Telemetría:** `enviarEstado()` ampliado: `bateria, modo, hay_advertencia, hay_error, distancia_cm,
-  consumo_watts, conexion_activa, cargando, tiempo_restante_min, posiciones_servos`.
-  `distancia_cm` y `tiempo_restante_min` se mandan `null` cuando no hay lectura/estimación.
+  navegacion, consumo_watts, conexion_activa, cargando, tiempo_restante_min, posiciones_servos`.
+  `distancia_cm` y `tiempo_restante_min` se mandan `null` cuando no hay lectura/estimación; `navegacion`
+  es la maniobra decidida en automático.
 - **Límites calibrados en firmware** (`comunicacion.cpp` `LIMITES[]`), iguales al mockup: cuello ±70°,
-  hombros ±50°, pulgares ±22°. El radar no está en `LIMITES[]` (es un sensor fijo y no recibe comandos de la
+  hombros ±50°, pulgares ±22°. El sensor de distancia no está en `LIMITES[]` (es un sensor fijo y no recibe comandos de la
   app); los pulgares siguen por compatibilidad con la app, pero no tienen servo físico y se ignoran.
 - **Módulos (`config.h`):** flags de pruebas aisladas; módulo en 0 = no se inicializa y telemetría neutra.
 
@@ -218,10 +219,10 @@ Medio: **WiFi TCP**, ESP32 como **servidor** (modo AP), JSON **una línea por me
 **ESP32 → PC:**
 ```json
 {"tipo":"estado","bateria":0.83,"modo":"automatico","hay_advertencia":false,"hay_error":false,
- "distancia_cm":37.5,"consumo_watts":4.2,"conexion_activa":true,"cargando":false,
+ "distancia_cm":37.5,"navegacion":"recto","consumo_watts":4.2,"conexion_activa":true,"cargando":false,
  "tiempo_restante_min":null,
  "posiciones_servos":{"cuello":0,"hombro_izquierdo":10,"hombro_derecho":0,"pulgar_izquierdo":5,"pulgar_derecho":-5}}
-{"tipo":"log","origen":"RADAR","mensaje":"Obstáculo muy cerca: 8.0cm","nivel":"advertencia"}
+{"tipo":"log","origen":"DISTANCIA","mensaje":"Obstáculo muy cerca: 8.0cm","nivel":"advertencia"}
 ```
 
 **PC → ESP32:**
@@ -233,8 +234,8 @@ Medio: **WiFi TCP**, ESP32 como **servidor** (modo AP), JSON **una línea por me
 ```
 
 Reglas vigentes:
-- `distancia_cm` y `tiempo_restante_min` **pueden venir como `null`** (sin lectura de radar / sin
-  estimación de batería). El parseo de `conexion.py` es **tolerante**: campos faltantes o `null` no pisan
+- `distancia_cm` y `tiempo_restante_min` **pueden venir como `null`** (sin lectura del sensor de
+  distancia / sin estimación de batería). El parseo de `conexion.py` es **tolerante**: campos faltantes o `null` no pisan
   lo que `EstadoRobot` ya sabía (así conviven firmware viejo y nuevo).
 - Envío de estado cada **~500 ms** (`config.h` `ENVIO_ESTADO_MS`). La GUI redibuja cada 60 ms.
 
@@ -254,7 +255,7 @@ Fases del plan, con su estado **al 13/09/2026**:
 | 1 · Estado | `EstadoRobot`, `Paleta`, `color_por_umbral`, Logger | ✅ **Hecho** (nucleo/) |
 | 2 · Conexión | `Conexion` (ABC), `ComunicacionSimulada`, `Comunicacion` (TCP), `ConexionOffline` | ✅ **Hecho** |
 | 3 · Interfaz gráfica | Widgets lógicos + renderers + pantalla única + `main.py` | ✅ **Hecho** (pruebas en `pruebas/`) |
-| 4 · Lectura de sensores | Primer contacto con hardware real (ESP32 → PC) | 🔶 **Parcial**: radar (HC-SR04) y batería (INA219) leídos en firmware; falta integrar y calibrar |
+| 4 · Lectura de sensores | Primer contacto con hardware real (ESP32 → PC) | 🔶 **Parcial**: sensor de distancia (HC-SR04) y batería (INA219) leídos en firmware; falta integrar y calibrar |
 | 5 · Movimiento de servos/motores | GUI → ESP32 real, servos físicos | 🔶 **Parcial**: servos (ESP32Servo) y motores (TB6612FNG) implementados; **pendiente verificar cableado y dirección A/B de ruedas** |
 | 6 · Modo automático | Máquina de estados de evasión en ESP32 | ⬜ Pendiente |
 
@@ -296,7 +297,7 @@ bloquea por el hardware: la interfaz se termina aparte con `ComunicacionSimulada
 | Umbral "obstáculo cercano" | 15 cm | `config.h` (`UMBRAL_OBSTACULO_CM`) | implementado (advertencia) |
 | Límites físicos de servos | cuello ±70°, hombros ±50°, pulgares ±22° | `comunicacion.cpp` `LIMITES[]` | verificar contra piezas reales |
 | Buffer JSON firmware | `1024` estado/log · `4096` entrada | `comunicacion.cpp` | ok, crecer si el protocolo agrega campos |
-| Periodo de telemetría | 500 ms (`ENVIO_ESTADO_MS`) · radar 250 ms · batería 1000 ms | `config.h` | implementado |
+| Periodo de telemetría | 500 ms (`ENVIO_ESTADO_MS`) · distancia 250 ms · batería 1000 ms | `config.h` | implementado |
 | Estimación de batería | 6.6–8.4 V · 2000 mAh | `config.h` | recalibrar con el pack real |
 | Pines y canales | propuesta de arranque | `pines.h` | **CONFIRMAR con el cableado** |
 | Sentido de ruedas A/B | sin verificar | `motores.cpp` | confirmar en el robot |

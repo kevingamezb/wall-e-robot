@@ -10,15 +10,10 @@ from ...nucleo.estado import NivelLog
 
 class LoggerWidgetRenderer:
     """Renderer del widget del logger: la terminal de la app."""
-
     MAX_LINEAS = 30
 
     def __init__(self, widget_logico, parent: tk.Widget):
-        """
-        widget_logico : el LoggerWidget lógico, que recibe las líneas del Logger.
-        parent        : el frame o canvas que contendrá el terminal.
-        """
-        self.widget = widget_logico
+        self.widget  = widget_logico
         self._lineas = 0  # cantidad de líneas presentes en el terminal
 
         # Terminal: Text de solo lectura, oscuro, estilo consola.
@@ -103,14 +98,8 @@ class LoggerWidgetRenderer:
             self.texto.configure(state="disabled")
             self.texto.see("end")  # siempre mostrar la línea más reciente
         except tk.TclError:
-            # El terminal ya fue destruido (cambio de pantalla): el callback
-            # sigue vivo, pero no hay nada que pintar.
+            # El terminal ya fue destruido (cambio de pantalla)
             pass
 
     def dibujar(self):
-        """
-        API común con el resto de renderers.
-
-        El terminal se actualiza solo por suscripción, cuando llega una línea
-        nueva, así que dibujar() no tiene nada que repintar.
-        """
+        """API común con el resto de renderers."""

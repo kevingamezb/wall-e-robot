@@ -7,7 +7,6 @@ from ...nucleo.estado import EstadoRobot, EntradaLog
 
 class LoggerWidget:
     """Encapsula la suscripción al logger del estado para propagar nuevas entradas al renderizado."""
-
     def __init__(self, estado: EstadoRobot):
         self.estado = estado
         self._suscriptores = []
@@ -26,6 +25,7 @@ class LoggerWidget:
 # Cajón de Pruebas
 # Ejecutar desde la raíz del proyecto:
 #   python -m app.widgets.logica.logger_widget
+
 if __name__ == "__main__":
     print("Prueba logger_widget.py\n")
 
@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     estado = EstadoRobot()
 
-    print("=== Suscripción al logger ===")
+    print("Suscripción al logger")
     widget = LoggerWidget(estado)
     recibidas = []
 
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     assert recibidas == ["Iniciando subsistemas", "Obstáculo a 8cm"]
     print(f"OK: recibidas -> {recibidas}\n")
 
-    print("=== Lectura del buffer ===")
+    print("Lectura del buffer")
     lineas = widget.obtener_lineas()
     assert len(lineas) == 2
     assert lineas[-1].nivel == NivelLog.ADVERTENCIA

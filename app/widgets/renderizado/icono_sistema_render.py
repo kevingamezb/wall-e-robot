@@ -9,13 +9,12 @@ from .base_render import RenderizadorBase, interpolar_color
 
 class IconoSistemaRenderer(RenderizadorBase):
     """Renderer de un ícono de sistema. """
-
     def __init__(self, widget, canvas, x, y, lado=24):
         """x, y, lado: zona cuadrada que ocupa el ícono dentro del canvas."""
         super().__init__(canvas)
-        self.widget = widget
+        self.widget    = widget
         self.x, self.y = x, y
-        self.lado = lado
+        self.lado      = lado
 
     def _crear_glifo(self):
         """Crea el ítem (texto o rayo) correspondiente al tipo de ícono."""
@@ -68,15 +67,13 @@ class IconoSistemaRenderer(RenderizadorBase):
         )
         glifo = self._primera_vez("glifo", self._crear_glifo)
 
-        # El ícono solo cambia de color (recoloreo): se repinta únicamente
-        # cuando cambia su estado activo/color (forma y glifo son invariables).
+        # El ícono solo cambia de color (recoloreo)
         if not self._hay_cambio("estado", (color, activo)):
             return
 
         self.canvas.itemconfig(halo, fill=interpolar_color(
             color, Paleta.FONDO_WIDGET, 0.80) if activo else Paleta.FONDO_WIDGET)
         self.canvas.itemconfig(caja, outline=borde)
-        # El rayo (polígono) conserva el color con que se creó; solo los glifos
-        # de texto se recolorean.
+        # El rayo (polígono) conserva el color con que se creó;
         if self.widget.tipo != TipoIcono.CARGANDO:
             self.canvas.itemconfig(glifo, fill=color)

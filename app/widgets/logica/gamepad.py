@@ -16,7 +16,6 @@ ANGULO_MANO_CERRADA = -22
 
 class Gamepad:
     """Composición de controles manuales que genera comandos para el movimiento y articulaciones del robot."""
-
     def __init__(self, estado: EstadoRobot):
         self.estado = estado
         self.habilitado = True
@@ -90,6 +89,7 @@ class Gamepad:
 # Cajón de Pruebas
 # Ejecutar desde la raíz del proyecto:
 #   python -m app.widgets.logica.gamepad
+
 if __name__ == "__main__":
     print("Prueba gamepad.py\n")
 
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     comandos = []
     gamepad.suscribir_comando(lambda comando: comandos.append(comando))
 
-    print("=== Dirección ===")
+    print("Dirección")
     gamepad.direccion_arriba.presionar()
     assert comandos[-1] == {"tipo": "motor", "direccion": "arriba"}
     print(f"OK: {comandos[-1]}\n")
@@ -111,7 +111,7 @@ if __name__ == "__main__":
     assert len(comandos) == 2
     print(f"OK: emitido {comandos[-1]}; el 500 fuera de rango no entró\n")
 
-    print("=== Mano abrir (multi) ===")
+    print("Mano abrir (multi)")
     gamepad.mano_abrir.presionar()
     assert comandos[-1] == {
         "tipo": "multi",
@@ -122,7 +122,7 @@ if __name__ == "__main__":
     }
     print(f"OK: {comandos[-1]['tipo']} con {len(comandos[-1]['comandos'])} servos\n")
 
-    print("=== Reposo (multi) ===")
+    print("Reposo (multi)")
     gamepad.cuello.mover(30)
     gamepad.hombro_izquierdo.mover(-20)
     gamepad.hombro_derecho.mover(20)
@@ -137,7 +137,7 @@ if __name__ == "__main__":
         and gamepad.hombro_derecho.posicion == 0
     print(f"OK: reposo -> {servos_reposo} y sliders al centro\n")
 
-    print("=== Deshabilitado (sin conexión) ===")
+    print("Deshabilitado (sin conexión)")
     n = len(comandos)
     gamepad.habilitar(False)
     gamepad.direccion_arriba.presionar()
@@ -146,7 +146,7 @@ if __name__ == "__main__":
     assert len(comandos) == n
     print("OK: los comandos se descartan sin conexión\n")
 
-    print("=== Rehabilitado ===")
+    print("Rehabilitado")
     gamepad.habilitar(True)
     gamepad.direccion_abajo.presionar()
     assert comandos[-1] == {"tipo": "motor", "direccion": "abajo"}

@@ -4,7 +4,7 @@
 #ifndef PINES_H
 #define PINES_H
 
-// Cableado físico del robot. Si un cable cambia de lugar, se toca solo aquí.
+// Cableado físico del robot.
 
 // I2C compartido por el INA219 y el OLED.
 #define PIN_I2C_SDA         21
@@ -19,7 +19,6 @@
 #define PIN_RADAR_ECHO      16
 
 // TB6612FNG, 2 motores CC. Canal A = rueda izquierda, B = derecha
-// (a confirmar contra el robot; ver TODO en motores.h).
 #define PIN_MOTOR_PWMA      25
 #define PIN_MOTOR_AIN1      26
 #define PIN_MOTOR_AIN2      27

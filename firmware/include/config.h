@@ -10,11 +10,11 @@
 // inicializa y la telemetría reporta valores neutros. Así se prueba en el
 // banco solo lo que esté cableado, sin tocar el resto del código.
 typedef struct {
-    bool servos;   // 3 servos MG90S (2 brazos + cuello)
-    bool radar;    // HC-SR04 fijo al frente
-    bool bateria;  // INA219
-    bool oled;     // SSD1306 0.96"
-    bool motores;  // TB6612FNG (d-pad)
+    bool servos;     // 3 servos MG90S (2 brazos + cuello)
+    bool distancia;  // HC-SR04 fijo al frente (mide distancia, sin barrido)
+    bool bateria;    // INA219
+    bool oled;       // SSD1306 0.96"
+    bool motores;    // TB6612FNG (d-pad)
 } ModulosActivos;
 
 static const ModulosActivos MODULOS = { true, false, true, true, true };
@@ -33,14 +33,12 @@ static const int   PUERTO_SERVIDOR     = 8080;
 // Valores de arranque: calibrar contra el hardware real.
 static const float   UMBRAL_OBSTACULO_CM  = 15.0;   // distancia de "obstáculo cercano"
 
-// Presencia del operador en modo manual: si no llega ningún comando en este
-// tiempo, se detienen los motores (seguridad) y el robot puede volver a
-// automático.
+// Presencia del operador en modo manual
 static const int     TIEMPO_MANUAL_TIMEOUT_MS = 2000;
 
 // Periodos de telemetría y sensores (loop no bloqueante por millis()).
 static const uint32_t ENVIO_ESTADO_MS      = 500;
-static const uint32_t LECTURA_RADAR_MS     = 250;
+static const uint32_t LECTURA_DISTANCIA_MS = 250;
 static const uint32_t LECTURA_BATERIA_MS   = 1000;
 
 // Estimación de batería para un 2S LiPo típico: nivel = (V - MIN) / (MAX - MIN).

@@ -11,19 +11,19 @@ from .deslizador_render import DeslizadorRenderer
 
 class GamepadRenderer:
     """Renderer del gamepad, construido por composición."""
-
     def __init__(self, gamepad, canvas, ancho, alto):
         """
-        gamepad : el Gamepad lógico, con los comandos ya cableados.
-        canvas  : canvas donde se dibuja todo el control.
+        gamepad : instancia de Gamepad (lógica).
+        canvas  : canvas de Tkinter donde se dibuja.
+        ancho, alto : dimensiones del canvas.
         """
         self.gamepad = gamepad
-        self.canvas = canvas
+        self.canvas  = canvas
         self.ancho, self.alto = ancho, alto
-        self._textos = {}  # etiquetas auxiliares (valores, nombres de ejes)
+        self._textos      = {}  # etiquetas auxiliares (valores, nombres de ejes)
         self._valores_txt = {}  # memoria para no repintar textos sin cambios
-        self._hecho = {}  # decoración estática del panel (se dibuja 1 vez)
-        self._overlay = None  # capa "apagado" que se dibuja sin conexión
+        self._hecho       = {}  # decoración estática del panel (se dibuja 1 vez)
+        self._overlay     = None  # capa "apagado" que se dibuja sin conexión
 
         # Geometría base
         cx = 0.26 * ancho          # centro de la cruceta
@@ -143,12 +143,7 @@ class GamepadRenderer:
 
     # Capa "apagado"
     def _mostrar_desconectado(self):
-        """Cubre el mando con una capa apagada, a modo de reposo del robot.
-
-        La capa se dibuja encima de todo (relleno opaco), así que tapa también
-        cualquier botón o deslizador que haya quedado de una conexión previa.
-        El título lleva un halo rojo tenue detrás, como aviso de la Nave.
-        """
+        """Cubre el mando con una capa apagada, a modo de reposo del robot."""
         if self._overlay is None:
             self._overlay = rectangulo_redondeado(
                 self.canvas, 2, 2, self.ancho - 2, self.alto - 2,
@@ -178,12 +173,7 @@ class GamepadRenderer:
             self.canvas.itemconfig(self._overlay, state="hidden")
 
     def dibujar(self):
-        """Dibuja o actualiza todas las piezas y sus etiquetas.
-
-        Sin conexión solo se dibuja la capa apagada; con conexión la capa se
-        oculta y las piezas vuelven a pintarse con sus valores previos, que el
-        ciclo de main.py refresca de inmediato.
-        """
+        """Dibuja o actualiza todas las piezas y sus etiquetas."""
         self._dibujar_panel()
 
         if not self.gamepad.habilitado:

@@ -14,9 +14,7 @@ struct ParServo {
 static const ParServo MAPA_SERVOS[] = {
     { "cuello",             0 },
     { "hombro_izquierdo",   1 },
-    { "hombro_derecho",     2 },
-    { "pulgar_izquierdo",  -1 },
-    { "pulgar_derecho",    -1 },
+    { "hombro_derecho",     2 }
 };
 
 static const int CANTIDAD_NOMBRES = sizeof(MAPA_SERVOS) / sizeof(MAPA_SERVOS[0]);
@@ -26,7 +24,7 @@ static const uint8_t PINES_SERVO[Servos::CANTIDAD_FISICA] = {
     PIN_SERVO_CUELLO, PIN_SERVO_BRAZO_IZQ, PIN_SERVO_BRAZO_DER,
 };
 
-// 10..170° evita forzar los MG90S contra sus topes mecánicos. La app centra
+// 10-170° evita forzar los MG90S contra sus topes mecánicos. La app centra
 // el servo en 0°, que aquí corresponde a 90° físicos.
 static const int SERVO_GRAU_MIN = 10;
 static const int SERVO_GRAU_MAX = 170;
@@ -48,7 +46,7 @@ Servos::Servos()
 void Servos::iniciar() {
 
     for (int i = 0; i < CANTIDAD_FISICA; i++) {
-        _servos[i].setPeriodHertz(50);            // 50 Hz: frecuencia clásica de servo
+        _servos[i].setPeriodHertz(50);
         _servos[i].attach(PINES_SERVO[i], 500, 2400);
     }
 
@@ -93,7 +91,7 @@ void Servos::moverServo(const char* nombre, int angulo) {
 
     int indice = indiceDe(nombre);
     if (indice < 0) {
-        return;   // pulgar o nombre desconocido: no hay servo que mover
+        return;   // servo desconocido, no hay a quién mover
     }
 
     _angulos[indice] = angulo;                 // se guarda siempre...

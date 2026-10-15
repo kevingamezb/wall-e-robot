@@ -11,9 +11,7 @@ static const uint8_t OLED_I2C_DIR = 0x3C;
 PantallaOled oled;
 
 
-// reset=-1: el módulo no tiene pin de reset; la librería arranca la pantalla
-// por comando (SWITCHCAPVCC). Los pines I2C por defecto del ESP32 (21/22)
-// coinciden con pines.h.
+// reset=-1: el módulo no tiene pin de reset;
 PantallaOled::PantallaOled()
     : _pantalla(OLED_ANCHO, OLED_ALTO, &Wire, -1)
     , _activo(false) {}
@@ -42,7 +40,7 @@ void PantallaOled::mostrar(float bateria, float distanciaCm,
                            const String& modo, bool conexionActiva) {
 
     if (!_activo) {
-        return;   // módulo apagado: no tocar el I2C
+        return;   // módulo apagado
     }
 
     _pantalla.clearDisplay();

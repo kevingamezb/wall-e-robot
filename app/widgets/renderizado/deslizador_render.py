@@ -8,7 +8,6 @@ from .base_render import RenderizadorBase, interpolar_color
 
 class DeslizadorRenderer(RenderizadorBase):
     """Renderer de un Deslizador lógico."""
-
     def __init__(self, widget, canvas, x, y, largo,
                  orientacion="horizontal", alto_pista=6, radio_thumb=10):
         """
@@ -102,15 +101,13 @@ class DeslizadorRenderer(RenderizadorBase):
         )
         self._dibujar_ticks()
 
-        # El thumb cambia de tamaño y color según el estado, igual que el
-        # control del mockup: apagado en reposo, más claro con el mouse encima,
-        # y grande y brillante al arrastrar.
+        # El thumb cambia de tamaño y color según el estado.
         activo = self._arrastrando or self._en_hover
         thumb_radio = self.radio_thumb + (2 if self._arrastrando else 0)
         color_thumb = Paleta.DORADO if activo else Paleta.DORADO_DIM
         px, py = self._valor_a_pixel(self.widget.posicion)
 
-        # Halo del thumb: un disco tenue detrás que acompaña el agarre.
+        # Halo del thumb.
         halo = self._primera_vez(
             "halo",
             lambda: self.canvas.create_oval(

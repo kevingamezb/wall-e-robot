@@ -24,19 +24,19 @@ class Accion:
 
 
 ACCIONES = (
-    Accion("arriba", "Avanzar", DISCRETO),
-    Accion("abajo", "Retroceder", DISCRETO),
-    Accion("izquierda", "Girar izquierda", DISCRETO),
-    Accion("derecha", "Girar derecha", DISCRETO),
-    Accion("reposo", "Reposo", DISCRETO),
-    Accion("mano_abrir", "Abrir mano", DISCRETO),
-    Accion("mano_cerrar", "Cerrar mano", DISCRETO),
-    Accion("cuello_mas", "Cuello arriba", EJE, PASO_CUELLO),
-    Accion("cuello_menos", "Cuello abajo", EJE, PASO_CUELLO),
-    Accion("hombro_izq_mas", "Hombro izq. arriba", EJE, PASO_HOMBRO),
-    Accion("hombro_izq_menos", "Hombro izq. abajo", EJE, PASO_HOMBRO),
-    Accion("hombro_der_mas", "Hombro der. arriba", EJE, PASO_HOMBRO),
-    Accion("hombro_der_menos", "Hombro der. abajo", EJE, PASO_HOMBRO),
+    Accion("arriba"          , "Avanzar"           , DISCRETO),
+    Accion("abajo"           , "Retroceder"        , DISCRETO),
+    Accion("izquierda"       , "Girar izquierda"   , DISCRETO),
+    Accion("derecha"         , "Girar derecha"     , DISCRETO),
+    Accion("reposo"          , "Reposo"            , DISCRETO),
+    Accion("mano_abrir"      , "Abrir mano"        , DISCRETO),
+    Accion("mano_cerrar"     , "Cerrar mano"       , DISCRETO),
+    Accion("cuello_mas"      , "Cuello arriba"     , EJE, PASO_CUELLO),
+    Accion("cuello_menos"    , "Cuello abajo"      , EJE, PASO_CUELLO),
+    Accion("hombro_izq_mas"  , "Hombro izq. arriba", EJE, PASO_HOMBRO),
+    Accion("hombro_izq_menos", "Hombro izq. abajo" , EJE, PASO_HOMBRO),
+    Accion("hombro_der_mas"  , "Hombro der. arriba", EJE, PASO_HOMBRO),
+    Accion("hombro_der_menos", "Hombro der. abajo" , EJE, PASO_HOMBRO),
 )
 
 MODIFICADORAS = {
@@ -49,18 +49,18 @@ RUTA_CONTROLES = Path(__file__).resolve().parents[3] / "configuracion" / "contro
 
 def _teclas_por_defecto() -> dict:
     return {
-        "arriba": "Up",
-        "abajo": "Down",
-        "izquierda": "Left",
-        "derecha": "Right",
-        "reposo": "r",
-        "mano_abrir": "space",
-        "mano_cerrar": "c",
-        "cuello_mas": "q",
-        "cuello_menos": "a",
-        "hombro_izq_mas": "w",
+        "arriba"          : "Up",
+        "abajo"           : "Down",
+        "izquierda"       : "Left",
+        "derecha"         : "Right",
+        "reposo"          : "r",
+        "mano_abrir"      : "space",
+        "mano_cerrar"     : "c",
+        "cuello_mas"      : "q",
+        "cuello_menos"    : "a",
+        "hombro_izq_mas"  : "w",
         "hombro_izq_menos": "s",
-        "hombro_der_mas": "e",
+        "hombro_der_mas"  : "e",
         "hombro_der_menos": "d",
     }
 
@@ -121,7 +121,6 @@ class MapeoTeclado:
         return ruta
 
     # Consultas
-
     def tecla_de(self, accion_id: str) -> str | None:
         return self._mapa.get(accion_id)
 
@@ -167,6 +166,7 @@ class MapeoTeclado:
 # Cajón de Pruebas
 # Ejecutar desde la raíz del proyecto:
 #   python -m app.widgets.logica.mapeo_teclado
+
 if __name__ == "__main__":
     import sys
     try:
@@ -177,8 +177,8 @@ if __name__ == "__main__":
         pass
     print("Prueba mapeo_teclado.py\n")
 
-    # 1. Perfil por defecto cubre todas las acciones y sin teclas duplicadas
-    print("=== Perfil por defecto ===")
+    # Perfil por defecto cubre todas las acciones y sin teclas duplicadas
+    print("Perfil por defecto")
     mapeo = MapeoTeclado()
     assert {a.id for a in ACCIONES} <= set(mapeo._mapa), "Faltan acciones"
     teclas = list(mapeo._mapa.values())
@@ -186,8 +186,8 @@ if __name__ == "__main__":
     assert mapeo.tecla_de("arriba") == "Up", "ARRIBA debería ser la flecha ↑"
     print(f"OK: {len(mapeo._mapa)} acciones, teclas únicas\n")
 
-    # 2. Cargar sin archivo -> por defecto; con archivo -> round-trip
-    print("=== Persistencia (JSON) ===")
+    # Cargar sin archivo -> por defecto; con archivo -> round-trip
+    print("Persistencia (JSON)")
     import tempfile
     with tempfile.TemporaryDirectory() as tmp:
         ruta = Path(tmp) / "controles.json"
@@ -199,8 +199,8 @@ if __name__ == "__main__":
         assert mapeo3.tecla_de("reposo") == "r"
     print("OK: round-trip y fallback a defaults sin archivo\n")
 
-    # 3. Asignar: reemplaza la tecla anterior y libera la acción ocupada
-    print("=== Asignaciones y conflictos ===")
+    # Asignar: reemplaza la tecla anterior y libera la acción ocupada
+    print("Asignaciones y conflictos")
     mapeo = MapeoTeclado()
     mapeo.asignar("arriba", "x")  # x no estaba ocupada
     assert mapeo.tecla_de("arriba") == "x"
@@ -211,15 +211,15 @@ if __name__ == "__main__":
     assert mapeo.tecla_ocupada("x") == "abajo"
     print("OK: una tecla = una acción (la última manda)\n")
 
-    # 4. Limpiar y restaurar
-    print("=== Limpiar / restaurar ===")
+    # Limpiar y restaurar
+    print("Limpiar / restaurar")
     mapeo.limpiar("abajo")
     assert mapeo.tecla_de("abajo") is None
     mapeo.restaurar_por_defecto()
     assert mapeo.tecla_de("abajo") == "Down"
     print("OK: limpiar libera; restaurar vuelve a fábrica\n")
 
-    # 5. Nombres legibles de teclas para la GUI
+    # Nombres legibles de teclas para la GUI
     print("=== nombre_tecla ===")
     assert nombre_tecla("Up") == "\u2191"
     assert nombre_tecla("space") == "ESPACIO"
@@ -227,7 +227,7 @@ if __name__ == "__main__":
     assert nombre_tecla("F5") == "F5"
     print(f"OK: {nombre_tecla('Up')} / {nombre_tecla('space')} / {nombre_tecla('q')}\n")
 
-    # 6. Acciones válidas: 13 en total
+    # Acciones válidas: 13 en total
     assert len(ACCIONES) == 13
     ejes = [a for a in ACCIONES if a.tipo == EJE]
     assert len(ejes) == 6 and all(a.paso > 0 for a in ejes)

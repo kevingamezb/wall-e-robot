@@ -10,14 +10,15 @@ from ..widgets.logica.ojos import Ojos
 from ..widgets.logica.icono_sistema import IconoSistema, TipoIcono
 from ..widgets.logica.sol_bateria import SolBateria
 from ..widgets.logica.barras_consumo import BarrasConsumo
-from ..widgets.logica.radar import Radar
+from ..widgets.logica.proximidad import Proximidad
+from ..widgets.logica.navegacion import Navegacion
 from ..widgets.logica.logger_widget import LoggerWidget
 from ..widgets.logica.gamepad import Gamepad
 from ..widgets.renderizado.ojos_render import OjosRenderer
 from ..widgets.renderizado.icono_sistema_render import IconoSistemaRenderer
 from ..widgets.renderizado.barras_consumo_render import BarrasConsumoRenderer
 from ..widgets.renderizado.sol_bateria_render import SolBateriaRenderer
-from ..widgets.renderizado.radar_render import RadarRenderer
+from ..widgets.renderizado.navegacion_render import NavegacionRenderer
 from ..widgets.renderizado.logger_widget_render import LoggerWidgetRenderer
 from ..widgets.renderizado.boton_render import BotonRenderer
 from ..widgets.renderizado.gamepad_render import GamepadRenderer
@@ -25,10 +26,7 @@ from ..widgets.renderizado.tarjeta import crear_tarjeta, subir_decoracion
 
 
 class PantallaPrincipal:
-    """
-    La pantalla única de la aplicación: un panel de control, sin navegación.
-    """
-
+    """La pantalla única de la aplicación: un panel de control, sin navegación."""
     def __init__(self, parent, estado: EstadoRobot,
                  on_conectar=None, on_desconectar=None, on_controles=None):
         """
@@ -49,7 +47,8 @@ class PantallaPrincipal:
         self.iconos = [IconoSistema(estado, t) for t in TipoIcono]
         self.sol = SolBateria(estado)
         self.barras = BarrasConsumo(estado)
-        self.radar = Radar(estado)
+        self.proximidad = Proximidad(estado)
+        self.navegacion = Navegacion(estado)
         self.logger = LoggerWidget(estado)
         self.gamepad = Gamepad(estado)
         self.boton_conectar = Boton("CONECTAR")
@@ -72,14 +71,13 @@ class PantallaPrincipal:
         self._construir_barra_sistema()
         self._construir_columna_estado()
         self._construir_logger()
-        self._construir_radar()
+        self._construir_navegacion()
         self._construir_control_manual()
 
         # Arrancamos "sin conexión": main.py la marcará según corresponda.
         self.establecer_conexion(False, "SIN CONEXI\u00d3N")
 
     # Construcción de cada bloque
-
     def _construir_barra_sistema(self):
         """Barra HUD superior: identidad de la nave + indicadores en vivo."""
         
@@ -232,21 +230,17 @@ class PantallaPrincipal:
         self.render_logger = LoggerWidgetRenderer(self.logger, marco)
         subir_decoracion(marco)
 
-    def _construir_radar(self):
-        """Tarjeta 'RADAR': radar + etiqueta de distancia, centrados."""
-        marco = crear_tarjeta(self.frame, "RADAR")
+    def _construir_navegacion(self):
+        """Tarjeta 'NAVEGACIÓN': medidor de proximidad + decisión de maniobra."""
+        marco = crear_tarjeta(self.frame, "NAVEGACIÓN")
         marco.grid(row=2, column=0, sticky="nsew",
                    padx=Paleta.UNIDAD // 2, pady=(0, Paleta.UNIDAD // 2))
 
-        canvas_radar = tk.Canvas(marco, width=300, height=300,
-                                 bg=Paleta.FONDO_WIDGET, highlightthickness=0)
-        canvas_radar.pack(expand=True, pady=(Paleta.UNIDAD // 4, 0))
-        self.render_radar = RadarRenderer(self.radar, canvas_radar, 150, 150, 140)
-
-        self.lbl_dist = tk.Label(marco, text="", bg=Paleta.FONDO_WIDGET,
-                                 fg=Paleta.AXIOM_CYAN, font=(Paleta.FUENTE_HUD, 10, "bold"))
-        self.lbl_dist.pack(padx=Paleta.UNIDAD // 3,
-                           pady=(Paleta.UNIDAD // 4, Paleta.UNIDAD // 3))
+        canvas_nav = tk.Canvas(marco, width=300, height=300,
+                               bg=Paleta.FONDO_WIDGET, highlightthickness=0)
+        canvas_nav.pack(expand=True, pady=(Paleta.UNIDAD // 4, Paleta.UNIDAD // 3))
+        self.render_navegacion = NavegacionRenderer(
+            self.proximidad, self.navegacion, canvas_nav, 150, 200, 120)
         subir_decoracion(marco)
 
     def _construir_control_manual(self):
@@ -298,7 +292,6 @@ class PantallaPrincipal:
         subir_decoracion(marco)
 
     # Conexión
-
     def conectar_gamepad(self, callback):
         """Conecta los comandos del gamepad hacia la conexión del robot."""
         self.gamepad.suscribir_comando(callback)
@@ -318,7 +311,6 @@ class PantallaPrincipal:
         )
 
     # Ciclo de actualización
-
     def dibujar(self):
         """Redibuja todos los bloques de la pantalla (se llama cada ciclo)."""
         self._actualizar_indicadores()
@@ -327,7 +319,7 @@ class PantallaPrincipal:
             render.dibujar()
         self.render_barras.dibujar()
         self.render_sol.dibujar()
-        self.render_radar.dibujar()
+        self.render_navegacion.dibujar()
         self.render_conectar.dibujar()
         self.render_desconectar.dibujar()
         self.render_controles.dibujar()
@@ -351,16 +343,13 @@ class PantallaPrincipal:
         if self.lbl_tiempo.cget("text") != texto_tiempo:
             self.lbl_tiempo.config(text=texto_tiempo)
 
-        distancia = self.estado.distancia_obstaculo_cm
-        texto_dist = (f"Objeto detectado a {distancia:.0f} cm"
-                      if distancia is not None else "Sin detección")
-        if self.lbl_dist.cget("text") != texto_dist:
-            self.lbl_dist.config(text=texto_dist)
 
+# Cajón de Pruebas
+# Ejecutar desde la raíz del proyecto:
+#   python -m app.pantallas.pantalla_principal
 
 if __name__ == "__main__":
-    # Cajón de Pruebas: monta la pantalla única en una ventana real.
-    print("=== PantallaPrincipal (cajón de pruebas) ===")
+    print("PantallaPrincipal")
 
     raiz = tk.Tk()
     raiz.geometry("1280x860")

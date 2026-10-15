@@ -9,7 +9,6 @@ from ...nucleo.paleta import Paleta
 
 class TipoIcono(Enum):
     """Identificadores de los iconos de sistema definidos en el mockup."""
-
     ADVERTENCIA = "advertencia"
     CARGANDO    = "cargando"
     MODO_MANUAL = "modo_manual"
@@ -19,7 +18,6 @@ class TipoIcono(Enum):
 
 class IconoSistema:
     """Determina el estado de activación y color de un icono de sistema según el estado del robot."""
-
     def __init__(self, estado: EstadoRobot, tipo: TipoIcono):
         self.estado = estado
         self.tipo = tipo
@@ -56,13 +54,14 @@ class IconoSistema:
 # Cajón de Pruebas
 # Ejecutar desde la raíz del proyecto:
 #   python -m app.widgets.logica.icono_sistema
+
 if __name__ == "__main__":
     print("Prueba icono_sistema.py\n")
 
     estado = EstadoRobot()
     iconos = {tipo: IconoSistema(estado, tipo) for tipo in TipoIcono}
 
-    print("=== Estado inicial ===")
+    print("Estado inicial")
     estado.conexion_activa = True
     assert iconos[TipoIcono.CONEXION].activo
     assert iconos[TipoIcono.CONEXION].color == Paleta.AXIOM_CYAN
@@ -71,7 +70,7 @@ if __name__ == "__main__":
     assert not iconos[TipoIcono.MODO_MANUAL].activo
     print("OK: solo CONEXION activa\n")
 
-    print("=== Advertencia + error ===")
+    print("Advertencia + error")
     estado.hay_advertencia = True
     estado.hay_error = True
     assert iconos[TipoIcono.ADVERTENCIA].activo
@@ -80,7 +79,7 @@ if __name__ == "__main__":
     assert iconos[TipoIcono.ERROR].color == Paleta.ROJO
     print("OK: ADVERTENCIA naranja, ERROR rojo\n")
 
-    print("=== Manual + cargando ===")
+    print("Manual + cargando")
     estado.modo = Modo.MANUAL
     estado.cargando = True
     assert iconos[TipoIcono.MODO_MANUAL].activo
