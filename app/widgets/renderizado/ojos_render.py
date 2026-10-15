@@ -1,10 +1,6 @@
 # wall-e-robot/app/widgets/renderizado/ojos_render.py
 # Kevin Gámez - 13/09/2026
 
-# Dibuja los ojos de Wall-E. Si los PNG de app/recursos/ están exportados se
-# usan las imágenes (un ojo por asset, el derecho espejado); si no, se cae al
-# dibujo procedural de siempre (mismo trazo hecho a mano con el Canvas).
-
 
 from ...nucleo.paleta import Paleta
 from ...widgets.logica.ojos import ExpresionOjos
@@ -23,13 +19,13 @@ PUPILA_OBSTACULO = 6
 # Alto con que se dibujan las imágenes de los ojos.
 ALTO_OJO_IMAGEN = 40
 
-# PNG de cada expresión (un ojo; el derecho se dibuja espejado).
+# PNG de cada expresión
 RECURSOS = {
-    ExpresionOjos.NORMAL:    "ojos_normal",
-    ExpresionOjos.MANUAL:    "ojos_manual",
-    ExpresionOjos.OBSTACULO: "ojos_obstaculo",
-    ExpresionOjos.SIN_DATOS: "ojos_desconectado",
-    ExpresionOjos.ERROR:     "ojos_error",
+    ExpresionOjos.NORMAL:    "ojo_normal",
+    ExpresionOjos.MANUAL:    "ojo_manual",
+    ExpresionOjos.OBSTACULO: "ojo_obstaculo",
+    ExpresionOjos.SIN_DATOS: "ojo_desconectado",
+    ExpresionOjos.ERROR:     "ojo_error",
 }
 
 

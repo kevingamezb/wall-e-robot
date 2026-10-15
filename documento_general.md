@@ -180,11 +180,11 @@ este orden de prioridad:
 
 | Prioridad | Expresión | Disparador | Asset | Color |
 |---|---|---|---|---|
-| 1 | `SIN_DATOS` | sin enlace | `ojos_desconectado` | gris |
-| 2 | `ERROR` | `hay_error` (batería crítica) | `ojos_error` | rojo |
-| 3 | `MANUAL` | modo manual | `ojos_manual` | naranja |
-| 4 | `OBSTACULO` | obstáculo ≤ 15 cm | `ojos_obstaculo` | rojo |
-| 5 | `NORMAL` | resto | `ojos_normal` | dorado |
+| 1 | `SIN_DATOS` | sin enlace | `ojo_desconectado` | gris |
+| 2 | `ERROR` | `hay_error` (batería crítica) | `ojo_error` | rojo |
+| 3 | `MANUAL` | modo manual | `ojo_manual` | naranja |
+| 4 | `OBSTACULO` | obstáculo ≤ 15 cm | `ojo_obstaculo` | rojo |
+| 5 | `NORMAL` | resto | `ojo_normal` | dorado |
 
 **Íconos de sistema** (`TipoIcono` → asset): `ADVERTENCIA→advertencia`, `CARGANDO→cargando`,
 `MODO_MANUAL→controlador`, `ERROR→error`, `CONEXION→conectividad_*`. El de conexión usa **tres niveles**
@@ -218,7 +218,7 @@ wall-e-robot/
 │   │   ├── pantalla_principal.py ✅      # la única pantalla del sistema (monitoreo/control_manual eliminados);
 │   │   │                                 #   barra de sistema (ENLACE/MODO/BATERÍA) + corchetes HUD
 │   │   ├── modal_controles.py ✅         # modal de configuración de teclas del control manual
-│   │   └── iconos/          ⬜ vacío      # sin PNG: los íconos se dibujan por código
+│   │   └── iconos/          ⬜ vacío      # los íconos reales viven en app/recursos/ (ver §3.4)
 │   ├── recursos/            ✅ hecho     # 12 SVG + PNG exportados (ojos e íconos de sistema); los PNG se
 │   │                                     #   tiñen con la Paleta al cargarse (ver §3.4)
 │   ├── main.py              ✅ hecho      # arranca la GUI: SIMULADOR → CONECTAR(IP) → DESCONECTAR
@@ -267,7 +267,7 @@ Leyenda: ✅ implementado/presente · ⬜ placeholder/por hacer.
 | Posición de ángulo | `distancia_obstaculo_cm` → `PosicionServos` | ojos comentados |
 | Sensor de distancia | `Radar` / `radar.py` / `radar_us` / pines `PIN_RADAR_*` | `SensorDistancia` / `proximidad.py` / campo `navegacion` / pines `PIN_US_*` |
 | Navegación | (no existía) | `Maniobra` (enum) + `lib/auto`; tarjeta GUI **NAVEGACIÓN** |
-| Expresión de ojos | (no existía) | `ExpresionOjos` (enum) + asset `ojos_<expresión>.png` |
+| Expresión de ojos | (no existía) | `ExpresionOjos` (enum) + asset `ojo_<expresión>.png` (uno por ojo) |
 | Nivel de conexión | (no existía) | `NivelConexion` (enum) derivado por frescura; assets `conectividad_alta/media/baja` |
 | Renderers | `*_renderer.py` | `*_render.py` |
 | Pantallas | `monitoreo.py` + `control_manual.py` | `pantalla_principal.py` (una sola) |
