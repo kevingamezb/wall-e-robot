@@ -16,6 +16,7 @@
 #include "bateria.h"
 #include "oled.h"
 #include "leds.h"
+#include "auto.h"
 
 
 Comunicacion comunicacion(PUERTO_SERVIDOR);
@@ -99,6 +100,13 @@ void setup() {
         Serial.println("MODULO oled     = INACTIVO (flag=0)");
     }
 
+    if (MODULOS.motores && MODULOS.distancia) {
+        autoRobot.iniciar();
+        Serial.println("MODULO auto     = activo");
+    } else {
+        Serial.println("MODULO auto     = INACTIVO (falta motores o ultrasonido)");
+    }
+
     Serial.println("Setup completo.");
 }
 
@@ -131,11 +139,6 @@ void loop() {
         s_timeoutAvisado = false;
     }
 
-    // Rampa de los motores
-    if (MODULOS.motores) {
-        motores.actualizar();
-    }
-
     // Sensores periódicos
     if (MODULOS.distancia) {
         sensorDistancia.actualizar();
@@ -145,6 +148,17 @@ void loop() {
         (ahoraMs - s_ultimaBateriaMs >= LECTURA_BATERIA_MS)) {
         bateria.actualizarLectura();
         s_ultimaBateriaMs = ahoraMs;
+    }
+
+    autoRobot.modoAutonomo(comunicacion.modo() == "automatico");
+
+    if (MODULOS.motores && MODULOS.distancia) {
+        autoRobot.actualizar();
+    }
+
+    // Rampa de los motores
+    if (MODULOS.motores) {
+        motores.actualizar();
     }
 
     // Telemetría
@@ -162,15 +176,9 @@ void loop() {
 
         bool error = MODULOS.bateria && bateria.nivel() < 0.10f;
 
-        // Navegación: heurística mínima mientras no exista la máquina de
-        // estados de evasión (Fase 6). En automático, un obstáculo cercano
-        // detiene el avance; en manual decide el operador (la app ya conoce el
-        // modo, así que aquí se reporta "recto").
-        // TODO(Fase 6): reemplazar por la decisión real de evasión.
-        String navegacion = "recto";
-        if (comunicacion.modo() != "manual" && advertencia) {
-            navegacion = "alto";
-        }
+        String navegacion = (comunicacion.modo() == "manual")
+                          ? String("recto")
+                          : autoRobot.navegacion();
 
         leds.actualizar(advertencia, error);
 
