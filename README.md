@@ -141,6 +141,20 @@ pio device monitor   # monitor serial (115200)
 Si `pio` no está en el PATH, usa la ruta del entorno:
 `C:\Users\<usuario>\.platformio\penv\Scripts\platformio.exe`.
 
+**Antes de grabar (configuración local, no versionada):** copia la plantilla de
+credenciales y edítala; `secrets.h` está en `.gitignore` y no se publica.
+
+```powershell
+Copy-Item firmware/include/secrets.example.h firmware/include/secrets.h
+```
+
+- El **primer** firmware debe grabarse por USB. OTA solo funciona a partir de un build que ya
+  incluya el módulo OTA.
+- Si la placa no se reinicia sola al grabar (módulos con chip CH340), mantén pulsado **BOOT
+  (IO0)** al iniciar la subida y suéltalo cuando empiece; si no arranca, pulsa **EN/RST**.
+- Con `WIFI_AP_CLAVE` y `OTA_CLAVE` vacías, el AP y el portal OTA quedan **abiertos**: solo es
+  aceptable en la red aislada del robot.
+
 ### Actualización OTA (por WiFi)
 
 El firmware incorpora un portal web OTA y `ArduinoOTA` (ver la carpeta `firmware/lib/ota/`),

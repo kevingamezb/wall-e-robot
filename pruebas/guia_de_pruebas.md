@@ -257,6 +257,12 @@ pio device monitor
 > Si `pio` no está en el PATH, usar la ruta del entorno instalado, por ejemplo
 > `C:\Users\<usuario>\.platformio\penv\Scripts\platformio.exe run`.
 
+> **Primer flasheo (USB):** antes de grabar, crear `firmware/include/secrets.h` a partir de
+> `secrets.example.h` (no se versiona). OTA **no** sirve para el primer firmware: hay que
+> grabar una vez por USB un build que ya incluya el módulo OTA. Si la placa no se reinicia
+> sola al grabar (típico en módulos con **CH340**), mantener pulsado **BOOT (IO0)** al iniciar
+> la subida y soltarlo cuando empiece; si no arranca, pulsar **EN/RST**.
+
 Al arrancar, el ESP32 imprime en el monitor algo así:
 
 ```
@@ -370,6 +376,11 @@ static const ModulosActivos MODULOS = { true, true, true, true, true };
 ---
 
 ## 7. Actualización OTA del firmware (por WiFi)
+
+> **Estado:** la OTA está **implementada y documentada** y el firmware **compila**; **aún no se
+> ha validado de extremo a extremo en hardware**. Los pasos de este apartado son el
+> procedimiento a ejecutar y comprobar (ver checklist §11); hasta completarlos, no dar por
+> buena la actualización remota.
 
 El robot no necesita cables para actualizarse. Hay **dos vías** y ambas requieren
 la PC conectada a la red **WALL-E** (`192.168.4.1`).
