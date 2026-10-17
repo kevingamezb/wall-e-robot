@@ -32,7 +32,10 @@ CAJONES = [
 
 
 def main() -> int:
-    """Corre cada cajón en un subproceso y resume los resultados."""
+    """Ejecuta cada cajón en un subproceso y resume los resultados.
+
+    Devuelve 0 si todos pasan; 1 si alguno falla (imprime su salida).
+    """
     raiz = Path(__file__).resolve().parent.parent
 
     fallidos = []
