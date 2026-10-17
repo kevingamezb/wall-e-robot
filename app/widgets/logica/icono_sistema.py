@@ -28,7 +28,8 @@ class IconoSistema:
             TipoIcono.ADVERTENCIA: self.estado.hay_advertencia,
             TipoIcono.CARGANDO:    self.estado.cargando,
             TipoIcono.MODO_MANUAL: self.estado.modo == Modo.MANUAL,
-            TipoIcono.ERROR:       self.estado.hay_error,
+            # Un módulo inactivo (config incompleta) también enciende el error.
+            TipoIcono.ERROR:       self.estado.hay_error or self.estado.modulo_inactivo,
             TipoIcono.CONEXION:    self.estado.conexion_activa,
         }
         return activadores[self.tipo]
@@ -55,6 +56,7 @@ class IconoSistema:
     def archivo(self) -> str:
         """Nombre (sin extensión) del PNG del recurso para este ícono."""
         if self.tipo == TipoIcono.CONEXION:
+            # No hay recurso para NULA: se reutiliza el de conectividad alta.
             return {
                 NivelConexion.ALTA:  "conectividad_alta",
                 NivelConexion.MEDIA: "conectividad_media",
@@ -105,6 +107,15 @@ if __name__ == "__main__":
     assert iconos[TipoIcono.CARGANDO].activo
     assert iconos[TipoIcono.CARGANDO].color == Paleta.VERDE_LIMA
     print("OK: MODO_MANUAL cian, CARGANDO verde lima\n")
+
+    print("Módulo inactivo enciende ERROR")
+    estado.hay_error = False
+    estado.modulo_inactivo = True
+    assert iconos[TipoIcono.ERROR].activo, "Un módulo inactivo debe encender ERROR"
+    assert iconos[TipoIcono.ERROR].color == Paleta.ROJO
+    estado.modulo_inactivo = False
+    assert not iconos[TipoIcono.ERROR].activo
+    print("OK: config incompleta -> ícono ERROR\n")
 
     print("Recursos por tipo")
     estado.nivel_conexion = NivelConexion.ALTA

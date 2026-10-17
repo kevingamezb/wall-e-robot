@@ -9,7 +9,12 @@ from time import time
 
 
 class Modo(Enum):
-    """Modo de operación del robot."""
+    """
+    Modo de operación del robot.
+
+    AUTOMATICO: el ESP32 decide la maniobra solo.
+    MANUAL: el usuario comanda el robot desde la GUI.
+    """
 
     AUTOMATICO = 'automatico'
     MANUAL = 'manual'
@@ -25,7 +30,11 @@ class Maniobra(Enum):
 
 
 class NivelConexion(Enum):
-    """Calidad del enlace con el robot, según qué tan fresca es la última lectura."""
+    """
+    Calidad del enlace con el robot, según qué tan fresca es la última lectura.
+
+    NULA: sin datos (nunca llegó nada o se perdió la conexión).
+    """
 
     ALTA  = 'alta'
     MEDIA = 'media'
@@ -69,7 +78,7 @@ class Logger:
             avisar_suscriptor(nueva_entrada)
 
     def agregar_suscriptor(self, suscriptor):
-        """ Registra un callback que se invocará con cada nueva entrada."""
+        """Registra un callback que se invocará con cada nueva entrada."""
         self._subscriptores.append(suscriptor)
 
     def obtener_lineas(self) -> list[EntradaLog]:
@@ -87,7 +96,16 @@ class PosicionServos:
 
 @dataclass
 class EstadoRobot:
-    """Caja de datos compartida entre el ESP32 y la GUI, que refleja el estado del robot."""
+    """
+    Caja de datos compartida entre el ESP32 y la GUI.
+
+    Refleja el estado del robot. Cada campo lleva al final un comentario con
+    el widget que lo consume. Valores centinela: distancia_obstaculo_cm=None
+    significa "sin lectura del sensor"; tiempo_restante_min=0 significa "sin
+    estimación de autonomía" (la GUI lo muestra como "--"). El nivel_conexion
+    lo infiere la GUI de la frescura de los mensajes; el logger es un buffer
+    local que mezcla líneas enviadas por el robot y generadas en la GUI.
+    """
 
     modo:                   Modo  = Modo.AUTOMATICO                                # Ojos y IconoGamepad
     bateria:                float = 1.0                                            # SolCarga
@@ -98,9 +116,10 @@ class EstadoRobot:
     distancia_obstaculo_cm: float | None = None                                    # SensorDistancia y Ojos (None = sin lectura)
     navegacion:             Maniobra = Maniobra.RECTO                              # PanelNavegacion (decisión del ESP32)
     conexion_activa:        bool  = False                                          # IconoEstadoConexión
-    nivel_conexion:         NivelConexion = NivelConexion.NULA                      # IconoEstadoConexión (fuerza de señal)
+    nivel_conexion:         NivelConexion = NivelConexion.NULA                     # IconoEstadoConexión (fuerza de señal)
     hay_advertencia:        bool  = False                                          # IconoAdvertencia
     hay_error:              bool  = False                                          # IconoError
+    modulo_inactivo:        bool  = False                                          # IconoError (config incompleta)
     posiciones_servos:      PosicionServos = field(default_factory=PosicionServos) # Gamepad
     logger:                 Logger         = field(default_factory=Logger)         # Logger
     # Para colorear una línea, el render debe usar entrada.nivel.value (texto

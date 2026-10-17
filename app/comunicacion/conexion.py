@@ -1,5 +1,19 @@
 # wall-e-robot/app/comunicacion/conexion.py
 # Kevin Gámez - 26/08/2026
+"""
+Capa de comunicación con el robot.
+
+Protocolo real (Comunicacion): un socket TCP con el ESP32 transporta un
+objeto JSON UTF-8 por línea, delimitado por '\\n'. El robot envía mensajes
+con "tipo" "estado" o "log":
+  - "estado": campos opcionales; null o ausente = sin dato (no pisa el valor
+    anterior); tipos y valores desconocidos se ignoran.
+  - "log": campos "origen", "mensaje" y "nivel" (nivel desconocido -> INFO).
+La GUI solo envía comandos, p. ej. {"tipo": "modo", "modo": "manual"} o un
+{"tipo": "multi", "comandos": [...]} que agrupa varios. Las líneas vacías o
+con JSON corrupto se descartan sin cortar la conexión; un fallo de recv o
+send marca la conexión como perdida para que la GUI degrade a ConexionOffline.
+"""
 
 
 from abc import ABC, abstractmethod
@@ -17,7 +31,11 @@ SEGUNDOS_SENAL_MEDIA = 2.0
 
 
 def nivel_por_frescura(segundos: float | None) -> NivelConexion:
-    """Traduce la antigüedad del último estado a un nivel de conexión."""
+    """
+    Traduce la antigüedad del último estado a un nivel de conexión.
+
+    None significa que aún no se recibió ningún estado -> NULA.
+    """
     if segundos is None:
         return NivelConexion.NULA
     if segundos < SEGUNDOS_SENAL_ALTA:
@@ -54,7 +72,7 @@ class Comunicacion(Conexion):
 
     @property
     def perdida(self) -> bool:
-        """ True si la conexión se interrumpió (el ESP32 se reinició o se apagó)."""
+        """True si la conexión se interrumpió (el ESP32 se reinició o se apagó)."""
         # getattr: algunos tests construyen la clase con __new__.
         return getattr(self, "_perdida", False)
 
@@ -118,7 +136,7 @@ class Comunicacion(Conexion):
             )
 
     def _aplicar_estado(self, mensaje: dict, estado: EstadoRobot):
-        """Aplica un estado del ESP32 campo por campo"""
+        """Aplica un estado del ESP32 campo por campo."""
 
         bateria = mensaje.get("bateria")
         if isinstance(bateria, (int, float)):
@@ -152,6 +170,9 @@ class Comunicacion(Conexion):
         if isinstance(mensaje.get("hay_error"), bool):
             estado.hay_error = bool(mensaje["hay_error"])
 
+        if isinstance(mensaje.get("modulo_inactivo"), bool):
+            estado.modulo_inactivo = bool(mensaje["modulo_inactivo"])
+
         if isinstance(mensaje.get("cargando"), bool):
             estado.cargando = bool(mensaje["cargando"])
 
@@ -167,7 +188,7 @@ class Comunicacion(Conexion):
                     setattr(estado.posiciones_servos, nombre, float(valor))
 
     def enviar_mensaje(self, comando: dict):
-        """Serializa el comando a JSON y lo envía por el socket."""
+        """Serializa el comando a JSON y lo envía por el socket, + '\\n'."""
 
         mensaje = json.dumps(comando) + '\n'
         try:
@@ -185,7 +206,7 @@ class Comunicacion(Conexion):
             pass
 
 
-class ComunicacionSimulada(Conexion): # Para pruebas sin un ESP32 real. 
+class ComunicacionSimulada(Conexion):
     """Comunicación simulada para probar la app sin un ESP32 real."""
 
     def __init__(self):
@@ -259,8 +280,8 @@ class ComunicacionSimulada(Conexion): # Para pruebas sin un ESP32 real.
             self._ultimo_log_tiempo = time.time()
 
     def enviar_mensaje(self, comando: dict):
-        """ Simula el envío de un comando al robot."""
-        
+        """Simula el envío de un comando al robot."""
+
         print(f"[COMUNICACIÓN SIMULADA] Comando enviado -> {comando}")
 
         if comando.get("tipo") == "multi":
@@ -398,6 +419,7 @@ if __name__ == "__main__":
         "consumo_watts": 3.4,
         "conexion_activa": True,
         "cargando": False,
+        "modulo_inactivo": True,
         "tiempo_restante_min": 42,
         "posiciones_servos": {
             "cuello": 30,
@@ -417,6 +439,7 @@ if __name__ == "__main__":
     assert estado_proto.consumo_watts == 3.4
     assert estado_proto.conexion_activa is True
     assert estado_proto.cargando is False
+    assert estado_proto.modulo_inactivo is True
     assert estado_proto.tiempo_restante_min == 42
     assert estado_proto.posiciones_servos.cuello == 30.0
     assert estado_proto.posiciones_servos.hombro_izquierdo == -18.0
@@ -433,6 +456,7 @@ if __name__ == "__main__":
     assert estado_proto.distancia_obstaculo_cm == 12.3
     assert estado_proto.tiempo_restante_min == 42
     assert estado_proto.cargando is True
+    assert estado_proto.modulo_inactivo is True
     print("OK: null/ausencia no pisan valores previos")
 
     # Maniobra desconocida
@@ -470,7 +494,7 @@ if __name__ == "__main__":
     # Robustez de red sin sockets reales: se inyecta un socket falso
     print("\nRobustez de red (socket falso)")
 
-    # 1) Un JSON roto en el medio NO debe tumbar ni machacar lo bueno.
+    # 1) Un JSON roto en el medio no debe tumbar ni machacar lo bueno.
     class _SocketBasura:
         """Entrega una línea válida y luego una línea con JSON corrupto."""
         def recv(self, _n):
@@ -482,7 +506,7 @@ if __name__ == "__main__":
     estado_red = EstadoRobot(bateria=0.1)
     roto.actualizar_estado(estado_red)   # no debe lanzar
     assert estado_red.bateria == 0.5, "La línea buena sí debe procesarse"
-    assert not roto.perdida, "Un JSON roto NO es pérdida de conexión"
+    assert not roto.perdida, "Un JSON roto no es pérdida de conexión"
     print("OK: JSON corrupto se descarta y la línea buena se aplica")
 
     # 2) Nivel de log desconocido -> degrada a INFO, no rompe.
