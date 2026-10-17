@@ -17,7 +17,7 @@ Auto::Auto()
 
 void Auto::iniciar() {
 
-    // Sin hardware propio que configurar;
+    // Sin hardware propio que configurar: solo reinicia el estado.
     _modoAutonomo = true;
     _navegacion   = "recto";
 }
@@ -50,7 +50,7 @@ void Auto::actualizar() {
 void Auto::modoAutonomo(bool activo) {
 
     if (_modoAutonomo && !activo) {
-        // Salida de automático.
+        // Salida de automático: el robot queda detenido.
         motores.detener();
         _navegacion = "recto";
     }

@@ -7,24 +7,29 @@
 #include <Arduino.h>
 
 /*
- *  Auto: navegación autónoma.
+ *  Auto: navegación autónoma de evasión.
+ *
+ *  Cierra el lazo sensor de distancia -> motores: en modo automático decide una
+ *  maniobra por ciclo y la aplica. El resultado se publica vía navegacion().
  */
 class Auto {
 
 public:
 
+    // Constructor: arranca en modo automático y navegación "recto".
     Auto();
 
-    // No toca hardware
+    // Reinicia el estado interno; no toca hardware.
     void iniciar();
 
-    // Decide y aplica la maniobra del ciclo. Debe llamarse en modo automático.
+    // Decide y aplica la maniobra del ciclo; debe llamarse en modo automático.
     void actualizar();
 
-    // Sincroniza el modo.
+    // Sincroniza el modo; al salir de automático detiene los motores.
     void modoAutonomo(bool activo);
 
-    // true si hay lectura y el obstáculo está a UMBRAL_OBSTACULO_CM o menos.
+    // true si hay lectura válida (no -1) y el obstáculo está dentro de
+    // UMBRAL_OBSTACULO_CM.
     bool hayObstaculo() const;
 
     // Última maniobra decidida: "recto" | "izquierda" | "derecha" | "alto".
