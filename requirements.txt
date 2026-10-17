@@ -1,4 +1,3 @@
 # wall-e-robot — dependencias de la app de escritorio (GUI).
 # Tkinter viene incluido con Python; solo hace falta Pillow para cargar y teñir
-# los assets PNG de app/recursos/ (ojos e íconos de sistema).
 Pillow>=10.0
