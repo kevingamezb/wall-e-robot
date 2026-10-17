@@ -30,7 +30,8 @@ void PantallaOled::iniciar() {
     _pantalla.setCursor(0, 0);
     _pantalla.print("WALL-E ROBOT");
     _pantalla.display();
-    _pantalla.setRotation(2); // El hardware del robot tiene la pantalla al revés, así que la giramos 180º.
+    // La pantalla va montada invertida: se gira 180° para que se lea derecha.
+    _pantalla.setRotation(2);
 
     _activo = true;
     Serial.println("OLED: pantalla lista.");
@@ -46,9 +47,11 @@ void PantallaOled::mostrar(float bateria, float distanciaCm,
 
     _pantalla.clearDisplay();
 
+    // bateria llega normalizada 0.0-1.0; se muestra como porcentaje entero.
     _pantalla.setCursor(0, 0);
     _pantalla.print("BAT "); _pantalla.print(bateria * 100, 0); _pantalla.println("%");
 
+    // distanciaCm = -1 indica sin lectura (se muestra el centinela tal cual).
     _pantalla.setCursor(0, 10);
     _pantalla.print("DIS "); _pantalla.print(distanciaCm, 1); _pantalla.println("cm");
 
@@ -59,4 +62,9 @@ void PantallaOled::mostrar(float bateria, float distanciaCm,
     _pantalla.println(conexionActiva ? "CONECTADO" : "SIN CONEXION");
 
     _pantalla.display();
+}
+
+
+bool PantallaOled::activo() const {
+    return _activo;
 }

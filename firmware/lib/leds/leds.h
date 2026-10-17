@@ -7,11 +7,10 @@
 #include <Arduino.h>
 
 /*
- *  Leds: 2 indicadores de estado.
- *   - Amarillo: robot funcionando sin alertas.
- *   - Rojo    : advertencia de obstáculo o error de batería.
+ *  Leds: dos indicadores de estado (rojo y amarillo) en GPIO.
  *
- *  El LED verde de "encendido" va directo al riel de 5 V, sin GPIO.
+ *  Resumen visual: rojo = alerta (advertencia, error o módulo inactivo);
+ *  amarillo = operación normal.
  */
 class Leds {
 
@@ -19,10 +18,12 @@ public:
 
     Leds();
 
+    // Configura los pines como salida.
     void iniciar();
 
-    // Refresca los LEDs según las alertas del estado.
-    void actualizar(bool hayAdvertencia, bool hayError);
+    // Enciende el rojo si hay cualquier alerta; el amarillo, si todo está
+    // en orden.
+    void actualizar(bool hayAdvertencia, bool hayError, bool hayModuloInactivo);
 
 private:
 

@@ -27,6 +27,11 @@ void Bateria::iniciar() {
 }
 
 
+bool Bateria::activo() const {
+    return _activo;
+}
+
+
 void Bateria::actualizarLectura() {
 
     if (!_activo) {
@@ -44,6 +49,7 @@ float Bateria::nivel() const {
         return 1.0f;   // neutro: sin sensor no debe haber alerta
     }
 
+    // Interpolación lineal entre los voltajes mínimo y máximo de la batería.
     float nivel = (_voltaje - BATERIA_VOLTAJE_MIN)
                 / (BATERIA_VOLTAJE_MAX - BATERIA_VOLTAJE_MIN);
 

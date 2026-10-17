@@ -6,13 +6,14 @@
 #include "motores.h"
 
 
-// Rango seguro de cada servo.
+// Rango angular válido por servo, en las unidades lógicas de la app.
 struct LimiteServo {
     const char* nombre;
     int minimo;
     int maximo;
 };
 
+// Límites aplicados a todo comando {"tipo":"servo"} recibido de la GUI.
 static const LimiteServo LIMITES[] = {
     { "cuello",            -70,  70 },
     { "hombro_izquierdo",  -50,  50 },
@@ -44,6 +45,7 @@ Comunicacion::Comunicacion(int puerto)
 void Comunicacion::iniciarServidor() {
 
     servidor.begin();
+    _escuchando = true;
     Serial.print("Servidor TCP listo en puerto ");
     Serial.println(puerto);
 }
@@ -104,6 +106,7 @@ void Comunicacion::enviarEstado(float bateria, const String& modo,
                                 float distancia_cm, const String& navegacion,
                                 float consumo_watts,
                                 bool conexion_activa, bool cargando,
+                                bool modulo_inactivo,
                                 float tiempo_restante_min,
                                 const int* angulos_servos, int cantidad_servos) {
 
@@ -130,6 +133,9 @@ void Comunicacion::enviarEstado(float bateria, const String& modo,
     doc["consumo_watts"]      = consumo_watts;
     doc["conexion_activa"]    = conexion_activa;
     doc["cargando"]           = cargando;
+    doc["modulo_inactivo"]    = modulo_inactivo;
+    doc["version_firmware"]   = _versionFirmware;
+    doc["ota_pendiente"]      = _otaPendiente;
 
     // Minutos negativos = sin estimación: null.
     if (tiempo_restante_min >= 0.0f) {
@@ -159,6 +165,7 @@ void Comunicacion::enviarEstado(float bateria, const String& modo,
 }
 
 
+// Nivel típico: "info", "advertencia" o "error".
 void Comunicacion::enviarLog(const String& origen, const String& mensaje,
                              const String& nivel) {
 
@@ -309,6 +316,17 @@ void Comunicacion::procesarMensaje(const String& lineaJson) {
 
 bool Comunicacion::estaConectado() {
     return cliente && cliente.connected();
+}
+
+
+bool Comunicacion::estaEscuchando() const {
+    return _escuchando;
+}
+
+
+void Comunicacion::setInfoFirmware(const char* version, bool ota_pendiente) {
+    _versionFirmware = version;
+    _otaPendiente    = ota_pendiente;
 }
 
 

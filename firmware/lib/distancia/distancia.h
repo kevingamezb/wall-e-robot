@@ -7,24 +7,36 @@
 #include <Arduino.h>
 
 /*
- *  SensorDistancia: lectura del HC-SR04 sin bloqueos.
+ *  SensorDistancia: lectura del HC-SR04 en modo no bloqueante.
+ *
+ *  Avanza por una máquina de estados en cada llamada a actualizar(), sin
+ *  esperar activa. distanciaCm() devuelve -1 cuando no hay eco (centinela de
+ *  "sin lectura").
  */
 
 class SensorDistancia {
 
 public:
 
+    // Fija los pines TRIG/ECHO; no los configura hasta iniciar().
     SensorDistancia(uint8_t pinTrig, uint8_t pinEcho);
 
     // Configura los pines y deja el sensor en reposo.
     void iniciar();
 
+    // true si iniciar() ya configuró el sensor (usado por el self-test OTA).
+    bool listo() const;
+
+    // Avanza la máquina de estados; llamar con frecuencia (no bloqueante).
     void actualizar();
 
+    // true una vez por medición completada; se limpia al iniciar el ciclo siguiente.
     bool hayLecturaNueva() const;
 
+    // Última distancia en cm; -1 = sin eco.
     float distanciaCm() const;
 
+    // true si hay lectura válida dentro del umbral.
     bool obstaculoCercano(float umbralCm) const;
 
 private:

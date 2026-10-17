@@ -39,6 +39,11 @@ void SensorDistancia::iniciar() {
 }
 
 
+bool SensorDistancia::listo() const {
+    return _sensorListo;
+}
+
+
 void SensorDistancia::actualizar() {
 
     if (!_sensorListo) {
