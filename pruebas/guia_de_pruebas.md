@@ -469,9 +469,10 @@ Detalles útiles:
 - `navegacion` es la maniobra decidida en automático (`recto`/`izquierda`/`derecha`/`alto`); un
   valor desconocido se ignora y se conserva el anterior.
 - Límites físicos validados en el firmware (`LIMITES[]` en `lib/comunicacion`):
-  cuello ±70°, hombros ±50° (por compatibilidad, el protocolo aún acepta los nombres
-  `pulgar_izquierdo`/`pulgar_derecho` a ±22°, aunque la GUI ya no los usa). Un ángulo fuera
-  de rango se rechaza.
+  cuello ±70°, hombros ±50°. La tabla aún incluye `pulgar_izquierdo`/`pulgar_derecho`
+  (±22°) por compatibilidad, pero no tienen servo físico: `Servos::MAPA_SERVOS` solo
+  mapea 3 nombres, así que una orden a un pulgar pasa la validación y luego se
+  **ignora** (no mueve nada). Un ángulo fuera de rango se rechaza.
 - El ESP32 envía un estado cada **~500 ms**; la GUI redibuja cada 60 ms.
 
 ---
