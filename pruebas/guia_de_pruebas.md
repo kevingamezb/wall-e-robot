@@ -294,6 +294,13 @@ static const ModulosActivos MODULOS = { true, true, true, true, true };
 
 **Configuración actual:** todos los módulos (`servos`, `distancia`, `bateria`, `oled`, `motores`) activos.
 
+> **Pendiente de verificación en hardware:** `MODULOS` asume que **todos** los sensores y
+> periféricos están cableados. Un módulo habilitado pero **sin conectar** no se detecta
+> (p. ej. el HC-SR04 sin eco tras 40 ms devuelve `-1` → `null`, `obstaculoCercano()` queda en
+> falso y `hayModuloInactivo()` permanece en falso). Es decir, **no enciende el LED rojo ni
+> avisa en la GUI**: el robot avanza en recto sin evasión. Antes de confiar en el arranque,
+> confirmar el cableado o poner en `false` los módulos que falten.
+
 **Reglas de comportamiento:**
 
 - Un módulo en **0** no se inicializa, no se mueve ni se lee, y **la GUI ve valores neutros**
