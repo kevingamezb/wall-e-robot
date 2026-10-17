@@ -16,6 +16,7 @@ class BotonRenderer(RenderizadorBase):
     """Renderer de un Boton lógico."""
     def __init__(self, widget, canvas, x, y, ancho, alto,
                  texto=None, radio_esquinas=Paleta.RADIO_BOTON, tamano_fuente=9):
+        """x, y: esquina superior-izquierda del botón; ancho/alto: dimensiones."""
         super().__init__(canvas)
         
         self.widget           = widget
@@ -118,7 +119,7 @@ class BotonRenderer(RenderizadorBase):
             self.canvas.after(INTERVALO_TRANSICION_MS, self._animar_hacia)
 
         # (Re)enlaza los eventos sobre el fondo. El hover se enlaza solo al
-        # fondo (no a la etiqueta) para evitar parpadeos al cruzar el texto;
+        # fondo (no a la etiqueta) para evitar parpadeos al cruzar el texto.
         self.canvas.tag_bind(fondo, "<ButtonPress-1>", self._al_presionar)
         self.canvas.tag_bind(fondo, "<ButtonRelease-1>", self._al_soltar)
         self.canvas.tag_bind(fondo, "<Enter>", self._al_entrar)

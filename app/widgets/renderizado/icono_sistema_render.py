@@ -13,7 +13,7 @@ from . import carga_recursos
 
 
 class IconoSistemaRenderer(RenderizadorBase):
-    """Renderer de un ícono de sistema. """
+    """Renderer de un ícono de sistema."""
     def __init__(self, widget, canvas, x, y, lado=24):
         """x, y, lado: zona cuadrada que ocupa el ícono dentro del canvas."""
         super().__init__(canvas)

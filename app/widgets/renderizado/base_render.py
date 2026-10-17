@@ -21,7 +21,7 @@ def rectangulo_redondeado(canvas, x1, y1, x2, y2, radio, **opciones):
 
 
 def interpolar_color(hex1, hex2, t):
-    """Devuelve el color intermedio entre hex1 (t=0) y hex2 (t=1)."""
+    """Devuelve el color intermedio entre hex1 (t=0) y hex2 (t=1), recortando t a [0, 1]."""
     t = max(0.0, min(1.0, t))
     c1 = tuple(int(hex1[i:i + 2], 16) for i in (1, 3, 5))
     c2 = tuple(int(hex2[i:i + 2], 16) for i in (1, 3, 5))
@@ -43,7 +43,7 @@ def borde_panel(canvas, radio=Paleta.RADIO_TARJETA, margen=2, color=Paleta.BORDE
 
 # Primitivas de "holograma"
 def fulgor_radial(canvas, cx, cy, radio, color, capas=4):
-    """Brillo radial tipo holograma."""
+    """Dibuja un brillo radial tipo holograma y devuelve sus ids."""
     ids = []
     for i in range(capas, 0, -1):
         r = radio * (i / capas)
@@ -57,7 +57,7 @@ def fulgor_radial(canvas, cx, cy, radio, color, capas=4):
 
 
 def anillo_con_halo(canvas, cx, cy, radio, grosor, color, capas=3):
-    """Círculo con halo."""
+    """Dibuja un círculo con halo concéntrico y devuelve sus ids."""
     ids = []
     for i in range(capas, 0, -1):
         desfase = (capas - i) * grosor
@@ -73,7 +73,7 @@ def anillo_con_halo(canvas, cx, cy, radio, grosor, color, capas=3):
 
 def banda_gradiente(canvas, x1, y1, x2, y2, color_a, color_b,
                     tiras=16, orientacion="vertical"):
-    """Degradado rectangular."""
+    """Dibuja un degradado rectangular y devuelve sus ids."""
     ids = []
     for i in range(tiras):
         t = i / max(1, tiras - 1)
@@ -94,7 +94,7 @@ def banda_gradiente(canvas, x1, y1, x2, y2, color_a, color_b,
 
 def corchetes_hud(canvas, x1, y1, x2, y2, largo=12, color=None,
                   grosor=2, nivel=1):
-    """Corchetes HUD en las 4 esquinas de un rectángulo."""
+    """Dibuja corchetes HUD en las 4 esquinas de un rectángulo."""
     if color is None:
         color = Paleta.CYAN_DIM
     ids = []
@@ -117,7 +117,7 @@ def corchetes_hud(canvas, x1, y1, x2, y2, largo=12, color=None,
 
 
 def scanlines(canvas, x1, y1, x2, y2, separacion=4, color=None):
-    """Rejilla de líneas horizontales."""
+    """Dibuja una rejilla de líneas horizontales."""
     if color is None:
         color = Paleta.ESCANEO
     return [
@@ -128,7 +128,7 @@ def scanlines(canvas, x1, y1, x2, y2, separacion=4, color=None):
 
 def texto_hud(canvas, x, y, contenido, ancla="nw", color=None,
               tamano=9, negrita=True):
-    """Etiqueta de texto monoespaciada en mayúsculas."""
+    """Dibuja una etiqueta de texto monoespaciada en mayúsculas."""
     if color is None:
         color = Paleta.AXIOM_CYAN
     return canvas.create_text(
@@ -148,7 +148,7 @@ class RenderizadorBase:
         self._valores = {}
 
     def _primera_vez(self, nombre, creador):
-        """Crea el ítem la primera vez y devuelve su id. Si ya existe, devuelve el id existente."""
+        """Crea el ítem la primera vez y devuelve su id; si ya existe, reutiliza el id cacheado."""
         if nombre not in self._ids:
             self._ids[nombre] = creador()
         return self._ids[nombre]

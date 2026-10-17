@@ -1,6 +1,6 @@
 # wall-e-robot/app/main.py
 # Kevin Gámez - 13/09/2026
-
+#
 # Punto de entrada de la aplicación de escritorio del Wall-E.
 # Para arrancar (desde la raíz del proyecto, donde está la carpeta 'app'):
 #   python -m app.main
@@ -24,7 +24,7 @@ PUERTO = 8080
 
 
 class Aplicacion:
-    """Coordina estado + conexión + pantalla. """
+    """Coordina estado, conexión y pantalla."""
     def __init__(self, root: tk.Tk):
         """Monta la ventana, el estado, la conexión y la pantalla."""
         self.root = root

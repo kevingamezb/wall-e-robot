@@ -9,6 +9,7 @@ from ...nucleo.paleta import Paleta
 class SolBateria:
     """Representa el nivel de batería mediante los rayos del sol y proporciona color y etiqueta para su renderizado."""
     TOTAL_RAYOS = 12
+    # Sin cargar: 0 rayos gris, 1-4 rojo, 5-7 naranja y de 8 en adelante dorado.
     UMBRAL_ROJO = 4
     UMBRAL_NARANJA = 7
 

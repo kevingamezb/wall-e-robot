@@ -26,7 +26,13 @@ from ..widgets.renderizado.tarjeta import crear_tarjeta, subir_decoracion
 
 
 class PantallaPrincipal:
-    """La pantalla única de la aplicación: un panel de control, sin navegación."""
+    """
+    Pantalla única de la aplicación: un panel de control, sin navegación.
+
+    Construye los widgets y renderers que leen el EstadoRobot compartido; el
+    ciclo de main.py la refresca llamando a dibujar(). Los callbacks
+    on_conectar/on_desconectar/on_controles los enganchan los tres botones.
+    """
     def __init__(self, parent, estado: EstadoRobot,
                  on_conectar=None, on_desconectar=None, on_controles=None):
         """
@@ -145,7 +151,8 @@ class PantallaPrincipal:
             self.lbl_ind_bateria.config(text=texto_bat, fg=color_bat)
 
     def _construir_columna_estado(self):
-        """Tarjeta 'ESTADO': ojos | íconos+consumo | sol, en 3 columnas.
+        """
+        Tarjeta 'ESTADO': ojos | íconos+consumo | sol, en 3 columnas.
 
         La tarjeta se estira a toda su celda (sticky nsew) y el contenido se
         reparte en 3 columnas que expanden parejo (pack side=left expand).
@@ -193,7 +200,6 @@ class PantallaPrincipal:
 
         # Barras x5 (v4). 10 barritas de (alto+sep) = 10*21 = 210px de columna;
         # canvas de 214 para que la base respire dentro del alto disponible.
-        # Finas y apiladas, como el mockup (barritas de ~16px).
         canvas_barras = tk.Canvas(fila_barras, width=38, height=214,
                                   bg=Paleta.FONDO_WIDGET, highlightthickness=0)
         canvas_barras.pack(side="left")

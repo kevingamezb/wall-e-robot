@@ -10,7 +10,8 @@ class DeslizadorRenderer(RenderizadorBase):
     """Renderer de un Deslizador lógico."""
     def __init__(self, widget, canvas, x, y, largo,
                  orientacion="horizontal", alto_pista=6, radio_thumb=10):
-        """
+        """Inicializa la pista y el estado de interacción.
+
         x, y        : esquina superior-izquierda de la pista.
         largo       : longitud de la pista (horizontal: ancho, vertical: alto).
         orientacion : 'horizontal' | 'vertical'.
@@ -72,9 +73,9 @@ class DeslizadorRenderer(RenderizadorBase):
         self.canvas.configure(cursor="")
 
     def _aplicar_posicion(self, px, py):
-        """
-        Entrega al deslizador lógico el valor bajo el mouse, solo si cambió,
-        para no repetir el mismo aviso en cada píxel.
+        """Entrega al deslizador lógico el valor bajo el mouse, solo si cambió.
+
+        Así no se repite el mismo aviso en cada píxel.
         """
         valor = round(self._pixel_a_valor(px, py))
         if valor != self._ultimo_enviado:

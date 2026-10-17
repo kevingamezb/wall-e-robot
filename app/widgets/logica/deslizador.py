@@ -30,6 +30,7 @@ class Deslizador:
 
 
     def mover(self, posicion: float):
+        """Aplica el movimiento si cae en el rango; si no, avisa con valido=False sin cambiar la posición."""
         if posicion < min(self.rango) or posicion > max(self.rango):
             self._actualizar(posicion, valido=False)
             return

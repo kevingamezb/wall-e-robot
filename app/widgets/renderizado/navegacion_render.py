@@ -15,6 +15,7 @@ SEPARADOR_MANIOBRA = 48
 class NavegacionRenderer(RenderizadorBase):
     """Renderer de la tarjeta Navegación: medidor de proximidad + maniobra."""
     def __init__(self, proximidad, navegacion, canvas, cx, cy, radio):
+        """cx, cy: centro del medidor; radio: su radio en px."""
         super().__init__(canvas)
         self.proximidad  = proximidad
         self.navegacion  = navegacion

@@ -20,6 +20,7 @@ class Proximidad:
 
     @property
     def hay_obstaculo(self) -> bool:
+        """True si hay lectura, aunque el objeto esté lejos del sensor."""
         return self.estado.distancia_obstaculo_cm is not None
 
     @property

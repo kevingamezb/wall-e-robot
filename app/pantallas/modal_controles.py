@@ -12,9 +12,14 @@ from ..widgets.logica.mapeo_teclado import (
 
 
 class ModalControles:
-    """Modal de configuración de controles."""
+    """
+    Modal para reasignar las teclas del mapeo.
+
+    Cada cambio se notifica vía on_cambio para que el dueño lo persista.
+    """
 
     def __init__(self, raiz: tk.Misc, mapeo: MapeoTeclado, on_cambio=None):
+        """Construye el modal y engancha la captura de teclas a la ventana."""
         self.mapeo = mapeo
         self.on_cambio = on_cambio or (lambda: None)
         self._capturando = None  # accion_id en modo captura (o None)
@@ -138,6 +143,7 @@ class ModalControles:
 
 
     def _limpiar(self, accion_id: str):
+        """Quita la tecla asignada a la acción y avisa del cambio."""
         self.mapeo.limpiar(accion_id)
         self.on_cambio()
         self.lbl_estado.config(
@@ -146,6 +152,7 @@ class ModalControles:
         self._refrescar_filas()
 
     def _restaurar(self):
+        """Restaura el mapeo de fábrica y avisa del cambio."""
         self.mapeo.restaurar_por_defecto()
         self.on_cambio()
         self.lbl_estado.config(text="Controles restaurados de fábrica",
@@ -154,6 +161,7 @@ class ModalControles:
 
 
     def _accion(self, accion_id: str):
+        """Devuelve la definición de la acción; lanza KeyError si no existe."""
         for accion in ACCIONES:
             if accion.id == accion_id:
                 return accion

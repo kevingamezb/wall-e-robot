@@ -26,6 +26,7 @@ class Ojos:
 
     @property
     def expresion(self) -> ExpresionOjos:
+        """Prioridad: sin conexión > error > manual > obstáculo > normal."""
         if not self.estado.conexion_activa:
             return ExpresionOjos.SIN_DATOS
 

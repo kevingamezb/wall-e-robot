@@ -18,7 +18,7 @@ PUPILA_OBSTACULO = 6
 # Alto con que se dibujan las imágenes de los ojos.
 ALTO_OJO_IMAGEN = 40
 
-# PNG de cada expresión
+# PNG de cada expresión.
 RECURSOS = {
     ExpresionOjos.NORMAL:    "ojo_normal",
     ExpresionOjos.MANUAL:    "ojo_manual",
@@ -31,6 +31,7 @@ RECURSOS = {
 class OjosRenderer(RenderizadorBase):
     """Renderer de los ojos de Wall-E."""
     def __init__(self, widget, canvas, x=20, y=8):
+        """x, y: esquina superior-izquierda del bloque de ojos."""
         super().__init__(canvas)
         self.widget = widget
         self.x = x
@@ -128,7 +129,7 @@ class OjosRenderer(RenderizadorBase):
 
     # Modo procedural (fallback)
     def _dibujar_procedural(self, expresion, color, cx_izq, cx_der):
-        """Dibujo de siempre, a mano con el Canvas."""
+        """Dibuja el fallback procedural a mano con el Canvas."""
         if "img_izq" in self._ids:
             self._ocultar("img_izq")
             self._ocultar("img_der")

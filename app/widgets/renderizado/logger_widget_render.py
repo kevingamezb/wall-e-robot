@@ -13,6 +13,7 @@ class LoggerWidgetRenderer:
     MAX_LINEAS = 30
 
     def __init__(self, widget_logico, parent: tk.Widget):
+        """Monta el terminal de solo lectura y se suscribe al widget lógico."""
         self.widget  = widget_logico
         self._lineas = 0  # cantidad de líneas presentes en el terminal
 

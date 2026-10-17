@@ -1,9 +1,8 @@
 # wall-e-robot/app/widgets/renderizado/carga_recursos.py
 # Kevin Gámez - 15/10/2026
-
+#
 # Carga los PNG de app/recursos/, los tiñe con un color de la Paleta y los
-# entrega como PhotoImage de Tk. Así los assets se dibujan por imágenes pero
-# el color sigue saliendo de un único lugar (Paleta).
+# entrega como PhotoImage de Tk.
 
 
 from pathlib import Path

@@ -6,7 +6,7 @@ from ...nucleo.paleta import Paleta
 
 
 class Boton:
-    """Gestiona el estado y la notificación a suscriptores de un botón de la interfaz."""
+    """Estado (presionado/hover) de un botón de la interfaz; solo presionar() notifica a los suscriptores."""
     def __init__(self, texto: str):
         self.texto = texto
         self.presionado = False

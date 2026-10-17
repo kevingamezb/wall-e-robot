@@ -3,7 +3,12 @@
 
 
 class Paleta:
-    """Paleta de colores y sistema visual de la GUI."""
+    """
+    Paleta de colores y sistema visual de la GUI.
+
+    Único origen de colores, fuentes y medidas: el resto del código debe
+    importar de aquí en vez de usar literales propios.
+    """
 
     # Fondos
     FONDO_APP    = "#0a111f"   # fondo general de la ventana
@@ -48,7 +53,13 @@ PROPORCION_AUREA = 1.618  # proporción usada en las dimensiones del layout
 
 
 def color_por_umbral(fraccion: float, invertido: bool = False) -> str:
-    """Devuelve un color de la paleta según el valor de 'fraccion' y el modo 'invertido'."""
+    """
+    Devuelve un color de la paleta según 'fraccion' (0.0 a 1.0).
+
+    invertido=False asocia los valores altos a DORADO (p. ej. batería);
+    invertido=True invierte la escala, para magnitudes donde más es peor
+    (p. ej. consumo). Por debajo de 0.1 siempre GRIS (apagado/sin datos).
+    """
 
     if invertido:
         if fraccion > 0.7:

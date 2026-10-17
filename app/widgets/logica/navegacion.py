@@ -23,7 +23,7 @@ ETIQUETAS = {
 
 
 class Navegacion:
-    """Expone la maniobra que decidió el ESP32 y el modo actual."""
+    """Expone la maniobra que decidió el ESP32 y el modo actual; en manual manda el operador."""
     def __init__(self, estado: EstadoRobot):
         self.estado = estado
 

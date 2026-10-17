@@ -7,7 +7,8 @@ from ...nucleo.paleta import Paleta, color_por_umbral
 
 
 class BarrasConsumo:
-    """Determina el número y color de las barras de consumo según la fracción de consumo instantáneo."""
+    """
+    Determina el número y color de las barras de consumo según la fracción de consumo instantáneo."""
     TOTAL_BARRISTAS = 10
 
     def __init__(self, estado: EstadoRobot):
@@ -15,6 +16,7 @@ class BarrasConsumo:
 
     @property
     def fraccion(self) -> float:
+        """Fracción 0-1 del consumo respecto al máximo (0 si el máximo no es positivo)."""
         if self.estado.max_consumo_watts <= 0:
             return 0.0
         return self.estado.consumo_watts / self.estado.max_consumo_watts
@@ -25,6 +27,7 @@ class BarrasConsumo:
 
     @property
     def color(self) -> str:
+        """Umbral invertido: a mayor consumo, tono más crítico (gris -> dorado -> naranja -> rojo)."""
         return color_por_umbral(self.fraccion, invertido=True)
 
     @property

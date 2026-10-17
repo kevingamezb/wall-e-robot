@@ -8,12 +8,13 @@ from .base_render import RenderizadorBase, interpolar_color
 
 
 class SolBateriaRenderer(RenderizadorBase):
-    """Renderer del Sol de batería. """
+    """Renderer del Sol de batería."""
     TOTAL_RAYOS = 12
 
     def __init__(self, widget, canvas, cx, cy, radio_interior=16,
                  radio_rayo_encendido=44, radio_rayo_apagado=30):
-        """
+        """Inicializa la geometría del sol.
+
         cx, cy               : centro del sol dentro del canvas.
         radio_interior       : radio del círculo central.
         radio_rayo_encendido : longitud de los rayos encendidos.
@@ -36,7 +37,7 @@ class SolBateriaRenderer(RenderizadorBase):
                 self.cy + vy * radio)
 
     def dibujar(self):
-        """Dibuja o actualiza los 12 rayos, el anillo y el núcleo. """
+        """Dibuja o actualiza los 12 rayos, el anillo y el núcleo."""
         encendidos = self.widget.rayos_encendidos
         color = self.widget.color
         apagado = Paleta.HUD_LINE
