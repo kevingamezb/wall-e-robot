@@ -1,0 +1,13 @@
+; wall-e-robot/.coveragerc
+; Configuración de coverage para la suite de pruebas.
+
+[run]
+source = app
+
+[report]
+; Excluye de la métrica los bloques __main__ heredados (cajones manuales que
+; se conservan durante la migración) y las líneas marcadas a mano.
+exclude_lines =
+    pragma: no cover
+    if __name__ == ['"]__main__['"]:
+    raise NotImplementedError
