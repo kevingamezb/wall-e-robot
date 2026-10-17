@@ -29,8 +29,6 @@ ACCIONES = (
     Accion("izquierda"       , "Girar izquierda"   , DISCRETO),
     Accion("derecha"         , "Girar derecha"     , DISCRETO),
     Accion("reposo"          , "Reposo"            , DISCRETO),
-    Accion("mano_abrir"      , "Abrir mano"        , DISCRETO),
-    Accion("mano_cerrar"     , "Cerrar mano"       , DISCRETO),
     Accion("cuello_mas"      , "Cuello arriba"     , EJE, PASO_CUELLO),
     Accion("cuello_menos"    , "Cuello abajo"      , EJE, PASO_CUELLO),
     Accion("hombro_izq_mas"  , "Hombro izq. arriba", EJE, PASO_HOMBRO),
@@ -39,6 +37,7 @@ ACCIONES = (
     Accion("hombro_der_menos", "Hombro der. abajo" , EJE, PASO_HOMBRO),
 )
 
+# Teclas modificadoras: se ignoran al leer el teclado; nunca disparan acciones.
 MODIFICADORAS = {
     "Shift_L", "Shift_R", "Control_L", "Control_R",
     "Alt_L", "Alt_R", "Caps_Lock",
@@ -54,8 +53,6 @@ def _teclas_por_defecto() -> dict:
         "izquierda"       : "Left",
         "derecha"         : "Right",
         "reposo"          : "r",
-        "mano_abrir"      : "space",
-        "mano_cerrar"     : "c",
         "cuello_mas"      : "q",
         "cuello_menos"    : "a",
         "hombro_izq_mas"  : "w",
@@ -73,6 +70,7 @@ def accion_por_id(accion_id: str) -> Accion:
 
 
 def nombre_tecla(keysym: str) -> str:
+    """Devuelve el nombre legible de la tecla para mostrar en la GUI."""
     especiales = {
         "Up": "\u2191", "Down": "\u2193", "Left": "\u2190", "Right": "\u2192",
         "space": "ESPACIO", "Return": "ENTRAR", "Escape": "ESC",
@@ -88,6 +86,7 @@ def nombre_tecla(keysym: str) -> str:
 
 
 class MapeoTeclado:
+    """Asociación editable entre acciones y teclas, persistible en el JSON de controles."""
     VERSION = 1
 
     def __init__(self, mapa: dict[str, str] | None = None):
@@ -95,6 +94,7 @@ class MapeoTeclado:
 
     @classmethod
     def cargar(cls, ruta: Path | None = None) -> "MapeoTeclado":
+        """Carga el mapa desde el JSON; si falta o es inválido usa los valores por defecto y completa las acciones faltantes."""
         ruta = ruta or RUTA_CONTROLES
         mapa = {}
         if ruta.is_file():
@@ -143,6 +143,7 @@ class MapeoTeclado:
         return None
 
     def asignar(self, accion_id: str, keysym: str):
+        """Asigna la tecla a la acción; si ya estaba en uso, libera la acción que la ocupaba."""
         accion_por_id(accion_id)
         ocupada = self.tecla_ocupada(keysym, excepto=accion_id)
         if ocupada is not None:
@@ -150,6 +151,7 @@ class MapeoTeclado:
         self._mapa[accion_id] = keysym
 
     def limpiar(self, accion_id: str):
+        """Deja sin tecla la acción indicada (error si la acción no existe)."""
         accion_por_id(accion_id)
         self._mapa.pop(accion_id, None)
 
@@ -220,17 +222,17 @@ if __name__ == "__main__":
     print("OK: limpiar libera; restaurar vuelve a fábrica\n")
 
     # Nombres legibles de teclas para la GUI
-    print("=== nombre_tecla ===")
+    print("nombre_tecla")
     assert nombre_tecla("Up") == "\u2191"
     assert nombre_tecla("space") == "ESPACIO"
     assert nombre_tecla("q") == "Q"
     assert nombre_tecla("F5") == "F5"
     print(f"OK: {nombre_tecla('Up')} / {nombre_tecla('space')} / {nombre_tecla('q')}\n")
 
-    # Acciones válidas: 13 en total
-    assert len(ACCIONES) == 13
+    # Acciones válidas: 11 en total
+    assert len(ACCIONES) == 11
     ejes = [a for a in ACCIONES if a.tipo == EJE]
     assert len(ejes) == 6 and all(a.paso > 0 for a in ejes)
-    print("OK: catálogo con 13 acciones, 6 de eje con paso\n")
+    print("OK: catálogo con 11 acciones, 6 de eje con paso\n")
 
     print("Pruebas OK")

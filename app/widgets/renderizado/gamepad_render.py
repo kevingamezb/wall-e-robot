@@ -12,7 +12,8 @@ from .deslizador_render import DeslizadorRenderer
 class GamepadRenderer:
     """Renderer del gamepad, construido por composición."""
     def __init__(self, gamepad, canvas, ancho, alto):
-        """
+        """Construye el gamepad por composición de botones y deslizadores.
+
         gamepad : instancia de Gamepad (lógica).
         canvas  : canvas de Tkinter donde se dibuja.
         ancho, alto : dimensiones del canvas.
@@ -76,22 +77,12 @@ class GamepadRenderer:
             72, 26, texto="REPOSO", tamano_fuente=9,
         )
 
-        # Manos: dos botones apilados en la columna derecha.
-        self._mano_abrir = BotonRenderer(
-            gamepad.mano_abrir, canvas,
-            0.885 * ancho, 0.28 * alto,
-            46, 34, texto="ABRIR", tamano_fuente=10,
-        )
-        self._mano_cerrar = BotonRenderer(
-            gamepad.mano_cerrar, canvas,
-            0.885 * ancho, 0.28 * alto + 60,
-            46, 34, texto="CERRAR", tamano_fuente=10,
-        )
-
     # Etiquetas auxiliares
     def _una_vez(self, clave, creador):
-        """Crea un ítem de decoración la primera vez; equivale a _primera_vez
-        de los renderers basados en RenderizadorBase."""
+        """Crea un ítem de decoración la primera vez.
+
+        Equivale a _primera_vez de los renderers basados en RenderizadorBase.
+        """
         if clave not in self._hecho:
             self._hecho[clave] = creador()
         return self._hecho[clave]
@@ -182,8 +173,7 @@ class GamepadRenderer:
         self._esconder_desconectado()
 
         # Piezas interactivas (sus propios renderers gestionan su estado).
-        for pieza in (self._arriba, self._abajo, self._izquierda, self._derecha,
-                      self._reposo, self._mano_abrir, self._mano_cerrar):
+        for pieza in (self._arriba, self._abajo, self._izquierda, self._derecha, self._reposo):
             pieza.dibujar()
         self._cuello.dibujar()
         self._hombro_izq.dibujar()

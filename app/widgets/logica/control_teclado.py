@@ -11,19 +11,22 @@ from .mapeo_teclado import (
     ACCIONES, DISCRETO, EJE, MODIFICADORAS, Accion, MapeoTeclado, accion_por_id,
 )
 
+# Milisegundos entre pasos mientras se mantiene pulsada una tecla de eje.
 INTERVALO_PASO_MS = 120
+# Direcciones de motor: se re-emiten con el auto-repetido del teclado para
+# que el movimiento no se corte por timeout en el robot.
 MOTOR_ACCIONES = {"arriba", "abajo", "izquierda", "derecha"}
 
+# Acción -> botón del Gamepad que la recibe.
 BOTONES = {
     "arriba": lambda g: g.direccion_arriba,
     "abajo": lambda g: g.direccion_abajo,
     "izquierda": lambda g: g.direccion_izquierda,
     "derecha": lambda g: g.direccion_derecha,
     "reposo": lambda g: g.reposo,
-    "mano_abrir": lambda g: g.mano_abrir,
-    "mano_cerrar": lambda g: g.mano_cerrar,
 }
 
+# Acción de eje -> (atributo del Gamepad, signo del avance).
 DESLIZADORES = {
     "cuello_mas": ("cuello", 1),
     "cuello_menos": ("cuello", -1),
@@ -100,6 +103,7 @@ class ControlTeclado:
         self._temporizadores[keysym] = self.raiz.after(INTERVALO_PASO_MS, repetir)
 
     def limpiar_estado(self):
+        """Suelta todas las teclas pulsadas (se usa al perder el foco)."""
         for keysym in list(self._pulsadas):
             self._al_soltar(
                 types.SimpleNamespace(keysym=keysym))
@@ -139,14 +143,14 @@ if __name__ == "__main__":
     assert not gamepad.direccion_arriba.presionado, "Soltar apaga el botón"
     print(f"OK: {len(comandos)} emisiones de motor sueltas\n")
 
-    # Mano abrir -> UN disparo
+    # Discreta (reposo) -> UN disparo
     print("Discreta dispara una sola vez")
     n = len(comandos)
-    control._al_presionar(_tecla("space"))
-    control._al_presionar(_tecla("space"))  # auto-repetido: NO debe multiplicar
-    assert len(comandos) == n + 1, "Abrir mano debe emitir una única vez"
+    control._al_presionar(_tecla("r"))
+    control._al_presionar(_tecla("r"))  # auto-repetido: NO debe multiplicar
+    assert len(comandos) == n + 1, "Reposo debe emitir una única vez"
     assert comandos[-1]["tipo"] == "multi"
-    control._al_soltar(_tecla("space"))
+    control._al_soltar(_tecla("r"))
     print("OK: auto-repetido ignorado en discretas\n")
 
     # Eje: paso a paso mientras se sostiene

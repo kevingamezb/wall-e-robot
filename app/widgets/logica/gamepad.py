@@ -8,14 +8,13 @@ from .boton import Boton
 from .deslizador import Deslizador, MovimientoDeslizador
 
 
+# Límites de las articulaciones en grados.
 RANGO_CUELLO = (-70, 70)
 RANGO_HOMBRO = (-50, 50)
-ANGULO_MANO_ABIERTA = 22
-ANGULO_MANO_CERRADA = -22
 
 
 class Gamepad:
-    """Composición de controles manuales que genera comandos para el movimiento y articulaciones del robot."""
+    """Controles manuales que generan comandos de movimiento y articulaciones; se descartan si el gamepad está deshabilitado."""
     def __init__(self, estado: EstadoRobot):
         self.estado = estado
         self.habilitado = True
@@ -31,8 +30,6 @@ class Gamepad:
         self.hombro_derecho    = Deslizador(RANGO_HOMBRO)
 
         self.reposo            = Boton("REPOSO")
-        self.mano_abrir        = Boton("ABRIR MANO")
-        self.mano_cerrar       = Boton("CERRAR MANO")
 
         self.direccion_arriba.suscribir(lambda: self._emitir({"tipo": "motor", "direccion": "arriba"}))
         self.direccion_abajo.suscribir(lambda: self._emitir({"tipo": "motor", "direccion": "abajo"}))
@@ -44,8 +41,6 @@ class Gamepad:
         self.hombro_derecho.suscribir(lambda e: self._servir_movimiento("hombro_derecho", e))
 
         self.reposo.suscribir(self._reposo)
-        self.mano_abrir.suscribir(lambda: self._mano(ANGULO_MANO_ABIERTA))
-        self.mano_cerrar.suscribir(lambda: self._mano(ANGULO_MANO_CERRADA))
 
     def suscribir_comando(self, callback):
         self._suscriptores_comando.append(callback)
@@ -62,15 +57,6 @@ class Gamepad:
     def _servir_movimiento(self, servo: str, evento: MovimientoDeslizador):
         if evento.valido:
             self._emitir({"tipo": "servo", "servo": servo, "angulo": int(evento.posicion)})
-
-    def _mano(self, angulo: int):
-        self._emitir({
-            "tipo": "multi",
-            "comandos": [
-                {"tipo": "servo", "servo": "pulgar_izquierdo", "angulo": angulo},
-                {"tipo": "servo", "servo": "pulgar_derecho", "angulo": angulo},
-            ],
-        })
 
     def _reposo(self):
         self.cuello.posicion = 0
@@ -104,23 +90,12 @@ if __name__ == "__main__":
     assert comandos[-1] == {"tipo": "motor", "direccion": "arriba"}
     print(f"OK: {comandos[-1]}\n")
 
-    print("=== Cuello ===")
+    print("Cuello")
     gamepad.cuello.mover(30)
     assert comandos[-1] == {"tipo": "servo", "servo": "cuello", "angulo": 30}
     gamepad.cuello.mover(500)
     assert len(comandos) == 2
     print(f"OK: emitido {comandos[-1]}; el 500 fuera de rango no entró\n")
-
-    print("Mano abrir (multi)")
-    gamepad.mano_abrir.presionar()
-    assert comandos[-1] == {
-        "tipo": "multi",
-        "comandos": [
-            {"tipo": "servo", "servo": "pulgar_izquierdo", "angulo": 22},
-            {"tipo": "servo", "servo": "pulgar_derecho", "angulo": 22},
-        ],
-    }
-    print(f"OK: {comandos[-1]['tipo']} con {len(comandos[-1]['comandos'])} servos\n")
 
     print("Reposo (multi)")
     gamepad.cuello.mover(30)
@@ -142,7 +117,6 @@ if __name__ == "__main__":
     gamepad.habilitar(False)
     gamepad.direccion_arriba.presionar()
     gamepad.cuello.mover(10)
-    gamepad.mano_abrir.presionar()
     assert len(comandos) == n
     print("OK: los comandos se descartan sin conexión\n")
 
