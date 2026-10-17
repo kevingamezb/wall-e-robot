@@ -8,8 +8,18 @@ firmware/.pio/
 .pio/
 firmware/.vscode/
 
+# Credenciales privadas del firmware
+firmware/include/secrets.h
+
 # C extensions
 *.so
+
+# VsCode (config compartida; resto ignorado)
+.vscode/*
+!.vscode/settings.json
+
+# Modelos 3D
+/modelo_3d
 
 
 # Distribution / packaging

@@ -1,0 +1,13 @@
+{
+    // Suite de pruebas del proyecto: pytest (ver tests/ y pytest.ini).
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.autoTestDiscoverOnSaveEnabled": true,
+    // Ayuda a Pylance a resolver el paquete 'app' desde la raíz del proyecto.
+    "python.analysis.extraPaths": [
+        "."
+    ]
+}
