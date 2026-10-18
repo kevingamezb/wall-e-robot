@@ -34,7 +34,8 @@ class PantallaPrincipal:
     on_conectar/on_desconectar/on_controles los enganchan los tres botones.
     """
     def __init__(self, parent, estado: EstadoRobot,
-                 on_conectar=None, on_desconectar=None, on_controles=None):
+                 on_conectar=None, on_desconectar=None, on_controles=None,
+                 on_modo=None):
         """
         Constructor de la pantalla.
 
@@ -43,6 +44,7 @@ class PantallaPrincipal:
         on_conectar    : callback al pulsar CONECTAR (abre el modal con la IP).
         on_desconectar : callback al pulsar DESCONECTAR (cierra la conexión).
         on_controles   : callback al pulsar CONTROLES (abre el mapeo de teclado).
+        on_modo        : callback al pulsar MODO (alterna manual/automático).
         """
         self.estado = estado
         self.frame = tk.Frame(parent, bg=Paleta.FONDO_APP)
@@ -60,12 +62,16 @@ class PantallaPrincipal:
         self.boton_conectar = Boton("CONECTAR")
         self.boton_desconectar = Boton("DESCONECTAR")
         self.boton_controles = Boton("CONTROLES")
+        # El botón de modo solo se habilita con conexión (necesita al robot).
+        self.boton_modo = Boton("MODO: --", habilitado=False)
         if on_conectar is not None:
             self.boton_conectar.suscribir(on_conectar)
         if on_desconectar is not None:
             self.boton_desconectar.suscribir(on_desconectar)
         if on_controles is not None:
             self.boton_controles.suscribir(on_controles)
+        if on_modo is not None:
+            self.boton_modo.suscribir(on_modo)
 
         # Distribución de la grilla
         self.frame.grid_columnconfigure(0, weight=10)
@@ -142,10 +148,15 @@ class PantallaPrincipal:
                 or self.lbl_ind_modo.cget("fg") != color_modo):
             self.lbl_ind_modo.config(text=texto_modo, fg=color_modo)
 
-        # Batería: porcentaje coloreado con la misma regla por umbral.
-        pct = int(round(max(0.0, min(1.0, self.estado.bateria)) * 100))
-        texto_bat = f"BATER\u00cdA {pct}%"
-        color_bat = color_por_umbral(self.estado.bateria)
+        # Batería: porcentaje coloreado con la misma regla por umbral. Sin
+        # conexión no hay lectura, así que se muestra "--".
+        if self.estado.conexion_activa:
+            pct = int(round(max(0.0, min(1.0, self.estado.bateria)) * 100))
+            texto_bat = f"BATER\u00cdA {pct}%"
+            color_bat = color_por_umbral(self.estado.bateria)
+        else:
+            texto_bat = "BATER\u00cdA --"
+            color_bat = Paleta.GRIS
         if (self.lbl_ind_bateria.cget("text") != texto_bat
                 or self.lbl_ind_bateria.cget("fg") != color_bat):
             self.lbl_ind_bateria.config(text=texto_bat, fg=color_bat)
@@ -270,6 +281,12 @@ class PantallaPrincipal:
         botones = tk.Frame(cabecera, bg=Paleta.FONDO_WIDGET)
         botones.pack(side="right", pady=(0, Paleta.UNIDAD // 4))
 
+        canvas_modo = tk.Canvas(botones, width=150, height=30,
+                                bg=Paleta.FONDO_WIDGET, highlightthickness=0)
+        canvas_modo.pack(side="left", padx=(0, Paleta.UNIDAD // 3))
+        self.render_modo = BotonRenderer(
+            self.boton_modo, canvas_modo, 6, 5, 138, 20, tamano_fuente=8)
+
         canvas_controles = tk.Canvas(botones, width=86, height=30,
                                      bg=Paleta.FONDO_WIDGET, highlightthickness=0)
         canvas_controles.pack(side="left", padx=(0, Paleta.UNIDAD // 3))
@@ -310,7 +327,8 @@ class PantallaPrincipal:
         etiqueta : qué dice el indicador (p. ej. "SIN CONEXIÓN", una IP...).
         """
         self._conexion_activa = activa
-        self.gamepad.habilitar(activa)
+        # El botón de modo necesita al robot para enviarle el comando.
+        self.boton_modo.habilitado = activa
         self.lbl_estado_conexion.config(
             text=etiqueta,
             fg=Paleta.DORADO if activa else Paleta.GRIS,
@@ -319,6 +337,19 @@ class PantallaPrincipal:
     # Ciclo de actualización
     def dibujar(self):
         """Redibuja todos los bloques de la pantalla (se llama cada ciclo)."""
+        # El gamepad solo manda en manual: en automático decide el robot, así
+        # que conectar no da control de motores por sí solo.
+        self.gamepad.habilitar(
+            self._conexion_activa and self.estado.modo == Modo.MANUAL)
+
+        # El botón de modo refleja el estado actual del robot (o "--" sin enlace).
+        if not self._conexion_activa:
+            self.boton_modo.texto = "MODO: --"
+        elif self.estado.modo == Modo.MANUAL:
+            self.boton_modo.texto = "MODO: MANUAL"
+        else:
+            self.boton_modo.texto = "MODO: AUTOM\u00c1TICO"
+
         self._actualizar_indicadores()
         self.render_ojos.dibujar()
         for render in self.render_iconos:
@@ -326,6 +357,7 @@ class PantallaPrincipal:
         self.render_barras.dibujar()
         self.render_sol.dibujar()
         self.render_navegacion.dibujar()
+        self.render_modo.dibujar()
         self.render_conectar.dibujar()
         self.render_desconectar.dibujar()
         self.render_controles.dibujar()

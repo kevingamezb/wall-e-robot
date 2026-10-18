@@ -87,7 +87,7 @@ Qué revisa cada uno (resumen):
 | `widgets.renderizado.base_render` | Helpers HUD (`scanlines`, `corchetes_hud`, `banda_gradiente`, `fulgor_radial`, `anillo_con_halo`, `borde_panel`, `rectangulo_redondeado`) |
 | `widgets.renderizado.carga_recursos` | Loader de assets PNG: carga, tinte con la `Paleta` (vía `Recoloreo`, por canal alfa), escala conservando aspecto, espejo y caché; con Tk retirado genera PNG temporales |
 | `widgets.logica.ojos` / `icono_sistema` | Prioridad de `ExpresionOjos` (incluye `ERROR`) y mapeo `TipoIcono` → asset (incluye los 3 niveles de conexión) |
-| `widgets.logica.gamepad` | Direcciones del d-pad (`{"tipo":"motor",...}`), cuello, **reposo en un único `{"tipo":"multi",...}`**, que **sin conexión no envía nada** y que **reposo devuelve los deslizadores al centro** |
+| `widgets.logica.gamepad` | Direcciones del d-pad (`{"tipo":"motor",...}`), cuello, **reposo en un único `{"tipo":"multi",...}`**, que **sin conexión (o en automático) no envía nada** y que **reposo devuelve los deslizadores al centro** |
 | `widgets.logica.mapeo_teclado` | Perfil de controles: defaults, persistencia JSON, conflictos una-tecla-una-acción |
 | `widgets.logica.control_teclado` | El driver teclado->gamepad: auto-repetido de motores, pasos de ejes y discretas de un solo disparo |
 | `widgets.logica.boton` / `deslizador` | Suscripción/avisos, hover, estados de color |
@@ -103,9 +103,14 @@ python -m app.main
   `192.168.4.1`).
 - Debe mostrarse la pantalla única con: Estado (columna central con 5 barras), Navegación
   (medidor de proximidad + maniobra), Ojos, Sol de batería, Consumo, Logger, Gamepad y botones
-  **CONECTAR / DESCONECTAR**.
-- Sin conectar, el panel está apagado (gamepad deshabilitado, ojos en SIN_DATOS, indicador
-  **SIN CONEXIÓN**). Al conectar, los datos los envía el robot cada ~500 ms.
+  **MODO / CONTROLES / CONECTAR / DESCONECTAR**.
+- Sin conectar, el panel está apagado (gamepad deshabilitado, ojos en SIN_DATOS, Sol en
+  **"sin datos"** con los 12 rayos grises, indicador **SIN CONEXIÓN**). Al conectar, los datos
+  los envía el robot cada ~500 ms.
+- **MODO**: el botón muestra el modo actual del robot (`MODO: AUTOMÁTICO` / `MODO: MANUAL`) y al
+  pulsarlo pide el cambio (`{"tipo":"modo"}`). Sin conexión queda apagado (**MODO: --**).
+- El **gamepad solo manda en manual**: en automático se ve apagado y descarta los comandos, para
+  no pelear con la navegación autónoma. Conectar **no** pone al robot en manual por sí solo.
 - Para cerrar: `Ctrl+C` en la terminal o cerrar la ventana.
 
 > Si algo falla sin robot conectado, el problema es de la app; con robot, revisar antes la red
@@ -540,7 +545,10 @@ no llenar el Logger de repeticiones.
 - [ ] Todos los cajones de §3 imprimen `Pruebas OK`.
 - [ ] `python -m app.main` abre la pantalla única en **SIN CONEXIÓN** y pide la IP del robot.
 - [ ] El gamepad sin conexión no emite comandos (overlay SIN CONEXIÓN visible).
+- [ ] El botón **MODO** refleja el modo del robot y al pulsarlo cambia entre manual y automático; sin conexión queda en **MODO: --** y no envía nada.
+- [ ] En automático el gamepad no emite comandos; al pasar a **MODO: MANUAL** se habilita y las flechas/Q-A mueven el robot.
 - [ ] CONTROLES: asignar una tecla, limpiar una acción y restaurar por defecto; al cerrar, `configuracion/controles.json` refleja los cambios.
+- [ ] Sin conexión, el Sol de batería se ve lleno en **gris** y dice **sin datos** (y el indicador superior, `BATERÍA --`).
 - [ ] Con el gamepad conectado al robot, el teclado mueve el robot (flechas reproducen el comando motor; Q/A mueven el cuello; reposo dispara una vez).
 - [ ] Ojos e íconos se dibujan con los **assets PNG** de `app/recursos/` (instalar Pillow); al desconectar, los ojos pasan a **SIN_DATOS** y el ícono de conexión refleja el nivel por frescura. Si faltara un PNG, se ve el dibujo procedural.
 

@@ -7,8 +7,9 @@ from ...nucleo.paleta import Paleta
 
 class Boton:
     """Estado (presionado/hover) de un botón de la interfaz; solo presionar() notifica a los suscriptores."""
-    def __init__(self, texto: str):
+    def __init__(self, texto: str, habilitado: bool = True):
         self.texto = texto
+        self.habilitado = habilitado
         self.presionado = False
         self.en_hover = False
 
@@ -22,6 +23,9 @@ class Boton:
             suscriptor()
 
     def presionar(self):
+        """Avisa a los suscriptores; un botón deshabilitado no hace nada."""
+        if not self.habilitado:
+            return
         self.presionado = True
         self._actualizar()
 
@@ -29,6 +33,8 @@ class Boton:
         self.presionado = False
 
     def entrar_hover(self):
+        if not self.habilitado:
+            return
         self.en_hover = True
 
     def salir_hover(self):
@@ -128,4 +134,14 @@ if __name__ == "__main__":
     demo.suscribir(cuando_se_presiona)
     demo.presionar()
 
-    print("\nPruebas OK")
+    print("\nDeshabilitado")
+    contador = {"avisos": 0}
+    apagado = Boton("Modo", habilitado=False)
+    apagado.suscribir(lambda: contador.__setitem__("avisos", contador["avisos"] + 1))
+    apagado.entrar_hover()
+    apagado.presionar()
+    assert apagado.en_hover is False and apagado.presionado is False
+    assert contador["avisos"] == 0
+    print("OK: deshabilitado no hace hover ni avisa\n")
+
+    print("Pruebas OK")

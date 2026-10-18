@@ -13,8 +13,10 @@ from app.widgets.logica.sol_bateria import SolBateria
 
 @pytest.fixture
 def sol():
-    """Sol de batería sobre un estado nuevo."""
-    return SolBateria(EstadoRobot())
+    """Sol de batería con conexión activa (hay lectura del robot)."""
+    estado = EstadoRobot()
+    estado.conexion_activa = True
+    return SolBateria(estado)
 
 
 @pytest.mark.parametrize(
@@ -65,3 +67,27 @@ def test_tiempo_restante_se_delega_al_estado(sol):
     """tiempo_restante_min reproduce el valor del estado."""
     sol.estado.tiempo_restante_min = 42
     assert sol.tiempo_restante_min == 42
+
+
+def test_sin_datos_sol_lleno_pero_gris():
+    """Sin conexión no hay lectura: el sol se ve lleno, en gris y dice 'sin datos'."""
+    estado = EstadoRobot()
+    estado.conexion_activa = False
+    estado.bateria = 0.2
+    sol = SolBateria(estado)
+
+    assert sol.sin_datos is True
+    assert sol.rayos_encendidos == SolBateria.TOTAL_RAYOS
+    assert sol.color == Paleta.GRIS
+    assert sol.etiqueta == "sin datos"
+
+
+def test_sin_datos_manda_sobre_cargando():
+    """Aunque 'cargando' quedara pegado, sin conexión gana 'sin datos'."""
+    estado = EstadoRobot()
+    estado.conexion_activa = False
+    estado.cargando = True
+    sol = SolBateria(estado)
+
+    assert sol.color == Paleta.GRIS
+    assert sol.etiqueta == "sin datos"

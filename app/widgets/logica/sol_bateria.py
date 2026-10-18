@@ -17,13 +17,21 @@ class SolBateria:
         self.estado = estado
 
     @property
+    def sin_datos(self) -> bool:
+        """Sin conexión no hay lectura de batería: el sol queda gris e inerte."""
+        return not self.estado.conexion_activa
+
+    @property
     def rayos_encendidos(self) -> int:
-        if self.estado.cargando:
+        # Sin datos (o cargando) el sol se dibuja lleno; el color dice el resto.
+        if self.sin_datos or self.estado.cargando:
             return self.TOTAL_RAYOS
         return round(self.estado.bateria * self.TOTAL_RAYOS)
 
     @property
     def color(self) -> str:
+        if self.sin_datos:
+            return Paleta.GRIS
         if self.estado.cargando:
             return Paleta.VERDE_LIMA
 
@@ -38,6 +46,8 @@ class SolBateria:
 
     @property
     def etiqueta(self) -> str:
+        if self.sin_datos:
+            return "sin datos"
         if self.estado.cargando:
             return "cargando"
         return f"{self.rayos_encendidos}/{self.TOTAL_RAYOS}"
@@ -54,6 +64,7 @@ if __name__ == "__main__":
     print("Prueba sol_bateria.py\n")
 
     estado = EstadoRobot()
+    estado.conexion_activa = True   # con robot hay lectura de batería
 
     print("Batería llena (1.0)")
     sol = SolBateria(estado)
@@ -81,5 +92,14 @@ if __name__ == "__main__":
     assert sol.color == Paleta.VERDE_LIMA
     assert sol.etiqueta == "cargando"
     print(f"OK: {sol.etiqueta} / {sol.color}\n")
+
+    print("Sin datos (sin conexión)")
+    estado.cargando = False
+    estado.bateria = 0.2
+    estado.conexion_activa = False
+    assert sol.rayos_encendidos == 12
+    assert sol.color == Paleta.GRIS
+    assert sol.etiqueta == "sin datos"
+    print(f"OK: {sol.etiqueta} / {sol.color}, sol lleno pero gris\n")
 
     print("Pruebas OK")

@@ -12,7 +12,8 @@ documentos especializados enlazados más abajo.
 ## Descripción
 
 - **App de escritorio (PC):** Python + Tkinter. Se conecta al robot por WiFi/TCP, dibuja el
-  panel de control y compone los comandos. Arranca sin conexión y pide la IP del robot.
+  panel de control y compone los comandos. Arranca sin conexión y pide la IP del robot; el
+  botón **MODO** alterna manual/automático y el gamepad solo manda en manual.
 - **Firmware (ESP32):** C++ / PlatformIO. Lee sensores, mueve servos y motores, decide la
   navegación autónoma y expone un servidor TCP con mensajes JSON de una línea.
 - **Comunicación:** WiFi/TCP con el ESP32 en modo AP (red `WALL-E`, `192.168.4.1`, puerto

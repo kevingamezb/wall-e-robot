@@ -126,19 +126,22 @@ class BotonRenderer(RenderizadorBase):
         self.canvas.tag_bind(fondo, "<Enter>", self._al_entrar)
         self.canvas.tag_bind(fondo, "<Leave>", self._al_salir)
 
-        # Texto del botón
+        # Texto del botón (vivo: algunos botones cambian su etiqueta, p. ej. el
+        # de modo). Se reescribe solo cuando el texto cambió.
         etiqueta = self._primera_vez(
             "etiqueta",
             lambda: self.canvas.create_text(
                 self.x + self.ancho / 2, self.y + self.alto / 2,
-                text=self.texto,
+                text=self.widget.texto,
                 font=(Paleta.FUENTE_TEXTO, self.tamano_fuente, "bold"),
             ),
         )
+        if self._hay_cambio("texto", self.widget.texto):
+            self.canvas.itemconfig(etiqueta, text=self.widget.texto)
 
-        # Borde y color del texto dependen solo de presionado; se repintan
+        # Borde y color del texto dependen de presionado/habilitado; se repintan
         # únicamente cuando ese estado cambia (el fondo sí se anima aparte).
-        if self._hay_cambio("estado", self.widget.presionado):
+        if self._hay_cambio("estado", (self.widget.presionado, self.widget.habilitado)):
             # El halo se enciende con la presión y se apaga al soltar.
             halo = self._ids["halo"]
             self.canvas.itemconfig(
@@ -148,7 +151,10 @@ class BotonRenderer(RenderizadorBase):
             borde = Paleta.DORADO if self.widget.presionado else Paleta.GRIS
             self.canvas.itemconfig(fondo, outline=borde)
 
-            color_texto = Paleta.DORADO if self.widget.presionado else Paleta.TEXTO_LOG
+            if not self.widget.habilitado:
+                color_texto = Paleta.TEXTO_TENUE
+            else:
+                color_texto = Paleta.DORADO if self.widget.presionado else Paleta.TEXTO_LOG
             self.canvas.itemconfig(etiqueta, fill=color_texto)
 
         # Permite presionar también haciendo clic sobre el texto (sin hover).

@@ -8,7 +8,7 @@
 
 import tkinter as tk
 from .nucleo.paleta import Paleta
-from .nucleo.estado import EstadoRobot, NivelLog
+from .nucleo.estado import EstadoRobot, NivelLog, Modo
 from .comunicacion.conexion import Comunicacion, ConexionOffline
 from .pantallas.pantalla_principal import PantallaPrincipal
 from .pantallas.modal_controles import ModalControles
@@ -46,6 +46,7 @@ class Aplicacion:
             on_conectar=self._pedir_ip,
             on_desconectar=self._desconectar,
             on_controles=self._abrir_controles,
+            on_modo=self._cambiar_modo,
         )
         # El gamepad dispara siempre hacia la conexión activa (real u offline).
         self.pantalla.conectar_gamepad(lambda cmd: self.conexion.enviar_mensaje(cmd))
@@ -137,6 +138,14 @@ class Aplicacion:
         self._cerrar_conexion_actual()
         self.conexion = ConexionOffline()
         self.pantalla.establecer_conexion(False, "SIN CONEXI\u00d3N")
+
+    def _cambiar_modo(self):
+        """Alterna el modo del robot (manual <-> automático)."""
+        if not isinstance(self.conexion, Comunicacion):
+            return   # sin robot real no hay a quién pedirle el cambio
+        nuevo = (Modo.AUTOMATICO if self.estado.modo == Modo.MANUAL
+                 else Modo.MANUAL)
+        self.conexion.enviar_mensaje({"tipo": "modo", "modo": nuevo.value})
 
     def _cerrar_conexion_actual(self):
         """Cierra el socket actual si lo hay."""

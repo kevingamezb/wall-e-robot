@@ -100,6 +100,32 @@ def test_salir_hover():
     assert b.color_fondo == Paleta.FONDO_APP
 
 
+def test_deshabilitado_no_notifica_ni_hace_hover(contador):
+    """Un botón deshabilitado ignora la presión y el hover."""
+    b = Boton("MODO: --", habilitado=False)
+    b.suscribir(contador)
+
+    b.entrar_hover()
+    b.presionar()
+
+    assert b.en_hover is False
+    assert b.presionado is False
+    assert contador.avisos == 0
+
+
+def test_rehabilitar_vuelve_a_notificar(contador):
+    """Al habilitar un botón deshabilitado, presionar() vuelve a avisar."""
+    b = Boton("MODO: --", habilitado=False)
+    b.suscribir(contador)
+
+    b.presionar()
+    assert contador.avisos == 0
+
+    b.habilitado = True
+    b.presionar()
+    assert contador.avisos == 1
+
+
 class _ContadorLocal:
     """Suscriptor mínimo para las pruebas que necesitan varios contadores."""
 
