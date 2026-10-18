@@ -107,15 +107,22 @@ wall-e-robot/
 ### Requisitos
 
 - Python 3.10 o superior con Tkinter.
+  - **Linux (Debian/Ubuntu):** Tkinter no viene con el sistema:
+    `sudo apt install python3-tk python3-venv` (y `python3.12-venv`, o el
+    paquete equivalente a tu versión de Python).
+  - **Windows:** el instalador de python.org lo incluye si marcas *tcl/tk*.
+- Un entorno virtual (recomendado en Linux):
+  `python3 -m venv .venv && source .venv/bin/activate`.
 - Dependencias de la app: `python -m pip install -r requirements.txt`.
 - Dependencias de desarrollo (pruebas): `python -m pip install -r requirements-dev.txt`.
-- Firmware: PlatformIO (extensión de VS Code o CLI).
+- Firmware: PlatformIO (extensión de VS Code o CLI:
+  `python -m pip install platformio`, queda como `pio`).
 
 ### Ejecutar la app (simulador)
 
 Desde la **raíz** del repositorio:
 
-```powershell
+```bash
 python -m app.main
 ```
 
@@ -123,7 +130,7 @@ Arranca con el simulador conectado (no requiere ESP32).
 
 ### Ejecutar las pruebas
 
-```powershell
+```bash
 python -m pytest                 # suite automatizada (tests/)
 python pruebas/ejecutar_cajones.py   # cajones manuales heredados
 ```
@@ -132,20 +139,31 @@ Detalles, cobertura y notas de VS Code: [`pruebas/guia_de_pruebas.md`](pruebas/g
 
 ### Compilar y flashear el firmware
 
-```powershell
+```bash
 pio run              # compilar
 pio run -t upload    # compilar + grabar por USB
 pio device monitor   # monitor serial (115200)
 ```
 
 Si `pio` no está en el PATH, usa la ruta del entorno:
-`C:\Users\<usuario>\.platformio\penv\Scripts\platformio.exe`.
+`~/.platformio/penv/bin/platformio` (Linux/macOS) o
+`C:\Users\<usuario>\.platformio\penv\Scripts\platformio.exe` (Windows).
+
+**Linux (flashear por USB):** añade tu usuario al grupo de puertos serie para
+trabajar sin sudo, y vuelve a entrar en la sesión:
+
+```bash
+sudo usermod -aG dialout $USER
+```
+
+Si la placa aparece en `/dev/ttyUSB0` y PlatformIO no la ve, revisa
+`ls -l /dev/ttyUSB*` tras conectarla.
 
 **Antes de grabar (configuración local, no versionada):** copia la plantilla de
 credenciales y edítala; `secrets.h` está en `.gitignore` y no se publica.
 
-```powershell
-Copy-Item firmware/include/secrets.example.h firmware/include/secrets.h
+```bash
+cp firmware/include/secrets.example.h firmware/include/secrets.h
 ```
 
 - El **primer** firmware debe grabarse por USB. OTA solo funciona a partir de un build que ya
@@ -166,6 +184,30 @@ versiona.
 El procedimiento, el manifiesto MD5 y las comprobaciones de rollback están documentados en
 [`pruebas/guia_de_pruebas.md`](pruebas/guia_de_pruebas.md) (§7). **La actualización OTA está
 implementada y documentada, pero no se declara validada en hardware en este README.**
+
+### Distribución (ejecutables)
+
+`scripts/empaquetar_distribucion.py` genera un ZIP por plataforma con la app empaquetada
+(PyInstaller), el firmware de la MISMA versión, `LEEME.md` y `SHA256SUMS.txt`:
+
+```bash
+python scripts/empaquetar_distribucion.py            # paquete completo de esta plataforma
+python scripts/empaquetar_distribucion.py --solo-firmware   # solo firmware.bin + .md5
+```
+
+PyInstaller **no cross-compila**: cada ZIP se genera en su sistema operativo.
+
+- **Linux (Debian/Ubuntu/Mint):** se genera aquí mismo, `wall-e-<ver>-linux64.zip`.
+- **Windows:** se compila en CI (GitHub Actions, `windows-latest`), `wall-e-<ver>-win64.zip`.
+- **macOS:** fuera de momento (exigiría firma de Apple para no avisar a Gatekeeper).
+
+En CI, el firmware se compila **una vez** en Linux (el `.bin` del ESP32 es igual desde
+cualquier PC) con la clave de distribución —los secrets `WIFI_AP_CLAVE` y `OTA_CLAVE` del
+repo— y los builds de Windows lo adjuntan con `--firmware-bin`. Para publicar una versión:
+sincronizar `PROYECTO_VERSION` en [`firmware/include/config.h`](firmware/include/config.h),
+etiquetar (`git tag v1.0.0 && git push origin v1.0.0`) y el workflow
+[`release.yml`](.github/workflows/release.yml) publica el GitHub Release con los ZIPs y el
+firmware.
 
 ## Estado del proyecto
 

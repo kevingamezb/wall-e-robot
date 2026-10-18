@@ -44,10 +44,11 @@ Todas las pruebas del lado **PC** se ejecutan desde la raíz del repositorio
 Cada módulo trae su propio cajón de pruebas (bloque `if __name__ == "__main__"`): al ejecutarlo
 imprime `Pruebas OK` si todo está bien. Se ejecutan desde la **raíz del repositorio**:
 
-```powershell
+```bash
 python -m app.nucleo.estado
 python -m app.nucleo.paleta
 python -m app.comunicacion.conexion
+python -m app.widgets.renderizado.recoloreo
 python -m app.widgets.renderizado.base_render
 python -m app.widgets.renderizado.carga_recursos
 python -m app.widgets.logica.boton
@@ -68,7 +69,7 @@ python -m app.pantallas.modal_controles
 
 > **Atajo:** para correr **todos** los cajones de una sola vez (los que no abren ventanas) existe el runner:
 >
-> ```powershell
+> ```bash
 > python pruebas/ejecutar_cajones.py
 > ```
 >
@@ -82,8 +83,9 @@ Qué revisa cada uno (resumen):
 | `nucleo.estado` | `EstadoRobot`, `Modo`, `NivelLog`, `Logger` |
 | `nucleo.paleta` | Colores centralizados y `color_por_umbral()` |
 | `comunicacion.conexion` | Simulador, `ConexionOffline` y **el parseo tolerante del protocolo real** (campos nuevos, `null`, `navegacion`, `posiciones_servos`, `multi`, y la pérdida de conexión marcada sin romper la app) |
-| `widgets.renderizado.base_render` | Helpers HUD (`scanlines`, `corchetes_hud`, `banda_gradiente`, `fulgor_radial`, `anillo_con_halo`, `borde_panel`, `rectangulo_redondeado`, `interpolar_color`) |
-| `widgets.renderizado.carga_recursos` | Loader de assets PNG: carga, tinte con la `Paleta` (por canal alfa), escala conservando aspecto, espejo y caché; con Tk retirado genera PNG temporales |
+| `widgets.renderizado.recoloreo` | `Recoloreo`: conversiones hex <-> RGB, interpolación de colores (recorte de `t`) y tinte de imágenes RGBA conservando el alfa |
+| `widgets.renderizado.base_render` | Helpers HUD (`scanlines`, `corchetes_hud`, `banda_gradiente`, `fulgor_radial`, `anillo_con_halo`, `borde_panel`, `rectangulo_redondeado`) |
+| `widgets.renderizado.carga_recursos` | Loader de assets PNG: carga, tinte con la `Paleta` (vía `Recoloreo`, por canal alfa), escala conservando aspecto, espejo y caché; con Tk retirado genera PNG temporales |
 | `widgets.logica.ojos` / `icono_sistema` | Prioridad de `ExpresionOjos` (incluye `ERROR`) y mapeo `TipoIcono` → asset (incluye los 3 niveles de conexión) |
 | `widgets.logica.gamepad` | Direcciones del d-pad (`{"tipo":"motor",...}`), cuello, **reposo en un único `{"tipo":"multi",...}`**, que **sin conexión no envía nada** y que **reposo devuelve los deslizadores al centro** |
 | `widgets.logica.mapeo_teclado` | Perfil de controles: defaults, persistencia JSON, conflictos una-tecla-una-acción |
@@ -93,7 +95,7 @@ Qué revisa cada uno (resumen):
 
 ### 3.1 La GUI completa en modo simulado
 
-```powershell
+```bash
 python -m app.main
 ```
 
@@ -162,7 +164,7 @@ El proyecto dispone de una **suite automatizada** en `tests/` (pytest) que compl
 
 ### 3a.1 Instalar dependencias de desarrollo
 
-```powershell
+```bash
 python -m pip install -r requirements-dev.txt
 ```
 
@@ -172,7 +174,7 @@ python -m pip install -r requirements-dev.txt
 
 ### 3a.2 Ejecutar las pruebas
 
-```powershell
+```bash
 python -m pytest
 python -m pytest -v
 python -m pytest tests/test_estado.py
@@ -184,7 +186,7 @@ python -m pytest -k conexion
 
 ### 3a.3 Cobertura de código
 
-```powershell
+```bash
 python -m pytest --cov=app --cov-report=term-missing
 python -m pytest --cov=app --cov-report=html
 ```
@@ -194,7 +196,6 @@ python -m pytest --cov=app --cov-report=html
 **Limitaciones conocidas:**
 - `app/main.py`: 0% (punto de entrada GUI).
 - Renderizadores Tk (`app/widgets/renderizado/*`): parcialmente cubiertos (no se fuerzan rutas gráficas para evitar pruebas frágiles).
-- `app/widgets/renderizado/recoloreo.py`: sin uso en producción (ver Observaciones pendientes).
 
 ### 3a.4 VS Code Test Explorer
 
@@ -208,7 +209,7 @@ python -m pytest --cov=app --cov-report=html
 - Complementarios con la suite automatizada.
 - Transición controlada. Atajo: `python pruebas/ejecutar_cajones.py` (devuelve 0 si todos verdes).
 
-```powershell
+```bash
 python pruebas/ejecutar_cajones.py
 ```
 
@@ -243,7 +244,7 @@ Abrir la carpeta `firmware/` como proyecto PlatformIO.
 
 **Opción B — Línea de comandos:**
 
-```powershell
+```bash
 # Compilar el firmware
 pio run
 
@@ -255,7 +256,8 @@ pio device monitor
 ```
 
 > Si `pio` no está en el PATH, usar la ruta del entorno instalado, por ejemplo
-> `C:\Users\<usuario>\.platformio\penv\Scripts\platformio.exe run`.
+> `~/.platformio/penv/bin/platformio run` (Linux/macOS) o
+> `C:\Users\<usuario>\.platformio\penv\Scripts\platformio.exe run` (Windows).
 
 > **Primer flasheo (USB):** antes de grabar, crear `firmware/include/secrets.h` a partir de
 > `secrets.example.h` (no se versiona). OTA **no** sirve para el primer firmware: hay que
@@ -390,8 +392,8 @@ la PC conectada a la red **WALL-E** (`192.168.4.1`).
 Las claves (WiFi del AP y del portal OTA) viven en `firmware/include/secrets.h`,
 que **no se versiona**. Si no existe, copiar la plantilla:
 
-```powershell
-Copy-Item firmware/include/secrets.example.h firmware/include/secrets.h
+```bash
+cp firmware/include/secrets.example.h firmware/include/secrets.h
 ```
 
 `OTA_USUARIO` / `OTA_CLAVE` protegen el portal (Basic Auth) y espota. **Con
@@ -400,7 +402,7 @@ robot).
 
 ### 7.2 Compilar y obtener el MD5
 
-```powershell
+```bash
 pio run
 ```
 
@@ -427,7 +429,7 @@ Ese MD5 es el que se pega en el portal para verificar la integridad de la subida
 
 ### 7.4 Vía B — ArduinoOTA / espota (línea de comandos)
 
-```powershell
+```bash
 pio run -t upload --upload-port 192.168.4.1 --upload-protocol espota --upload-flags=--auth=<OTA_CLAVE>
 ```
 
@@ -513,7 +515,7 @@ no llenar el Logger de repeticiones.
 | Síntoma | Causa probable / acción |
 |---|---|
 | `ModuleNotFoundError` al correr un cajón | Se ejecutó desde dentro de `app/`. Correr desde la **raíz** del repositorio. |
-| `pio` no es un comando reconocido | Usar la ruta del entorno: `C:\Users\<usuario>\.platformio\penv\Scripts\platformio.exe` |
+| `pio` no es un comando reconocido | Usar la ruta del entorno: `~/.platformio/penv/bin/platformio` (Linux/macOS) o `C:\Users\<usuario>\.platformio\penv\Scripts\platformio.exe` (Windows) |
 | Monitor serial no da la línea "AP iniciada..." | Bajar la velocidad del monitor a **115200**; revisar el puerto USB (Upload). |
 | "No se pudo conectar" en la GUI | El PC no está en la red **WALL-E**, el ESP32 no arrancó, o la IP no es `192.168.4.1`. Revisar Serial. |
 | La GUI no marca falso el hardware ausente | Un módulo en **0** reporta neutro; si algo alerta sin hardware, revisar que su flag esté en 0. |
