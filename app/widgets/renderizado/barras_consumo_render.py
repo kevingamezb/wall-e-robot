@@ -3,7 +3,8 @@
 
 
 from ...nucleo.paleta import Paleta
-from .base_render import RenderizadorBase, interpolar_color
+from .base_render import RenderizadorBase
+from .recoloreo import Recoloreo
 
 
 class BarrasConsumoRenderer(RenderizadorBase):
@@ -51,7 +52,7 @@ class BarrasConsumoRenderer(RenderizadorBase):
             return
 
         # i=0 es la barra inferior (las barras crecen hacia arriba).
-        brillo = interpolar_color(color, Paleta.TEXTO_LOG, 0.30)
+        brillo = Recoloreo.interpolar(color, Paleta.TEXTO_LOG, 0.30)
         for i in range(total):
             base_y = self.y - i * (self.alto_barra + self.separacion)
             barrita = self._ids[f"barrita_{i}"]

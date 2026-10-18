@@ -8,7 +8,8 @@
 
 from ...nucleo.paleta import Paleta
 from ...widgets.logica.icono_sistema import TipoIcono
-from .base_render import RenderizadorBase, interpolar_color
+from .base_render import RenderizadorBase
+from .recoloreo import Recoloreo
 from . import carga_recursos
 
 
@@ -108,6 +109,6 @@ class IconoSistemaRenderer(RenderizadorBase):
         if not self._hay_cambio("estado", (color, activo)):
             return
 
-        self.canvas.itemconfig(halo, fill=interpolar_color(
+        self.canvas.itemconfig(halo, fill=Recoloreo.interpolar(
             color, Paleta.FONDO_WIDGET, 0.80) if activo else Paleta.FONDO_WIDGET)
         self.canvas.itemconfig(caja, outline=borde)

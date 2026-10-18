@@ -4,7 +4,8 @@
 
 import tkinter as tk
 from ...nucleo.paleta import Paleta
-from .base_render import RenderizadorBase, rectangulo_redondeado, interpolar_color
+from .base_render import RenderizadorBase, rectangulo_redondeado
+from .recoloreo import Recoloreo
 
 
 # Parámetros de la transición de color
@@ -63,7 +64,7 @@ class BotonRenderer(RenderizadorBase):
             self._paso += 1
             t = min(1.0, self._paso / PASOS_TRANSICION)
             self._aplicar_color(
-                interpolar_color(self._color_origen, self._color_destino, t),
+                Recoloreo.interpolar(self._color_origen, self._color_destino, t),
             )
             if t < 1.0:
                 self.canvas.after(INTERVALO_TRANSICION_MS, self._animar_hacia)
@@ -91,7 +92,7 @@ class BotonRenderer(RenderizadorBase):
                 self.canvas, self.x - 4, self.y - 4,
                 self.x + self.ancho + 4, self.y + self.alto + 4,
                 self.radio_esquinas + 2,
-                fill=interpolar_color(Paleta.DORADO, Paleta.FONDO_WIDGET, 0.75),
+                fill=Recoloreo.interpolar(Paleta.DORADO, Paleta.FONDO_WIDGET, 0.75),
                 outline="", width=0,
             ),
         )

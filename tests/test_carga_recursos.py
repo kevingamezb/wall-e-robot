@@ -40,18 +40,6 @@ def test_existe_distingue_presente_de_ausente(recursos):
     assert carga_recursos.existe("no_existe") is False
 
 
-def test_tenido_conserva_alfa(recursos):
-    """El tinte pinta el dibujo opaco pero deja transparente el fondo."""
-    with Image.open(recursos / "prueba.png") as abierta:
-        imagen = abierta.convert("RGBA")
-
-    tenida = carga_recursos._tenido(imagen, Paleta.DORADO)
-
-    assert tenida.size == (20, 10)
-    assert tenida.getpixel((2, 2)) == (0xcb, 0xa1, 0x35, 255)
-    assert tenida.getpixel((15, 5))[3] == 0
-
-
 def test_cargar_escala_por_alto_conservando_aspecto(recursos, raiz_tk):
     """cargar() respeta el alto y conserva el aspecto (20x10 -> 60x30)."""
     foto = carga_recursos.cargar("prueba", Paleta.DORADO, 30)

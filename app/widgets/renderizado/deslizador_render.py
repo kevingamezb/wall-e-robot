@@ -3,7 +3,8 @@
 
 
 from ...nucleo.paleta import Paleta
-from .base_render import RenderizadorBase, interpolar_color
+from .base_render import RenderizadorBase
+from .recoloreo import Recoloreo
 
 
 class DeslizadorRenderer(RenderizadorBase):
@@ -114,7 +115,7 @@ class DeslizadorRenderer(RenderizadorBase):
             lambda: self.canvas.create_oval(
                 px - thumb_radio - 5, py - thumb_radio - 5,
                 px + thumb_radio + 5, py + thumb_radio + 5,
-                fill=interpolar_color(color_thumb, Paleta.FONDO_WIDGET, 0.75),
+                fill=Recoloreo.interpolar(color_thumb, Paleta.FONDO_WIDGET, 0.75),
                 outline="",
             ),
         )
@@ -124,7 +125,7 @@ class DeslizadorRenderer(RenderizadorBase):
             px + thumb_radio + 5, py + thumb_radio + 5,
         )
         self.canvas.itemconfig(
-            halo, fill=interpolar_color(color_thumb, Paleta.FONDO_WIDGET, 0.75),
+            halo, fill=Recoloreo.interpolar(color_thumb, Paleta.FONDO_WIDGET, 0.75),
         )
         self.canvas.itemconfig(halo, state="normal" if activo else "hidden")
 

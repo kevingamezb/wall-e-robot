@@ -1,16 +1,20 @@
 # wall-e-robot/app/widgets/renderizado/carga_recursos.py
 # Kevin Gámez - 15/10/2026
 #
-# Carga los PNG de app/recursos/, los tiñe con un color de la Paleta y los
-# entrega como PhotoImage de Tk.
+# Carga los PNG de app/recursos/, los tiñe (vía Recoloreo) con un color de la
+# Paleta y los entrega como PhotoImage de Tk.
 
 
 from pathlib import Path
 from PIL import Image, ImageTk, ImageOps
 
+from ... import rutas
+from .recoloreo import Recoloreo
 
-# Carpeta de assets (app/recursos). El cajón la reemplaza por un temp dir.
-DIRECTORIO = Path(__file__).resolve().parents[2] / "recursos"
+
+# Carpeta de assets (app/recursos). El cajón y las pruebas la reemplazan por
+# un temp dir; congelado, apunta dentro del bundle.
+DIRECTORIO = rutas.directorio_recursos()
 
 # Cache de PhotoImage ya construidos: (nombre, color, alto, espejo) -> foto.
 # Mantener las referencias evita que el recolector de basura libere las imágenes.
@@ -27,14 +31,6 @@ def existe(nombre: str) -> bool:
     return ruta_asset(nombre).is_file()
 
 
-def _tenido(imagen: Image.Image, color: str) -> Image.Image:
-    """Copia de 'imagen' (RGBA) pintada con 'color', conservando su alfa."""
-    color_rgb = tuple(int(color[i:i + 2], 16) for i in (1, 3, 5))
-    solido = Image.new("RGBA", imagen.size, color_rgb + (255,))
-    solido.putalpha(imagen.getchannel("A"))
-    return solido
-
-
 def cargar(nombre: str, color: str, alto: int, espejo: bool = False):
     """Carga, tiñe con 'color' y escala a 'alto' (conservando aspecto).
 
@@ -47,7 +43,7 @@ def cargar(nombre: str, color: str, alto: int, espejo: bool = False):
     with Image.open(ruta_asset(nombre)) as abierta:
         imagen = abierta.convert("RGBA")
 
-    imagen = _tenido(imagen, color)
+    imagen = Recoloreo.tenir(imagen, color)
     ancho = max(1, round(alto * imagen.width / imagen.height))
     imagen = imagen.resize((ancho, alto), Image.LANCZOS)
     if espejo:
@@ -94,8 +90,8 @@ if __name__ == "__main__":
         assert existe("no_existe") is False
         print("OK: distingue presente/ausente\n")
 
-        print("tinte conservando alfa")
-        teñida = _tenido(muestra, Paleta.DORADO)
+        print("tinte conservando alfa (vía Recoloreo)")
+        teñida = Recoloreo.tenir(muestra, Paleta.DORADO)
         assert teñida.size == (20, 10)
         assert teñida.getpixel((2, 2)) == (0xcb, 0xa1, 0x35, 255), \
             "El píxel opaco toma el color pedido"

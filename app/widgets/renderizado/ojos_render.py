@@ -4,7 +4,8 @@
 
 from ...nucleo.paleta import Paleta
 from ...widgets.logica.ojos import ExpresionOjos
-from .base_render import RenderizadorBase, interpolar_color, rectangulo_redondeado
+from .base_render import RenderizadorBase, rectangulo_redondeado
+from .recoloreo import Recoloreo
 from . import carga_recursos
 
 
@@ -80,14 +81,14 @@ class OjosRenderer(RenderizadorBase):
             "glow",
             lambda: rectangulo_redondeado(
                 self.canvas, self.x - 3, self.y, self.x + 101, self.y + 44,
-                radio=8, fill=interpolar_color(color, Paleta.FONDO_WIDGET, 0.88),
+                radio=8, fill=Recoloreo.interpolar(color, Paleta.FONDO_WIDGET, 0.88),
                 outline="", width=0,
             ),
         )
         if self._hay_cambio("glow", color):
             self.canvas.itemconfig(
                 self._ids["glow"],
-                fill=interpolar_color(color, Paleta.FONDO_WIDGET, 0.88),
+                fill=Recoloreo.interpolar(color, Paleta.FONDO_WIDGET, 0.88),
             )
 
     def _ocultar(self, nombre):

@@ -4,7 +4,8 @@
 
 import math
 from ...nucleo.paleta import Paleta
-from .base_render import RenderizadorBase, interpolar_color
+from .base_render import RenderizadorBase
+from .recoloreo import Recoloreo
 
 
 class SolBateriaRenderer(RenderizadorBase):
@@ -78,7 +79,7 @@ class SolBateriaRenderer(RenderizadorBase):
         if not self._hay_cambio("estado", (encendidos, color)):
             return
 
-        color_halo = interpolar_color(color, Paleta.FONDO_WIDGET, 0.7)
+        color_halo = Recoloreo.interpolar(color, Paleta.FONDO_WIDGET, 0.7)
         for i in range(self.TOTAL_RAYOS):
             rayo = self._ids[f"rayo_{i}"]
             halo = self._ids[f"halo_{i}"]

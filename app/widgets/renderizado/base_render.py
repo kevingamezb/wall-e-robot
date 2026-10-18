@@ -3,6 +3,7 @@
 
 
 from ...nucleo.paleta import Paleta
+from .recoloreo import Recoloreo
 
 
 def rectangulo_redondeado(canvas, x1, y1, x2, y2, radio, **opciones):
@@ -18,15 +19,6 @@ def rectangulo_redondeado(canvas, x1, y1, x2, y2, radio, **opciones):
         x1, y1 + radio,
     ]
     return canvas.create_polygon(puntos, smooth=True, **opciones)
-
-
-def interpolar_color(hex1, hex2, t):
-    """Devuelve el color intermedio entre hex1 (t=0) y hex2 (t=1), recortando t a [0, 1]."""
-    t = max(0.0, min(1.0, t))
-    c1 = tuple(int(hex1[i:i + 2], 16) for i in (1, 3, 5))
-    c2 = tuple(int(hex2[i:i + 2], 16) for i in (1, 3, 5))
-    r, g, b = (round(a + (b - a) * t) for a, b in zip(c1, c2))
-    return f"#{r:02x}{g:02x}{b:02x}"
 
 
 def borde_panel(canvas, radio=Paleta.RADIO_TARJETA, margen=2, color=Paleta.BORDE_SUAVE):
@@ -50,7 +42,7 @@ def fulgor_radial(canvas, cx, cy, radio, color, capas=4):
         t = (capas - i) / capas          # 0 en el centro -> 1 en el borde
         ids.append(canvas.create_oval(
             cx - r, cy - r, cx + r, cy + r,
-            fill=interpolar_color(color, Paleta.FONDO_WIDGET, t * 0.85),
+            fill=Recoloreo.interpolar(color, Paleta.FONDO_WIDGET, t * 0.85),
             outline="",
         ))
     return ids
@@ -64,8 +56,8 @@ def anillo_con_halo(canvas, cx, cy, radio, grosor, color, capas=3):
         ids.append(canvas.create_oval(
             cx - radio - desfase, cy - radio - desfase,
             cx + radio + desfase, cy + radio + desfase,
-            outline=interpolar_color(color, Paleta.FONDO_WIDGET,
-                                     (capas - i) / capas),
+            outline=Recoloreo.interpolar(color, Paleta.FONDO_WIDGET,
+                                         (capas - i) / capas),
             width=grosor,
         ))
     return ids
@@ -77,7 +69,7 @@ def banda_gradiente(canvas, x1, y1, x2, y2, color_a, color_b,
     ids = []
     for i in range(tiras):
         t = i / max(1, tiras - 1)
-        color = interpolar_color(color_a, color_b, t)
+        color = Recoloreo.interpolar(color_a, color_b, t)
         if orientacion == "vertical":
             ya = y1 + (y2 - y1) * (i / tiras)
             yb = y1 + (y2 - y1) * ((i + 1) / tiras)
@@ -101,7 +93,7 @@ def corchetes_hud(canvas, x1, y1, x2, y2, largo=12, color=None,
     for n in range(nivel):
         d = n * (grosor + 1)
         x1n, y1n, x2n, y2n = x1 + d, y1 + d, x2 - d, y2 - d
-        col = interpolar_color(color, Paleta.FONDO_WIDGET, n * 0.5)
+        col = Recoloreo.interpolar(color, Paleta.FONDO_WIDGET, n * 0.5)
         esquinas = (
             ((x1n, y1n + largo), (x1n, y1n), (x1n + largo, y1n)),  # sup-izq
             ((x2n, y1n + largo), (x2n, y1n), (x2n - largo, y1n)),  # sup-der
@@ -186,12 +178,6 @@ if __name__ == "__main__":
                                 outline=Paleta.BORDE_SUAVE, width=1)
     assert isinstance(rid, int) and rid > 0, "El rectángulo redondeado debe devolver un id"
     print("OK: ítem creado\n")
-
-    print("interpolar_color")
-    assert interpolar_color("#000000", "#ffffff", 0.0) == "#000000", "t=0 da el color inicial"
-    assert interpolar_color("#000000", "#ffffff", 1.0) == "#ffffff", "t=1 da el color final"
-    assert interpolar_color("#000000", "#ffffff", 0.5) == "#808080", "t=0.5 da el gris medio"
-    print("OK: extremos y punto medio\n")
 
     print("fulgor_radial")
     ids_fulgor = fulgor_radial(lienzo, 60, 170, 24, Paleta.AXIOM_CYAN, capas=4)

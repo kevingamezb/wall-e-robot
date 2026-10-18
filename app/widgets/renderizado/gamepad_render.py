@@ -4,7 +4,8 @@
 
 from ...nucleo.paleta import Paleta
 from .base_render import (rectangulo_redondeado, corchetes_hud, scanlines,
-                          interpolar_color, borde_panel)
+                          borde_panel)
+from .recoloreo import Recoloreo
 from .boton_render import BotonRenderer
 from .deslizador_render import DeslizadorRenderer
 
@@ -121,7 +122,7 @@ class GamepadRenderer:
             lambda: rectangulo_redondeado(
                 self.canvas, 4, 4, self.ancho - 4, self.alto - 4,
                 Paleta.RADIO_TARJETA - 2,
-                outline=interpolar_color(Paleta.CYAN_DIM, Paleta.FONDO_WIDGET, 0.5),
+                outline=Recoloreo.interpolar(Paleta.CYAN_DIM, Paleta.FONDO_WIDGET, 0.5),
                 width=1,
             ),
         )
@@ -147,7 +148,7 @@ class GamepadRenderer:
         cx = self.ancho * 0.26
         self._texto("off_titulo_halo", "SIN CONEXI\u00d3N",
                     cx - 70, self.alto * 0.40 + 2,
-                    fill=interpolar_color(Paleta.ROJO, Paleta.FONDO_CANVAS, 0.55),
+                    fill=Recoloreo.interpolar(Paleta.ROJO, Paleta.FONDO_CANVAS, 0.55),
                     tamano=20)
         self._texto("off_titulo", "SIN CONEXI\u00d3N",
                     cx - 70, self.alto * 0.40,

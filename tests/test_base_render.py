@@ -13,7 +13,7 @@ import pytest
 from app.nucleo.paleta import Paleta
 from app.widgets.renderizado.base_render import (
     RenderizadorBase, anillo_con_halo, banda_gradiente, corchetes_hud,
-    fulgor_radial, interpolar_color, rectangulo_redondeado, scanlines, texto_hud,
+    fulgor_radial, rectangulo_redondeado, scanlines, texto_hud,
 )
 
 
@@ -31,25 +31,6 @@ def test_rectangulo_redondeado_devuelve_id(lienzo):
     rid = rectangulo_redondeado(lienzo, 10, 10, 310, 210, Paleta.RADIO_TARJETA,
                                 outline=Paleta.BORDE_SUAVE, width=1)
     assert isinstance(rid, int) and rid > 0
-
-
-@pytest.mark.parametrize(
-    "t, esperado",
-    [
-        (0.0, "#000000"),
-        (1.0, "#ffffff"),
-        (0.5, "#808080"),
-    ],
-)
-def test_interpolar_color_extremos_y_medio(t, esperado):
-    """t=0 da el color inicial, t=1 el final y t=0.5 el gris medio."""
-    assert interpolar_color("#000000", "#ffffff", t) == esperado
-
-
-@pytest.mark.parametrize("t, esperado", [(-1.0, "#000000"), (2.0, "#ffffff")])
-def test_interpolar_color_recorta_t(t, esperado):
-    """Un t fuera de [0, 1] se recorta al extremo más cercano."""
-    assert interpolar_color("#000000", "#ffffff", t) == esperado
 
 
 def test_fulgor_radial_crea_una_capa_por_nivel(lienzo):
