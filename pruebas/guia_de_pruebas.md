@@ -6,7 +6,7 @@
 **Autor:** Kevin Gámez
 **Descripción:** Guía práctica para operar las pruebas del proyecto. Va dirigida al compañero de equipo y a cualquiera que necesite ejecutar la app, flashear el ESP32 o probar los componentes reales por separado.
 
-> **Regla de oro para probar:** primero se prueba cada pieza por separado (cajón de prueba o módulo aislado en el firmware) y solo después se integra. La interfaz se puede probar completa con el simulador, sin tocar hardware.
+> **Regla de oro para probar:** primero se prueba cada pieza por separado (cajón de prueba o módulo aislado en el firmware) y solo después se integra. La interfaz se prueba completa contra el robot real; sin hardware, cada pieza se prueba por separado con sus cajones y con pytest.
 
 ---
 
@@ -82,7 +82,7 @@ Qué revisa cada uno (resumen):
 |---|---|
 | `nucleo.estado` | `EstadoRobot`, `Modo`, `NivelLog`, `Logger` |
 | `nucleo.paleta` | Colores centralizados y `color_por_umbral()` |
-| `comunicacion.conexion` | Simulador, `ConexionOffline` y **el parseo tolerante del protocolo real** (campos nuevos, `null`, `navegacion`, `posiciones_servos`, `multi`, y la pérdida de conexión marcada sin romper la app) |
+| `comunicacion.conexion` | `ConexionOffline` y **el parseo tolerante del protocolo real** (campos nuevos, `null`, `navegacion`, `posiciones_servos`, `multi`, y la pérdida de conexión marcada sin romper la app) |
 | `widgets.renderizado.recoloreo` | `Recoloreo`: conversiones hex <-> RGB, interpolación de colores (recorte de `t`) y tinte de imágenes RGBA conservando el alfa |
 | `widgets.renderizado.base_render` | Helpers HUD (`scanlines`, `corchetes_hud`, `banda_gradiente`, `fulgor_radial`, `anillo_con_halo`, `borde_panel`, `rectangulo_redondeado`) |
 | `widgets.renderizado.carga_recursos` | Loader de assets PNG: carga, tinte con la `Paleta` (vía `Recoloreo`, por canal alfa), escala conservando aspecto, espejo y caché; con Tk retirado genera PNG temporales |
@@ -93,21 +93,23 @@ Qué revisa cada uno (resumen):
 | `widgets.logica.boton` / `deslizador` | Suscripción/avisos, hover, estados de color |
 | demás `widgets.*` | Lógica de cada widget de la pantalla |
 
-### 3.1 La GUI completa en modo simulado
+### 3.1 La GUI completa (con el robot)
 
 ```bash
 python -m app.main
 ```
 
-- Arranca con **`SIMULADOR`** conectado (no requiere ESP32).
+- Arranca en **SIN CONEXIÓN** y abre el modal para escribir la IP del robot (§6; por defecto
+  `192.168.4.1`).
 - Debe mostrarse la pantalla única con: Estado (columna central con 5 barras), Navegación
   (medidor de proximidad + maniobra), Ojos, Sol de batería, Consumo, Logger, Gamepad y botones
   **CONECTAR / DESCONECTAR**.
-- El simulador genera datos que cambian solos (batería baja lentamente, distancia varía,
-  log de prueba cada 10 s) y alertas (obstáculo cerca < 15 cm, batería baja < 0.25).
+- Sin conectar, el panel está apagado (gamepad deshabilitado, ojos en SIN_DATOS, indicador
+  **SIN CONEXIÓN**). Al conectar, los datos los envía el robot cada ~500 ms.
 - Para cerrar: `Ctrl+C` en la terminal o cerrar la ventana.
 
-> Si algo sale mal aquí, el problema es de la app; el hardware no tiene nada que ver.
+> Si algo falla sin robot conectado, el problema es de la app; con robot, revisar antes la red
+> y el firmware (§6).
 
 ### 3.2 Controles por teclado (mapeo estilo emulador)
 
@@ -153,14 +155,14 @@ Comportamiento al usar el teclado en la pantalla principal:
   `SIN_DATOS → ERROR → MANUAL → OBSTACULO → NORMAL`, y el ícono de conexión tiene 3 niveles
   (`conectividad_alta/media/baja`) derivados por la frescura del último estado recibido.
 
-> Para revisar la estética en vivo: `python -m app.main` en el simulador.
+> Para revisar la estética en vivo: `python -m app.main` con el robot conectado.
 > Para revisar el layout en frío: `python -m app.pantallas.pantalla_principal`.
 
 ---
 
 ## 3a. Pruebas automatizadas con pytest
 
-El proyecto dispone de una **suite automatizada** en `tests/` (pytest) que complementa los cajones (`if __name__ == "__main__"`). Las pruebas se centran en lógica pura y **no arrancan** el robot ni abren TCP a menos que se simule.
+El proyecto dispone de una **suite automatizada** en `tests/` (pytest) que complementa los cajones (`if __name__ == "__main__"`). Las pruebas se centran en lógica pura y **no arrancan** el robot ni abren TCP: el protocolo se prueba inyectando datos a un socket falso.
 
 ### 3a.1 Instalar dependencias de desarrollo
 
@@ -373,7 +375,8 @@ static const ModulosActivos MODULOS = { true, true, true, true, true };
 4. Presionar **CONECTAR**, confirmar IP `192.168.4.1` y CONECTAR.
    - Si la IP no funciona, leer la IP real que imprimió el Serial del ESP32.
 5. Al conectar: el indicador pasa de **SIN CONEXIÓN** a **conectado** y se ve en el estado.
-6. Para volver al simulador: **DESCONECTAR** deja el panel sin conexión (no vuelve al simulador).
+6. Para desconectar: **DESCONECTAR** deja el panel sin conexión; para volver a conectar,
+   pulsar **CONECTAR** otra vez.
 
 ---
 
@@ -535,10 +538,10 @@ no llenar el Logger de repeticiones.
 
 **Lado PC (sin hardware):**
 - [ ] Todos los cajones de §3 imprimen `Pruebas OK`.
-- [ ] `python -m app.main` abre la pantalla única en modo SIMULADOR.
+- [ ] `python -m app.main` abre la pantalla única en **SIN CONEXIÓN** y pide la IP del robot.
 - [ ] El gamepad sin conexión no emite comandos (overlay SIN CONEXIÓN visible).
 - [ ] CONTROLES: asignar una tecla, limpiar una acción y restaurar por defecto; al cerrar, `configuracion/controles.json` refleja los cambios.
-- [ ] Con el gamepad conectado al simulador, el teclado mueve el estado (flechas reproducen el comando motor; Q/A mueven el cuello; reposo dispara una vez).
+- [ ] Con el gamepad conectado al robot, el teclado mueve el robot (flechas reproducen el comando motor; Q/A mueven el cuello; reposo dispara una vez).
 - [ ] Ojos e íconos se dibujan con los **assets PNG** de `app/recursos/` (instalar Pillow); al desconectar, los ojos pasan a **SIN_DATOS** y el ícono de conexión refleja el nivel por frescura. Si faltara un PNG, se ve el dibujo procedural.
 
 **Lado firmware aislado:**

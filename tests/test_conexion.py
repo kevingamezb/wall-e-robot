@@ -3,22 +3,21 @@
 
 """Pruebas de app.comunicacion.conexion.
 
-Cubre el simulador, la conexión offline, el parseo tolerante del protocolo y
-la robustez de red, todo sin abrir sockets reales (se inyecta un socket falso
-o se construye la clase con __new__).
+Cubre la conexión offline, el parseo tolerante del protocolo y la robustez de
+red, todo sin abrir sockets reales (se inyecta un socket falso o se construye
+la clase con __new__).
 """
 
 
 import json
 import socket
-import time
 from typing import cast
 
 import pytest
 
 from app.comunicacion import conexion as modulo_conexion
 from app.comunicacion.conexion import (
-    Comunicacion, ComunicacionSimulada, Conexion, ConexionOffline,
+    Comunicacion, Conexion, ConexionOffline,
     nivel_por_frescura, SEGUNDOS_SENAL_ALTA, SEGUNDOS_SENAL_MEDIA,
 )
 from app.nucleo.estado import EstadoRobot, Modo, Maniobra, NivelConexion, NivelLog
@@ -49,79 +48,6 @@ def test_nivel_por_frescura(segundos, esperado):
 def test_nivel_por_frescura_limites(segundos, esperado):
     """Los cortes de frescura son estrictos (<), el valor exacto baja de nivel."""
     assert nivel_por_frescura(segundos) == esperado
-
-
-# --------------------------------------------------------------- simulador
-def test_simulada_actualiza_estado():
-    """Un ciclo del simulador deja el estado con valores coherentes."""
-    estado = EstadoRobot()
-    simulada = ComunicacionSimulada()
-
-    simulada.actualizar_estado(estado)
-
-    assert estado.conexion_activa is True
-    assert estado.nivel_conexion in (
-        NivelConexion.ALTA, NivelConexion.MEDIA, NivelConexion.BAJA)
-    assert 5.0 <= estado.distancia_obstaculo_cm <= 200.0
-    assert 1.2 <= estado.consumo_watts <= 4.8
-    assert estado.bateria < 1.0
-
-
-def test_simulada_comando_modo():
-    """Un comando 'modo' cambia el modo simulado interno."""
-    estado = EstadoRobot()
-    simulada = ComunicacionSimulada()
-
-    simulada.enviar_mensaje({"tipo": "modo", "modo": "manual"})
-    simulada.actualizar_estado(estado)
-
-    assert estado.modo == Modo.MANUAL
-
-
-def test_simulada_multi_aplica_el_ultimo():
-    """En un comando 'multi', manda el último sub-comando (como el firmware)."""
-    estado = EstadoRobot()
-    simulada = ComunicacionSimulada()
-
-    simulada.enviar_mensaje({
-        "tipo": "multi",
-        "comandos": [
-            {"tipo": "modo", "modo": "automatico"},
-            {"tipo": "modo", "modo": "manual"},
-        ],
-    })
-    simulada.actualizar_estado(estado)
-
-    assert estado.modo == Modo.MANUAL
-
-
-def test_simulada_cooldown_de_advertencia():
-    """Una alerta activa se registra una sola vez, no en cada ciclo."""
-    estado = EstadoRobot()
-    simulada = ComunicacionSimulada()
-    simulada._distancia_simulada = 8.0
-
-    simulada.actualizar_estado(estado)
-    simulada.actualizar_estado(estado)
-
-    advertencias = [l for l in estado.logger.obtener_lineas()
-                    if l.nivel == NivelLog.ADVERTENCIA]
-    assert len(advertencias) == 1
-
-
-def test_simulada_error_de_bateria():
-    """Una batería crítica registra un error una sola vez."""
-    estado = EstadoRobot()
-    simulada = ComunicacionSimulada()
-    simulada._distancia_simulada = 50.0
-    simulada._bateria_simulada = 0.05
-
-    simulada.actualizar_estado(estado)
-
-    errores = [l for l in estado.logger.obtener_lineas()
-               if l.nivel == NivelLog.ERROR]
-    assert len(errores) == 1
-    assert errores[0].origen == "BATERIA"
 
 
 # --------------------------------------------------------------- offline
@@ -411,16 +337,3 @@ def test_blocking_io_no_es_perdida():
     assert not con.perdida
     assert estado.nivel_conexion == NivelConexion.NULA
 
-
-def test_simulada_log_periodico():
-    """Pasados 10 s, el simulador deja una línea de cortesía en el logger."""
-    estado = EstadoRobot()
-    simulada = ComunicacionSimulada()
-    simulada._ultimo_log_tiempo = time.time() - 11.0
-
-    simulada.actualizar_estado(estado)
-
-    del_simulador = [l for l in estado.logger.obtener_lineas()
-                     if l.origen == "SIMULADOR"]
-    assert len(del_simulador) == 1
-    assert del_simulador[0].nivel == NivelLog.INFO

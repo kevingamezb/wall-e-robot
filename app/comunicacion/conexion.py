@@ -21,7 +21,6 @@ from ..nucleo.estado import EstadoRobot, NivelLog, Modo, Maniobra, NivelConexion
 import socket
 import json
 import time
-import random
 from typing import cast
 
 
@@ -46,7 +45,7 @@ def nivel_por_frescura(segundos: float | None) -> NivelConexion:
 
 
 class Conexion(ABC):
-    """Interfaz de conexión con el robot (real, simulada u offline)."""
+    """Interfaz de conexión con el robot (real u offline)."""
     @abstractmethod
     def actualizar_estado(self, estado: EstadoRobot):
         """Lee al robot y escribe en la caja compartida."""
@@ -206,100 +205,8 @@ class Comunicacion(Conexion):
             pass
 
 
-class ComunicacionSimulada(Conexion):
-    """Comunicación simulada para probar la app sin un ESP32 real."""
-
-    def __init__(self):
-        self._bateria_simulada = 1.0
-        self._distancia_simulada = 45.0
-        self._modo_simulado = "automatico"
-        self._ultimo_log_tiempo = time.time()
-        # Cooldowns del logger
-        self._aviso_advertencia_log = False
-        self._aviso_error_log = False
-
-    def actualizar_estado(self, estado: EstadoRobot):
-        """
-        Calcula valores simulados que evolucionan con el tiempo y los escribe
-        directo en EstadoRobot.
-        """
-
-        self._bateria_simulada = max(0.0, self._bateria_simulada - 0.001)
-
-        variacion_distancia = random.uniform(-2.5, 2.5)
-        self._distancia_simulada = max(5.0, min(200.0, self._distancia_simulada + variacion_distancia))
-
-        estado.bateria = round(self._bateria_simulada, 3)
-        estado.modo = Modo(self._modo_simulado)
-        estado.distancia_obstaculo_cm = round(self._distancia_simulada, 1)
-        estado.consumo_watts = round(random.uniform(1.2, 4.8), 2)
-        estado.conexion_activa = True
-
-        # Nivel de señal simulado
-        secuencia_senal = (NivelConexion.ALTA, NivelConexion.ALTA,
-                           NivelConexion.MEDIA, NivelConexion.BAJA)
-        estado.nivel_conexion = secuencia_senal[int(time.time() / 8) % len(secuencia_senal)]
-
-        # Maniobra decidida (el firmware la manda en automático)
-        estado.navegacion = (Maniobra.ALTO if self._distancia_simulada < 15.0
-                             else Maniobra.RECTO)
-
-        # Alertas simuladas para probar los íconos de sistema
-        estado.hay_advertencia = (self._distancia_simulada < 15.0
-                                  or self._bateria_simulada < 0.25)
-        estado.hay_error = self._bateria_simulada < 0.10
-
-        # Logs que alimentan los colores del logger
-        if estado.hay_advertencia and not self._aviso_advertencia_log:
-            estado.logger.agregar_linea(
-                "DISTANCIA",
-                f"Obstáculo muy cerca: {round(self._distancia_simulada)}cm",
-                NivelLog.ADVERTENCIA,
-            )
-            self._aviso_advertencia_log = True
-        elif not estado.hay_advertencia:
-            self._aviso_advertencia_log = False
-
-        if estado.hay_error and not self._aviso_error_log:
-            estado.logger.agregar_linea(
-                "BATERIA",
-                "Nivel crítico de batería",
-                NivelLog.ERROR,
-            )
-            self._aviso_error_log = True
-        elif not estado.hay_error:
-            self._aviso_error_log = False
-
-        # Log de prueba cada 10 s
-        if time.time() - self._ultimo_log_tiempo > 10.0:
-            estado.logger.agregar_linea(
-                "SIMULADOR",
-                f"Lectura de prueba. Sensor de distancia detecta objeto a {round(self._distancia_simulada)}cm",
-                NivelLog.INFO
-            )
-            self._ultimo_log_tiempo = time.time()
-
-    def enviar_mensaje(self, comando: dict):
-        """Simula el envío de un comando al robot."""
-
-        print(f"[COMUNICACIÓN SIMULADA] Comando enviado -> {comando}")
-
-        if comando.get("tipo") == "multi":
-            for sub in comando.get("comandos", []):
-                if isinstance(sub, dict):
-                    self._aplicar_comando_simulado(sub)
-            return
-
-        self._aplicar_comando_simulado(comando)
-
-    def _aplicar_comando_simulado(self, comando: dict):
-        """Aplica un comando simple al estado simulado (por ahora, solo 'modo')."""
-        if comando.get("tipo") == "modo":
-            self._modo_simulado = comando.get("modo", self._modo_simulado)
-
-
 class ConexionOffline(Conexion):
-    """Estado "sin robot": ni conexión real ni simulador."""
+    """Estado "sin robot": sin conexión activa ni datos."""
 
     def actualizar_estado(self, estado: EstadoRobot):
         """No hay robot que leer: solo se marca que no hay conexión."""
@@ -317,26 +224,6 @@ class ConexionOffline(Conexion):
 if __name__ == "__main__":
     print("Prueba conexion.py\n")
 
-    # ComunicacionSimulada
-    print("ComunicacionSimulada")
-    estado = EstadoRobot()
-    simulada = ComunicacionSimulada()
-
-    # Tras un ciclo, la batería baja un poco y distancia/consumo toman valores
-    # aleatorios razonables.
-    simulada.actualizar_estado(estado)
-
-    print(f"bateria            = {estado.bateria}")
-    print(f"modo               = {estado.modo}")
-    print(f"distancia_obstaculo= {estado.distancia_obstaculo_cm} cm")
-    print(f"consumo_watts      = {estado.consumo_watts} W")
-    print(f"conexion_activa    = {estado.conexion_activa}")
-
-    assert estado.nivel_conexion in (NivelConexion.ALTA, NivelConexion.MEDIA,
-                                     NivelConexion.BAJA), \
-        "El simulador siempre reporta un enlace, nunca nulo"
-    print(f"nivel_conexion     = {estado.nivel_conexion.value}\n")
-
     print("Umbrales de nivel de señal (frescura)")
     assert nivel_por_frescura(None) == NivelConexion.NULA, "Sin dato -> nula"
     assert nivel_por_frescura(0.1) == NivelConexion.ALTA, "Fresco < 0.8s -> alta"
@@ -344,56 +231,10 @@ if __name__ == "__main__":
     assert nivel_por_frescura(5.0) == NivelConexion.BAJA, "Viejo -> baja"
     print("OK: nula/alta/media/baja\n")
 
-    # Un comando "modo" debe cambiar el modo simulado interno
-    print("\nEnviando comando modo -> 'manual'")
-    simulada.enviar_mensaje({"tipo": "modo", "modo": "manual"})
-    simulada.actualizar_estado(estado)
-    print(f"modo actualizado    = {estado.modo}")
-
-    # "multi" debe recorrer sus sub-comandos (igual que el firmware)
-    print("\nEnviando comando multi -> [modo automatico, modo manual]")
-    simulada.enviar_mensaje({
-        "tipo": "multi",
-        "comandos": [
-            {"tipo": "modo", "modo": "automatico"},
-            {"tipo": "modo", "modo": "manual"},
-        ],
-    })
-    simulada.actualizar_estado(estado)
-    assert estado.modo == Modo.MANUAL, \
-        "El último sub-comando del multi debe quedar aplicado (manual)"
-    print(f"OK: modo tras el multi = {estado.modo}")
-
-    # El logger arranca vacío
-    print("\nLogger (buffer simulado)")
-    print(f"lineas de log       = {len(estado.logger.obtener_lineas())}")
-
-    # Colores del logger
-    print("\nLogger con colores (advertencia/error)")
-    simulada._distancia_simulada = 8.0   # obstáculo muy cerca -> advertencia
-    simulada.actualizar_estado(estado)
-    lineas_warn = [l for l in estado.logger.obtener_lineas()
-                   if l.nivel == NivelLog.ADVERTENCIA]
-    assert len(lineas_warn) == 1, f"Debe haber 1 advertencia, hay {len(lineas_warn)}"
-    print(f"OK: advertencia -> {lineas_warn[0].origen}: {lineas_warn[0].mensaje}")
-
-    simulada.actualizar_estado(estado)   # la alerta sigue: NO debe repetirse
-    lineas_warn = [l for l in estado.logger.obtener_lineas()
-                   if l.nivel == NivelLog.ADVERTENCIA]
-    assert len(lineas_warn) == 1, "Una alerta activa no debe repetirse en cada ciclo"
-    print("OK: cooldown de la advertencia (no se repite)")
-
-    simulada._distancia_simulada = 50.0  # sale de la alerta
-    simulada.actualizar_estado(estado)
-    simulada._bateria_simulada = 0.05    # batería crítica -> error
-    simulada.actualizar_estado(estado)
-    lineas_err = [l for l in estado.logger.obtener_lineas()
-                  if l.nivel == NivelLog.ERROR]
-    assert len(lineas_err) == 1, f"Debe haber 1 error, hay {len(lineas_err)}"
-    print(f"OK: error -> {lineas_err[0].origen}: {lineas_err[0].mensaje}")
-
     # ConexionOffline: no produce datos y descarta comandos
-    print("\nConexionOffline")
+    print("ConexionOffline")
+    estado = EstadoRobot()
+    estado.conexion_activa = True    # parte de "conectado" para probar el apagado
     offline = ConexionOffline()
     offline.actualizar_estado(estado)
     assert estado.conexion_activa is False, "Offline debe apagar conexion_activa"

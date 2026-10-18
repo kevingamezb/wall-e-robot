@@ -9,7 +9,7 @@
 import tkinter as tk
 from .nucleo.paleta import Paleta
 from .nucleo.estado import EstadoRobot, NivelLog
-from .comunicacion.conexion import Comunicacion, ComunicacionSimulada, ConexionOffline
+from .comunicacion.conexion import Comunicacion, ConexionOffline
 from .pantallas.pantalla_principal import PantallaPrincipal
 from .pantallas.modal_controles import ModalControles
 from .widgets.logica.mapeo_teclado import MapeoTeclado
@@ -34,8 +34,8 @@ class Aplicacion:
         # Estado compartido del que leen todos los widgets.
         self.estado = EstadoRobot()
 
-        # Arranca en simulador
-        self.conexion = ComunicacionSimulada()
+        # Arranca sin conexión: al entrar se pide la IP del robot (ver iniciar()).
+        self.conexion = ConexionOffline()
 
         self.contenedor = tk.Frame(root, bg=Paleta.FONDO_APP)
         self.contenedor.pack(fill="both", expand=True)
@@ -47,9 +47,8 @@ class Aplicacion:
             on_desconectar=self._desconectar,
             on_controles=self._abrir_controles,
         )
-        # El gamepad dispara siempre hacia la conexión activa (simulada o real).
+        # El gamepad dispara siempre hacia la conexión activa (real u offline).
         self.pantalla.conectar_gamepad(lambda cmd: self.conexion.enviar_mensaje(cmd))
-        self.pantalla.establecer_conexion(True, "SIMULADOR")
 
         # Mapeo de teclado: perfil persistido (o de fábrica).
         self.mapeo = MapeoTeclado.cargar()
@@ -166,8 +165,11 @@ class Aplicacion:
         self.root.after(INTERVALO_CICLO_MS, self.ciclo)
 
     def iniciar(self):
-        """Arranca el bucle y abre la ventana."""
+        """Arranca el bucle, abre la ventana y pide la IP del robot."""
         self.ciclo()
+        # El modal se abre después del primer ciclo: así la ventana ya está
+        # mapeada y el grab_set() del modal no falla en algunos window managers.
+        self.root.after(200, self._pedir_ip)
         self.root.mainloop()
 
 

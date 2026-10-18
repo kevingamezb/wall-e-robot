@@ -307,7 +307,7 @@ class PantallaPrincipal:
         Refleja el estado de la conexión en la interfaz.
 
         activa   : si hay (o no) un robot del que leer.
-        etiqueta : qué dice el indicador (p. ej. "SIMULADOR", una IP...).
+        etiqueta : qué dice el indicador (p. ej. "SIN CONEXIÓN", una IP...).
         """
         self._conexion_activa = activa
         self.gamepad.habilitar(activa)
@@ -367,16 +367,14 @@ if __name__ == "__main__":
                                  on_conectar=lambda: None,
                                  on_desconectar=lambda: None)
 
-    # Conexión simulada y gamepad "enchufado" a ella.
-    from ..comunicacion.conexion import ComunicacionSimulada
-    simulada = ComunicacionSimulada()
-    pantalla.conectar_gamepad(simulada.enviar_mensaje)
-    pantalla.establecer_conexion(True, "SIMULADOR")
+    # Un par de ciclos "conectado" y luego "sin conexión" para comprobar que
+    # el renderer del gamepad conmuta bien la capa "apagado".
+    comandos = []
+    pantalla.conectar_gamepad(comandos.append)
+    pantalla.establecer_conexion(True, "192.168.4.1")
 
-    # Un par de ciclos con ambas conexiones (online y offline) para
-    # comprobar que el renderer del gamepad conmuta bien la capa "apagado".
     for _ in range(3):
-        simulada.actualizar_estado(estado)
+        estado.conexion_activa = True
         pantalla.dibujar()
         raiz.update()
     estado.conexion_activa = False

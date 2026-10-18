@@ -270,9 +270,9 @@ Este paquete no requiere instalar Python: la aplicación viene empaquetada.
 ## Ejecutar la aplicación
 
 {ejecutar}
-2. Arranca en modo simulador (no necesita el robot).
-3. Para conectar al robot: conéctate a la red WiFi del robot y pulsa
-   CONECTAR con la IP `192.168.4.1`.
+2. Arranca en **SIN CONEXIÓN** y abre el modal para escribir la IP del robot.
+3. Conéctate a la red WiFi del robot y pulsa CONECTAR con la IP `192.168.4.1`.
+   Sin robot, el panel queda deshabilitado hasta conectar.
 
 {config}.
 

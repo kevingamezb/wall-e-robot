@@ -12,7 +12,7 @@ documentos especializados enlazados más abajo.
 ## Descripción
 
 - **App de escritorio (PC):** Python + Tkinter. Se conecta al robot por WiFi/TCP, dibuja el
-  panel de control y compone los comandos. Puede funcionar sin hardware usando un simulador.
+  panel de control y compone los comandos. Arranca sin conexión y pide la IP del robot.
 - **Firmware (ESP32):** C++ / PlatformIO. Lee sensores, mueve servos y motores, decide la
   navegación autónoma y expone un servidor TCP con mensajes JSON de una línea.
 - **Comunicación:** WiFi/TCP con el ESP32 en modo AP (red `WALL-E`, `192.168.4.1`, puerto
@@ -39,7 +39,7 @@ canónicos en [`firmware/include/pines.h`](firmware/include/pines.h).
 Cuatro capas; cada capa solo conoce la de abajo:
 
 1. **Comunicación** — `app/comunicacion/conexion.py` (`Conexion`, `Comunicacion` TCP,
-   `ComunicacionSimulada`, `ConexionOffline`).
+   `ConexionOffline`).
 2. **Modelo de datos** — `app/nucleo/` (`EstadoRobot`, `Paleta`).
 3. **Widgets** — `app/widgets/logica/` (sin Tkinter) + `app/widgets/renderizado/` (con Tkinter).
 4. **Pantallas** — `app/pantallas/` (`pantalla_principal.py`, `modal_controles.py`).
@@ -82,7 +82,7 @@ protocolo y la operación detallada, en
 wall-e-robot/
 ├── app/                    # App de escritorio (Python + Tkinter). Depende de Pillow.
 │   ├── nucleo/             # EstadoRobot, Paleta
-│   ├── comunicacion/       # TCP/JSON + simulador + offline
+│   ├── comunicacion/       # TCP/JSON + offline
 │   ├── widgets/logica/     # Lógica de widgets (sin Tkinter)
 │   ├── widgets/renderizado/# Renderers y helpers de dibujo (con Tkinter)
 │   ├── pantallas/          # pantalla_principal, modal_controles
@@ -118,7 +118,7 @@ wall-e-robot/
 - Firmware: PlatformIO (extensión de VS Code o CLI:
   `python -m pip install platformio`, queda como `pio`).
 
-### Ejecutar la app (simulador)
+### Ejecutar la app
 
 Desde la **raíz** del repositorio:
 
@@ -126,7 +126,9 @@ Desde la **raíz** del repositorio:
 python -m app.main
 ```
 
-Arranca con el simulador conectado (no requiere ESP32).
+Arranca en **SIN CONEXIÓN** y abre el modal para escribir la IP del robot (por defecto
+`192.168.4.1`). Sin conectar, el panel queda deshabilitado: reparte los datos el robot, así que
+para verlo en marcha hay que estar en su red WiFi y pulsar **CONECTAR**.
 
 ### Ejecutar las pruebas
 
@@ -211,7 +213,7 @@ firmware.
 
 ## Estado del proyecto
 
-- App de escritorio: interfaz completa y usable con simulador.
+- App de escritorio: interfaz completa y usable; requiere el robot (o su red WiFi) para recibir datos.
 - Firmware: comunica, lee sensores y mueve servos/motores; integrándose con hardware real.
 - Pruebas: suite automatizada (pytest) más los cajones manuales heredados.
 - Pendiente: validar cableado y direcciones de motores, calibrar umbrales, afinar la

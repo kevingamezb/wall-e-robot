@@ -8,7 +8,6 @@ y sin conexión, comprobando que la construcción y el render no fallan.
 """
 
 
-from app.comunicacion.conexion import ComunicacionSimulada
 from app.nucleo.estado import EstadoRobot
 from app.pantallas.pantalla_principal import PantallaPrincipal
 
@@ -22,12 +21,12 @@ def test_pantalla_se_construye_y_dibuja(raiz_tk):
         on_desconectar=lambda: None,
     )
 
-    simulada = ComunicacionSimulada()
-    pantalla.conectar_gamepad(simulada.enviar_mensaje)
-    pantalla.establecer_conexion(True, "SIMULADOR")
+    comandos = []
+    pantalla.conectar_gamepad(comandos.append)
+    pantalla.establecer_conexion(True, "192.168.4.1")
 
     for _ in range(3):
-        simulada.actualizar_estado(estado)
+        estado.conexion_activa = True
         pantalla.dibujar()
         raiz_tk.update()
 
