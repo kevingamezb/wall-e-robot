@@ -9,5 +9,9 @@
     // Ayuda a Pylance a resolver el paquete 'app' desde la raíz del proyecto.
     "python.analysis.extraPaths": [
         "."
-    ]
+    ],
+    // 'basic' (por defecto de Pylance): señala errores reales sin exigir
+    // anotaciones de tipo en todo el código. 'off' lo desactiva del todo.
+    "python.analysis.typeCheckingMode": "basic",
+    "python-envs.defaultEnvManager": "ms-python.python:system"
 }
