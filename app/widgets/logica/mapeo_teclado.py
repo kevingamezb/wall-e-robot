@@ -6,6 +6,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from ... import rutas
+
 
 DISCRETO = "discreto"
 EJE = "eje"
@@ -43,7 +45,7 @@ MODIFICADORAS = {
     "Alt_L", "Alt_R", "Caps_Lock",
 }
 
-RUTA_CONTROLES = Path(__file__).resolve().parents[3] / "configuracion" / "controles.json"
+RUTA_CONTROLES = rutas.ruta_controles()
 
 
 def _teclas_por_defecto() -> dict:
