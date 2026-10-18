@@ -9,7 +9,7 @@ from ...nucleo.paleta import Paleta, color_por_umbral
 class BarrasConsumo:
     """
     Determina el número y color de las barras de consumo según la fracción de consumo instantáneo."""
-    TOTAL_BARRISTAS = 10
+    TOTAL_BARRITAS = 10
 
     def __init__(self, estado: EstadoRobot):
         self.estado = estado
@@ -23,7 +23,7 @@ class BarrasConsumo:
 
     @property
     def barritas_encendidas(self) -> int:
-        return round(self.fraccion * self.TOTAL_BARRISTAS)
+        return round(self.fraccion * self.TOTAL_BARRITAS)
 
     @property
     def color(self) -> str:

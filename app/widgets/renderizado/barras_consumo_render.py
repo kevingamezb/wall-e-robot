@@ -21,7 +21,7 @@ class BarrasConsumoRenderer(RenderizadorBase):
 
     def dibujar(self):
         """Dibuja o actualiza las 10 barritas apiladas de abajo hacia arriba."""
-        total = self.widget.TOTAL_BARRISTAS
+        total = self.widget.TOTAL_BARRITAS
         encendidas = self.widget.barritas_encendidas
         color = self.widget.color
         apagado = Paleta.HUD_LINE
