@@ -11,6 +11,9 @@ firmware/.vscode/
 # Credenciales privadas del firmware
 firmware/include/secrets.h
 
+# Secretos de la distribucion (clave dedicada del equipo)
+/empaquetado/secrets.distribucion.h
+
 # C extensions
 *.so
 

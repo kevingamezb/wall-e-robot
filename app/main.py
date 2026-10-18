@@ -3,7 +3,7 @@
 #
 # Punto de entrada de la aplicación de escritorio del Wall-E.
 # Para arrancar (desde la raíz del proyecto, donde está la carpeta 'app'):
-#   python -m app.main
+#   python -m app.main   (o, equivalentemente,  python -m app)
 
 
 import tkinter as tk
@@ -171,9 +171,14 @@ class Aplicacion:
         self.root.mainloop()
 
 
-if __name__ == "__main__":
+def main():
+    """Crea la ventana raíz y arranca la aplicación."""
     ventana = tk.Tk()
     ventana.geometry("1280x860")
     ventana.minsize(1200, 800)
     app = Aplicacion(ventana)
     app.iniciar()
+
+
+if __name__ == "__main__":
+    main()
