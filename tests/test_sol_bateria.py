@@ -22,9 +22,9 @@ def sol():
 @pytest.mark.parametrize(
     "bateria, rayos, color, etiqueta",
     [
-        (1.0, 12, Paleta.DORADO,  "12/12"),
-        (0.5,  6, Paleta.NARANJA, "6/12"),
-        (0.2,  2, Paleta.ROJO,    "2/12"),
+        (1.0, 8, Paleta.DORADO,  "8 / 8"),
+        (0.5, 4, Paleta.NARANJA, "4 / 8"),
+        (0.2, 2, Paleta.ROJO,    "2 / 8"),
     ],
 )
 def test_niveles_sin_cargar(sol, bateria, rayos, color, etiqueta):
@@ -39,15 +39,16 @@ def test_niveles_sin_cargar(sol, bateria, rayos, color, etiqueta):
     "rayos, color",
     [
         (0, Paleta.GRIS),
-        (4, Paleta.ROJO),
+        (1, Paleta.ROJO),
+        (2, Paleta.ROJO),
+        (3, Paleta.NARANJA),
         (5, Paleta.NARANJA),
-        (7, Paleta.NARANJA),
+        (6, Paleta.DORADO),
         (8, Paleta.DORADO),
-        (12, Paleta.DORADO),
     ],
 )
 def test_umbrales_de_color(sol, rayos, color):
-    """Los cortes de color son 0 (gris), <=4 (rojo), <=7 (naranja), resto dorado."""
+    """Los cortes de color son 0 (gris), 1-2 (rojo), 3-5 (naranja) y 6-8 (dorado)."""
     sol.estado.bateria = rayos / SolBateria.TOTAL_RAYOS
     assert sol.rayos_encendidos == rayos
     assert sol.color == color

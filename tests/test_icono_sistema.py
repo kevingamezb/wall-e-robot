@@ -44,13 +44,13 @@ def test_advertencia_y_error(entorno):
 
 
 def test_manual_y_cargando(entorno):
-    """Modo manual es cian y cargando verde lima."""
+    """Modo manual es dorado y cargando verde lima."""
     estado, iconos = entorno
     estado.modo = Modo.MANUAL
     estado.cargando = True
 
     assert iconos[TipoIcono.MODO_MANUAL].activo
-    assert iconos[TipoIcono.MODO_MANUAL].color == Paleta.AXIOM_CYAN
+    assert iconos[TipoIcono.MODO_MANUAL].color == Paleta.DORADO
     assert iconos[TipoIcono.CARGANDO].activo
     assert iconos[TipoIcono.CARGANDO].color == Paleta.VERDE_LIMA
 

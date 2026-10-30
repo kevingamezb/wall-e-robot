@@ -67,7 +67,7 @@ def test_tenido_conserva_alfa(muestra):
     tenida = Recoloreo.tenir(muestra, Paleta.DORADO)
 
     assert tenida.size == (20, 10)
-    assert tenida.getpixel((2, 2)) == (0xcb, 0xa1, 0x35, 255)
+    assert tenida.getpixel((2, 2)) == Recoloreo.a_rgb(Paleta.DORADO) + (255,)
     assert tenida.getpixel((15, 5))[3] == 0
 
 

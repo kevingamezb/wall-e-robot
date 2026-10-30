@@ -18,12 +18,12 @@ def nav():
 
 
 def test_automatico_recto(nav):
-    """En automático recto, la etiqueta es RECTO y el color cian."""
+    """En automático recto, la etiqueta es RECTO y el color azul."""
     assert not nav.en_manual
     assert nav.maniobra == Maniobra.RECTO
     assert nav.etiqueta == "RECTO"
     assert nav.simbolo == SIMBOLOS[Maniobra.RECTO]
-    assert nav.color == Paleta.AXIOM_CYAN
+    assert nav.color == Paleta.AZUL
 
 
 def test_automatico_alto_en_rojo(nav):

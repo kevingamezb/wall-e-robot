@@ -21,13 +21,13 @@ def barras():
     "consumo, barritas, color",
     [
         (0.0,  0,  Paleta.GRIS),
-        (4.2,  3,  Paleta.DORADO),
-        (8.0,  5,  Paleta.NARANJA),
-        (15.0, 10, Paleta.ROJO),
+        (4.2,  2,  Paleta.DORADO),
+        (8.0,  3,  Paleta.NARANJA),
+        (15.0, 6,  Paleta.ROJO),
     ],
 )
 def test_consumo_sobre_quince_watts(barras, consumo, barritas, color):
-    """Con máximo 15 W, el consumo se reparte en 10 barritas con umbral invertido."""
+    """Con máximo 15 W, el consumo se reparte en 6 barritas con umbral invertido."""
     barras.estado.consumo_watts = consumo
     barras.estado.max_consumo_watts = 15.0
 

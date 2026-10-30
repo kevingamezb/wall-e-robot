@@ -9,6 +9,7 @@ botón de modo sigue al robot y que el gamepad solo manda en manual.
 """
 
 
+from app.nucleo.disenio import Escala
 from app.nucleo.estado import EstadoRobot, Modo
 from app.pantallas.pantalla_principal import PantallaPrincipal
 
@@ -18,7 +19,7 @@ def test_pantalla_se_construye_y_dibuja(raiz_tk):
     cambios_modo = []
     estado = EstadoRobot()
     pantalla = PantallaPrincipal(
-        raiz_tk, estado,
+        raiz_tk, estado, Escala(0.25),
         on_conectar=lambda: None,
         on_desconectar=lambda: None,
         on_modo=lambda: cambios_modo.append(1),
