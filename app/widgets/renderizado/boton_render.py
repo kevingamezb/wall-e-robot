@@ -1,5 +1,5 @@
 # wall-e-robot/app/widgets/renderizado/boton_render.py
-# Kevin Gámez - 13/09/2026
+# Kevin Gámez - 29/10/2026
 
 
 import tkinter as tk
@@ -59,12 +59,20 @@ class BotonRenderer(RenderizadorBase):
 
     def _animar_hacia(self):
         try:
-            if self._color_destino is None:
+            color_destino = self._color_destino
+            if color_destino is None:
                 return  # la animación ya terminó
+
+            color_origen = self._color_origen
+            if color_origen is None:
+                self._aplicar_color(color_destino)
+                self._color_destino = None
+                return
+
             self._paso += 1
             t = min(1.0, self._paso / PASOS_TRANSICION)
             self._aplicar_color(
-                Recoloreo.interpolar(self._color_origen, self._color_destino, t),
+                Recoloreo.interpolar(color_origen, color_destino, t),
             )
             if t < 1.0:
                 self.canvas.after(INTERVALO_TRANSICION_MS, self._animar_hacia)
