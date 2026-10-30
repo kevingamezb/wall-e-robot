@@ -3,40 +3,45 @@
 
 
 class Paleta:
-    """
-    Paleta de colores y sistema visual de la GUI.
-
-    Único origen de colores, fuentes y medidas: el resto del código debe
-    importar de aquí en vez de usar literales propios.
-    """
+    """Paleta de colores y sistema visual de la GUI."""
 
     # Fondos
-    FONDO_APP    = "#0a111f"   # fondo general de la ventana
-    FONDO_WIDGET = "#0c1626"   # cara de los paneles (tarjetas)
-    FONDO_CANVAS = "#080f1c"   # lienzo interno (navegación, gamepad): aún más oscuro
+    FONDO_APP    = "#191b27"   # fondo general de la ventana
+    FONDO_NEGRO  = "#16181b"   # paneles negros (barra lateral y panel central)
+    FONDO_WIDGET = "#2b2d42"   # pantallas oscuras dentro de las tarjetas
+    FONDO_CANVAS = "#1b1b29"   # lienzo/entradas aún más oscuros
+    PLATA        = "#6b6d76"   # marco plateado de la ventana
+
+    # Tarjetas claras
+    TARJETA      = "#edf2f4"   # cara de las tarjetas
+    TINTA        = "#1b1b29"   # trazos y texto sobre las tarjetas
 
     # Acentos del robot
-    DORADO       = "#cba135"   # chassis/ojos del robot
-    DORADO_DIM   = "#6e5416"   # variante tenue del dorado
-    NARANJA      = "#e8932e"   # advertencias / ojos en manual
+    DORADO       = "#e1b12c"   # chassis/ojos del robot
+    DORADO_DIM   = "#96701c"   # variante tenue del dorado
+    DORADO_BORDE = "#58420d"   # contorno oscuro de las piezas doradas
+    NARANJA      = "#c37609"   # advertencias / ojos en manual
 
-    # Acentos de la nave
-    AXIOM_CYAN   = "#58c7f3"   # hologramas e interfaces de la nave
-    CYAN_DIM     = "#2471a6"   # bordes y brillos tenues
-    HUD_LINE     = "#1c2f4d"   # líneas estructurales de los paneles
-    ESCANEO      = "#0a1220"   # scanlines (superpuestas a los paneles)
+    # Acentos de información
+    AZUL         = "#1e5ea0"   # texto informativo sobre tarjetas claras
+    AXIOM_CYAN   = "#7fb2e5"   # información activa sobre pantallas oscuras
+    CYAN_DIM     = "#4a4a6f"   # bordes y brillos tenues
+    HUD_LINE     = "#3a3c5a"   # líneas estructurales sobre pantallas oscuras
+    ESCANEO      = "#252546"   # (reservado)
 
     # Texto
-    TEXTO_LOG    = "#e8f4ff"   # general (blanco-hielo)
-    TEXTO_TENUE  = "#7e9ab8"   # etiquetas de sección e inactivo
-    GRIS         = "#33435e"   # "apagado"/sin datos (grafito azulado)
+    TEXTO_LOG    = "#edf2f4"   # general (blanco-hielo)
+    TEXTO_TENUE  = "#9a9cc0"   # etiquetas de sección e inactivo
+    GRIS         = "#4a4a6f"   # "apagado"/sin datos (violeta grisáceo)
     VERDE_LIMA   = "#8fd82a"   # carga / OK
-    ROJO         = "#e05656"   # error / obstáculo
+    ROJO         = "#d64545"   # error / obstáculo
 
     # Borde de los paneles
-    BORDE_SUAVE  = "#1b2a44"   # borde de las tarjetas de cristal
+    BORDE_SUAVE  = "#252546"
 
-    # Fuentes
+    # Fuentes. Los textos del diseño se dibujan con Quadrillion (ver
+    # widgets/renderizado/texto_render.py); estas familias son para los
+    # widgets nativos de Tk (campos de texto, terminal, ventanas modales).
     FUENTE_TEXTO = "Segoe UI"
     FUENTE_HUD   = "Consolas"
 

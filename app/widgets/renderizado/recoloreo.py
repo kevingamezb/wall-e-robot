@@ -2,7 +2,7 @@
 # Kevin Gámez - 15/10/2026
 
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 
 class Recoloreo:
@@ -45,6 +45,27 @@ class Recoloreo:
         solido = Image.new("RGBA", imagen.size, Recoloreo.a_rgb(color) + (255,))
         solido.putalpha(imagen.getchannel("A"))
         return solido
+
+
+    @staticmethod
+    def sustituir(imagen: Image.Image, origen: str, destino: str,
+                  tolerancia: int = 70) -> Image.Image:
+        """Copia de 'imagen' donde los píxeles parecidos a 'origen' pasan a
+        'destino'. Los píxeles intermedios (bordes suavizados) se mezclan en
+        proporción a su parecido, de modo que no queda un halo del color viejo.
+        El alfa original se conserva."""
+        imagen = imagen.convert("RGBA")
+        rgb = imagen.convert("RGB")
+        solido_origen = Image.new("RGB", imagen.size, Recoloreo.a_rgb(origen))
+        dif = ImageChops.difference(rgb, solido_origen)
+        r, g, b = dif.split()
+        distancia = ImageChops.lighter(ImageChops.lighter(r, g), b)
+        peso = distancia.point(
+            lambda v: max(0, min(255, round(255 * (1 - v / tolerancia)))))
+        solido_destino = Image.new("RGB", imagen.size, Recoloreo.a_rgb(destino))
+        mezcla = Image.composite(solido_destino, rgb, peso).convert("RGBA")
+        mezcla.putalpha(imagen.getchannel("A"))
+        return mezcla
 
 
 # Cajón de Pruebas
@@ -91,7 +112,7 @@ if __name__ == "__main__":
             muestra.putpixel((x, y), (255, 255, 255, 255))
     tenida = Recoloreo.tenir(muestra, Paleta.DORADO)
     assert tenida.size == (20, 10), "El tamaño no cambia"
-    assert tenida.getpixel((2, 2)) == (0xCB, 0xA1, 0x35, 255), \
+    assert tenida.getpixel((2, 2)) == Recoloreo.a_rgb(Paleta.DORADO) + (255,), \
         "El píxel opaco toma el color pedido"
     assert tenida.getpixel((15, 5))[3] == 0, "El fondo sigue transparente"
     assert muestra.getpixel((2, 2)) == (255, 255, 255, 255), \

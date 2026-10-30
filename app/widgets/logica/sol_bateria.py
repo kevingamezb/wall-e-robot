@@ -8,10 +8,10 @@ from ...nucleo.paleta import Paleta
 
 class SolBateria:
     """Representa el nivel de batería mediante los rayos del sol y proporciona color y etiqueta para su renderizado."""
-    TOTAL_RAYOS = 12
-    # Sin cargar: 0 rayos gris, 1-4 rojo, 5-7 naranja y de 8 en adelante dorado.
-    UMBRAL_ROJO = 4
-    UMBRAL_NARANJA = 7
+    TOTAL_RAYOS = 8
+    # Sin cargar: 0 rayos gris, 1-2 rojo, 3-5 naranja y de 6 en adelante dorado.
+    UMBRAL_ROJO = 2
+    UMBRAL_NARANJA = 5
 
     def __init__(self, estado: EstadoRobot):
         self.estado = estado
@@ -50,7 +50,7 @@ class SolBateria:
             return "sin datos"
         if self.estado.cargando:
             return "cargando"
-        return f"{self.rayos_encendidos}/{self.TOTAL_RAYOS}"
+        return f"{self.rayos_encendidos} / {self.TOTAL_RAYOS}"
 
     @property
     def tiempo_restante_min(self) -> int:
@@ -68,14 +68,14 @@ if __name__ == "__main__":
 
     print("Batería llena (1.0)")
     sol = SolBateria(estado)
-    assert sol.rayos_encendidos == 12
+    assert sol.rayos_encendidos == 8
     assert sol.color == Paleta.DORADO
-    assert sol.etiqueta == "12/12"
+    assert sol.etiqueta == "8 / 8"
     print(f"OK: {sol.etiqueta} / {sol.color}\n")
 
     print("Batería media (0.5)")
     estado.bateria = 0.5
-    assert sol.rayos_encendidos == 6
+    assert sol.rayos_encendidos == 4
     assert sol.color == Paleta.NARANJA
     print(f"OK: {sol.etiqueta} / {sol.color}\n")
 
@@ -88,7 +88,7 @@ if __name__ == "__main__":
     print("Cargando")
     estado.bateria = 0.2
     estado.cargando = True
-    assert sol.rayos_encendidos == 12
+    assert sol.rayos_encendidos == 8
     assert sol.color == Paleta.VERDE_LIMA
     assert sol.etiqueta == "cargando"
     print(f"OK: {sol.etiqueta} / {sol.color}\n")
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     estado.cargando = False
     estado.bateria = 0.2
     estado.conexion_activa = False
-    assert sol.rayos_encendidos == 12
+    assert sol.rayos_encendidos == 8
     assert sol.color == Paleta.GRIS
     assert sol.etiqueta == "sin datos"
     print(f"OK: {sol.etiqueta} / {sol.color}, sol lleno pero gris\n")

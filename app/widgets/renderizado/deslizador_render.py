@@ -1,9 +1,10 @@
 # wall-e-robot/app/widgets/renderizado/deslizador_render.py
 # Kevin Gámez - 13/09/2026
+# Rediseño: pista oscura redondeada y perilla gris con centro dorado.
 
 
 from ...nucleo.paleta import Paleta
-from .base_render import RenderizadorBase
+from .base_render import RenderizadorBase, rectangulo_redondeado
 from .recoloreo import Recoloreo
 
 
@@ -13,9 +14,12 @@ class DeslizadorRenderer(RenderizadorBase):
                  orientacion="horizontal", alto_pista=6, radio_thumb=10):
         """Inicializa la pista y el estado de interacción.
 
-        x, y        : esquina superior-izquierda de la pista.
+        x, y        : extremo de la pista (horizontal: izquierdo; vertical:
+                      superior), sobre su eje central.
         largo       : longitud de la pista (horizontal: ancho, vertical: alto).
         orientacion : 'horizontal' | 'vertical'.
+        alto_pista  : grosor de la pista (px).
+        radio_thumb : radio de la perilla (px).
         """
         super().__init__(canvas)
         self.widget = widget
@@ -84,102 +88,52 @@ class DeslizadorRenderer(RenderizadorBase):
             self.widget.mover(valor)
 
     # Dibujo
-    def dibujar(self):
-        """Dibuja o actualiza la pista, sus marcas, el halo y el thumb."""
-        # Pista: banda fina que representa el recorrido, centrada en la
-        # posición (x, y) y orientada según el eje.
-        if self.orientacion == "horizontal":
-            pista1 = (self.x, self.y - self.alto_pista / 2,
-                      self.x + self.largo, self.y + self.alto_pista / 2)
-        else:
-            pista1 = (self.x - self.alto_pista / 2, self.y,
-                      self.x + self.alto_pista / 2, self.y + self.largo)
+    def _centro_thumb(self):
+        return self._valor_a_pixel(self.widget.posicion)
 
+    def dibujar(self):
+        """Dibuja o actualiza la pista y la perilla."""
+        mitad = self.alto_pista / 2
+        if self.orientacion == "horizontal":
+            caja = (self.x - mitad, self.y - mitad,
+                    self.x + self.largo + mitad, self.y + mitad)
+        else:
+            caja = (self.x - mitad, self.y - mitad,
+                    self.x + mitad, self.y + self.largo + mitad)
         pista = self._primera_vez(
             "pista",
-            lambda: self.canvas.create_rectangle(
-                *pista1, fill=Paleta.HUD_LINE, outline="",
-            ),
+            lambda: rectangulo_redondeado(
+                self.canvas, *caja, mitad,
+                fill=Paleta.FONDO_WIDGET, outline=Paleta.TINTA,
+                width=max(1, round(self.alto_pista * 0.18))),
         )
-        self._dibujar_ticks()
 
-        # El thumb cambia de tamaño y color según el estado.
         activo = self._arrastrando or self._en_hover
-        thumb_radio = self.radio_thumb + (2 if self._arrastrando else 0)
-        color_thumb = Paleta.DORADO if activo else Paleta.DORADO_DIM
-        px, py = self._valor_a_pixel(self.widget.posicion)
-
-        # Halo del thumb.
-        halo = self._primera_vez(
-            "halo",
-            lambda: self.canvas.create_oval(
-                px - thumb_radio - 5, py - thumb_radio - 5,
-                px + thumb_radio + 5, py + thumb_radio + 5,
-                fill=Recoloreo.interpolar(color_thumb, Paleta.FONDO_WIDGET, 0.75),
-                outline="",
-            ),
-        )
-        self.canvas.coords(
-            halo,
-            px - thumb_radio - 5, py - thumb_radio - 5,
-            px + thumb_radio + 5, py + thumb_radio + 5,
-        )
-        self.canvas.itemconfig(
-            halo, fill=Recoloreo.interpolar(color_thumb, Paleta.FONDO_WIDGET, 0.75),
-        )
-        self.canvas.itemconfig(halo, state="normal" if activo else "hidden")
+        r = self.radio_thumb + (2 if self._arrastrando else 0)
+        px, py = self._centro_thumb()
+        grosor = max(1, round(self.radio_thumb * 0.14))
 
         thumb = self._primera_vez(
             "thumb",
             lambda: self.canvas.create_oval(
-                px - thumb_radio, py - thumb_radio,
-                px + thumb_radio, py + thumb_radio,
-                fill=color_thumb, outline="",
-            ),
+                px - r, py - r, px + r, py + r,
+                fill="#9a9a9a", outline=Paleta.TINTA, width=grosor),
         )
-        self.canvas.coords(
-            thumb,
-            px - thumb_radio, py - thumb_radio,
-            px + thumb_radio, py + thumb_radio,
+        r_in = r * 0.42
+        centro = self._primera_vez(
+            "centro",
+            lambda: self.canvas.create_oval(
+                px - r_in, py - r_in, px + r_in, py + r_in,
+                fill=Paleta.DORADO, outline=Paleta.DORADO_BORDE, width=grosor),
         )
-        self.canvas.itemconfig(thumb, fill=color_thumb)
+        self.canvas.coords(thumb, px - r, py - r, px + r, py + r)
+        self.canvas.coords(centro, px - r_in, py - r_in, px + r_in, py + r_in)
+        self.canvas.itemconfig(thumb, fill="#c9c9c9" if activo else "#9a9a9a")
 
-        # Enlaza la interacción sobre pista y thumb. Es idempotente: volver a
-        # enlazar sobrescribe los manejadores anteriores. El cursor pertenece
-        # al canvas porque Tk no lo define por ítem.
-        for item in (pista, thumb):
+        # Enlaza la interacción sobre pista y perilla (idempotente).
+        for item in (pista, thumb, centro):
             self.canvas.tag_bind(item, "<ButtonPress-1>", self._al_presionar)
             self.canvas.tag_bind(item, "<B1-Motion>", self._al_arrastrar)
             self.canvas.tag_bind(item, "<ButtonRelease-1>", self._al_soltar)
             self.canvas.tag_bind(item, "<Enter>", self._al_entrar)
             self.canvas.tag_bind(item, "<Leave>", self._al_salir)
-
-    def _dibujar_ticks(self):
-        """Dibuja las marcas de los extremos y del centro (0° si cae en el rango)."""
-        # La marca es perpendicular a la pista: vertical en un deslizador
-        # horizontal y horizontal en uno vertical.
-        es_horizontal = self.orientacion == "horizontal"
-
-        def _crear_marca(px, py):
-            if es_horizontal:
-                return self.canvas.create_line(
-                    px, self.y - 5, px, self.y + 5,
-                    fill=Paleta.CYAN_DIM, width=1,
-                )
-            return self.canvas.create_line(
-                self.x - 5, py, self.x + 5, py,
-                fill=Paleta.CYAN_DIM, width=1,
-            )
-
-        # Extremos y centro: min, max y 0° (o el punto medio si 0 no cae
-        # dentro del rango del eje).
-        extremos = (self._minimo(), self._maximo())
-        centro = 0.0 if extremos[0] <= 0 <= extremos[1] else \
-            sum(extremos) / 2
-        marcas = {
-            "marca_min":  self._valor_a_pixel(extremos[0]),
-            "marca_max":  self._valor_a_pixel(extremos[1]),
-            "marca_cero": self._valor_a_pixel(centro),
-        }
-        for clave, (px, py) in marcas.items():
-            self._primera_vez(clave, lambda px=px, py=py: _crear_marca(px, py))

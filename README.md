@@ -1,83 +1,97 @@
-# Wall-E Robot
+# 🤖 Wall-E Robot (ESP32 + App de escritorio)
 
-Robot Wall-E con ESP32: se mueve de forma autónoma evadiendo obstáculos, se controla
-manualmente desde una app de escritorio por WiFi y muestra su estado (batería, sensores,
-modo) con una estética inspirada en la película.
+<p align="center">
+  <img src="app/recursos/titulo.png" alt="Wall-E Robot" width="720">
+</p>
 
-Este README es el punto de entrada al repositorio. El detalle de cada tema vive en los
-documentos especializados enlazados más abajo.
+<p align="center">El robot ESP32 autónomo de código abierto, controlado por WiFi desde una app de escritorio en Python.</p>
+
+<p align="center">
+  <a href="LICENSE"><img alt="Licencia: GPL v3" src="https://img.shields.io/badge/Licencia-GPLv3-blue.svg"></a>
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-blue.svg">
+  <img alt="PlatformIO" src="https://img.shields.io/badge/PlatformIO-ESP32-orange.svg">
+</p>
 
 ---
 
-## Descripción
+Un robot Wall-E autónomo y controlado por WiFi basado en el chip **ESP32**. Cuenta con una
+arquitectura desacoplada de software, una aplicación de escritorio interactiva y un sistema de
+actualización inalámbrica (OTA).
 
-- **App de escritorio (PC):** Python + Tkinter. Se conecta al robot por WiFi/TCP, dibuja el
-  panel de control y compone los comandos. Arranca sin conexión y pide la IP del robot; el
-  botón **MODO** alterna manual/automático y el gamepad solo manda en manual.
-- **Firmware (ESP32):** C++ / PlatformIO. Lee sensores, mueve servos y motores, decide la
-  navegación autónoma y expone un servidor TCP con mensajes JSON de una línea.
-- **Comunicación:** WiFi/TCP con el ESP32 en modo AP (red `WALL-E`, `192.168.4.1`, puerto
-  `8080`). El robot envía telemetría cada ~500 ms y recibe comandos de la app.
+Este README es el punto de entrada al repositorio. El detalle de cada tema vive en los documentos
+especializados enlazados más abajo.
 
-## Hardware
+## ✨ Características principales
 
-- ESP32 (WiFi integrado).
-- 3 servos MG90S (cuello + 2 brazos) alimentados por un buck de 5 V.
-- Driver TB6612FNG con 2 motores CC.
-- INA219 para consumo real (I2C `0x40`).
-- OLED SSD1306 0.96" (I2C `0x3C`).
-- HC-SR04 como sensor de distancia fijo al frente.
-- 2 LEDs indicadores (rojo/amarillo).
+* **🧠 Navegación inteligente:** modo autónomo con bucle de control no bloqueante (`millis()`) y evasión de obstáculos.
+* **💻 App de escritorio:** panel de control modular en Python (Tkinter); **sin hilos**, con socket no bloqueante y refresco por eventos (`after`).
+* **🎮 Control manual explícito:** botón **MODO** (manual/automático); el gamepad solo manda en manual.
+* **📡 Telemetría en tiempo real:** comunicación bidireccional WiFi/TCP con mensajes JSON de una sola línea (`\n`).
+* **⚡ Actualizaciones inalámbricas:** soporte OTA con validación MD5 y guardia de rollback.
 
-El cableado completo, la alimentación y la tierra común están en
-[`esquema_de_conexion.md`](esquema_de_conexion.md), que a su vez remite a los pines
-canónicos en [`firmware/include/pines.h`](firmware/include/pines.h).
+## 🏗️ Arquitectura del software
 
-## Arquitectura
+El proyecto separa estrictamente la interfaz, la lógica de comunicación y el control de hardware.
 
-### App de escritorio (PC)
+### 📈 Flujo de la aplicación de escritorio
 
-Cuatro capas; cada capa solo conoce la de abajo:
+Cada capa solo conoce y consume la capa inmediatamente inferior:
 
-1. **Comunicación** — `app/comunicacion/conexion.py` (`Conexion`, `Comunicacion` TCP,
-   `ConexionOffline`).
+```mermaid
+graph TD
+    A[Pantallas / GUI] --> B[Widgets / Renderizado]
+    B --> C[Modelo de datos: EstadoRobot]
+    C --> D[Comunicación: TCP / Offline]
+```
+
+Cuatro capas en el código:
+
+1. **Comunicación** — `app/comunicacion/conexion.py` (`Conexion`, `Comunicacion` TCP, `ConexionOffline`).
 2. **Modelo de datos** — `app/nucleo/` (`EstadoRobot`, `Paleta`).
 3. **Widgets** — `app/widgets/logica/` (sin Tkinter) + `app/widgets/renderizado/` (con Tkinter).
 4. **Pantallas** — `app/pantallas/` (`pantalla_principal.py`, `modal_controles.py`).
 
-`EstadoRobot` es una caja de datos compartida: quien produce información escribe ahí y quien
-la consume lee de ahí, sin conocerse entre sí. Los controles interactivos usan callbacks.
+`EstadoRobot` es una caja de datos compartida: quien produce información escribe ahí y quien la
+consume lee de ahí, sin conocerse entre sí. Los controles interactivos usan callbacks.
 
-### Firmware (ESP32)
+### 🧩 Firmware (ESP32)
 
-Una librería por componente bajo `firmware/lib/`, orquestada por `firmware/src/main.cpp` con
-un loop no bloqueante (`millis()`, sin `delay()`): `comunicacion`, `servos`, `motores`,
-`distancia`, `bateria`, `oled`, `leds`, `auto`, `ota`.
+Una librería por componente bajo `firmware/lib/`, orquestada por `firmware/src/main.cpp` con un
+loop no bloqueante (`millis()`, sin `delay()`): `comunicacion`, `servos`, `motores`, `distancia`,
+`bateria`, `oled`, `leds`, `auto`, `ota`.
 
-`lib/auto` no tiene hardware propio: decide usando los módulos globales de distancia y
-motores (`iniciar()`, `actualizar()`, `modoAutonomo()`, `hayObstaculo()`, `navegacion()`).
+`lib/auto` no tiene hardware propio: decide usando los módulos globales de distancia y motores
+(`iniciar()`, `actualizar()`, `modoAutonomo()`, `hayObstaculo()`, `navegacion()`).
 
 Cada módulo de hardware se activa con un flag en
 [`firmware/include/config.h`](firmware/include/config.h). Un módulo desactivado no se toca y
 reporta valores neutros a la GUI, para no generar alertas falsas por hardware ausente.
 
-## Comunicación (resumen)
+## 📡 Comunicación (resumen)
 
 Medio WiFi/TCP, JSON de una línea por mensaje (`\n` como delimitador). El ESP32 actúa como
-servidor en modo AP.
+servidor en modo AP (red `WALL-E`, `192.168.4.1`, puerto `8080`).
 
-- **ESP32 → PC:** `{"tipo":"estado", ...}` (telemetría) y `{"tipo":"log", ...}`.
+- **ESP32 → PC:** `{"tipo":"estado", ...}` (telemetría cada ~500 ms) y `{"tipo":"log", ...}`.
 - **PC → ESP32:** `{"tipo":"servo"|"modo"|"motor"|"multi", ...}`.
 
-La app aplica un parseo tolerante: campos ausentes o `null` no pisan el valor anterior, de
-modo que firmware viejo y nuevo conviven. El nivel de conexión no viaja en el JSON: la app lo
-deriva por la frescura del último estado recibido.
+La app aplica un parseo tolerante: campos ausentes o `null` no pisan el valor anterior, de modo
+que firmware viejo y nuevo conviven. El nivel de conexión no viaja en el JSON: la app lo deriva
+por la frescura del último estado recibido.
 
-Los pines y el cableado están en [`esquema_de_conexion.md`](esquema_de_conexion.md); el
-protocolo y la operación detallada, en
-[`pruebas/guia_de_pruebas.md`](pruebas/guia_de_pruebas.md).
+## 🛠️ Especificaciones de hardware
 
-## Estructura del repositorio
+El cerebro del robot es un **ESP32**, que gestiona los siguientes módulos:
+
+* **Actuadores:** 3 servos MG90S (cuello + 2 brazos) alimentados por un buck de 5 V + driver TB6612FNG para 2 motores CC de tracción.
+* **Sensores:** HC-SR04 (distancia, fijo al frente) + INA219 (consumo y voltaje, I2C `0x40`).
+* **Interfaz física:** OLED SSD1306 0.96" (I2C `0x3C`) para el estado del sistema + 2 LEDs indicadores (rojo/amarillo).
+
+El cableado completo, la alimentación y la tierra común están en
+[`esquema_de_conexion.md`](esquema_de_conexion.md), que a su vez remite a los pines canónicos en
+[`firmware/include/pines.h`](firmware/include/pines.h).
+
+## 🗂️ Estructura del repositorio
 
 ```text
 wall-e-robot/
@@ -96,30 +110,40 @@ wall-e-robot/
 ├── configuracion/          # controles.json (mapeo de teclas persistente)
 ├── pruebas/                # Runner de cajones + guia_de_pruebas.md
 ├── tests/                  # Suite automatizada con pytest
-├── scripts/                # Utilidades de build (manifiesto OTA)
+├── scripts/                # Utilidades de build (empaquetado, manifiesto OTA)
 ├── esquema_de_conexion.md  # Cableado por componente
 ├── platformio.ini          # Configuración del build del firmware
 ├── requirements.txt        # Dependencias de la app (Pillow)
 └── requirements-dev.txt    # Dependencias de desarrollo (pytest, pytest-cov)
 ```
 
-## Cómo empezar
+## 🚀 Cómo empezar
 
-### Requisitos
+### Requisitos previos
 
-- Python 3.10 o superior con Tkinter.
-  - **Linux (Debian/Ubuntu):** Tkinter no viene con el sistema:
-    `sudo apt install python3-tk python3-venv` (y `python3.12-venv`, o el
-    paquete equivalente a tu versión de Python).
-  - **Windows:** el instalador de python.org lo incluye si marcas *tcl/tk*.
-- Un entorno virtual (recomendado en Linux):
-  `python3 -m venv .venv && source .venv/bin/activate`.
-- Dependencias de la app: `python -m pip install -r requirements.txt`.
-- Dependencias de desarrollo (pruebas): `python -m pip install -r requirements-dev.txt`.
-- Firmware: PlatformIO (extensión de VS Code o CLI:
-  `python -m pip install platformio`, queda como `pio`).
+- Python 3.10 o superior **con Tkinter**.
+  - **Linux (Debian/Ubuntu/Mint):** Tkinter no viene con el sistema:
+    `sudo apt install python3-tk python3-venv` (y `python3.12-venv` si usas Python 3.12).
+  - **Windows/macOS:** Tkinter viene incluido con el instalador de Python.
+- **Pillow**, para cargar y teñir los assets PNG de `app/recursos/` (está en `requirements.txt`).
+- **PlatformIO** para el firmware: VS Code con la extensión, o la CLI
+  (`python -m pip install platformio`, queda como `pio`).
 
-### Ejecutar la app
+### 1. Clonar e instalar dependencias
+
+```bash
+git clone https://github.com/kevingamezb/wall-e-robot.git
+cd wall-e-robot
+python -m pip install -r requirements.txt
+```
+
+Las dependencias de desarrollo (pruebas) están aparte:
+
+```bash
+python -m pip install -r requirements-dev.txt
+```
+
+### 2. Ejecutar la app
 
 Desde la **raíz** del repositorio:
 
@@ -128,10 +152,12 @@ python -m app.main
 ```
 
 Arranca en **SIN CONEXIÓN** y abre el modal para escribir la IP del robot (por defecto
-`192.168.4.1`). Sin conectar, el panel queda deshabilitado: reparte los datos el robot, así que
-para verlo en marcha hay que estar en su red WiFi y pulsar **CONECTAR**.
+`192.168.4.1`). El robot reparte los datos, así que hay que estar en su red WiFi y pulsar
+**CONECTAR**. Sin conectar, el panel queda apagado (sol de batería en "sin datos", gamepad
+deshabilitado). Con conexión, el botón **MODO** alterna manual/automático y el gamepad manda
+solo en manual.
 
-### Ejecutar las pruebas
+### 3. Ejecutar las pruebas
 
 ```bash
 python -m pytest                 # suite automatizada (tests/)
@@ -140,7 +166,7 @@ python pruebas/ejecutar_cajones.py   # cajones manuales heredados
 
 Detalles, cobertura y notas de VS Code: [`pruebas/guia_de_pruebas.md`](pruebas/guia_de_pruebas.md).
 
-### Compilar y flashear el firmware
+### 4. Compilar y grabar el firmware
 
 ```bash
 pio run              # compilar
@@ -152,18 +178,18 @@ Si `pio` no está en el PATH, usa la ruta del entorno:
 `~/.platformio/penv/bin/platformio` (Linux/macOS) o
 `C:\Users\<usuario>\.platformio\penv\Scripts\platformio.exe` (Windows).
 
-**Linux (flashear por USB):** añade tu usuario al grupo de puertos serie para
-trabajar sin sudo, y vuelve a entrar en la sesión:
+**Linux (flashear por USB):** añade tu usuario al grupo de puertos serie para trabajar sin sudo,
+y vuelve a entrar en la sesión:
 
 ```bash
 sudo usermod -aG dialout $USER
 ```
 
-Si la placa aparece en `/dev/ttyUSB0` y PlatformIO no la ve, revisa
-`ls -l /dev/ttyUSB*` tras conectarla.
+Si la placa aparece en `/dev/ttyUSB0` y PlatformIO no la ve, revisa `ls -l /dev/ttyUSB*` tras
+conectarla.
 
-**Antes de grabar (configuración local, no versionada):** copia la plantilla de
-credenciales y edítala; `secrets.h` está en `.gitignore` y no se publica.
+**Antes de grabar (configuración local, no versionada):** copia la plantilla de credenciales y
+edítala; `secrets.h` está en `.gitignore` y no se publica.
 
 ```bash
 cp firmware/include/secrets.example.h firmware/include/secrets.h
@@ -176,10 +202,10 @@ cp firmware/include/secrets.example.h firmware/include/secrets.h
 - Con `WIFI_AP_CLAVE` y `OTA_CLAVE` vacías, el AP y el portal OTA quedan **abiertos**: solo es
   aceptable en la red aislada del robot.
 
-### Actualización OTA (por WiFi)
+### 5. Actualización OTA (por WiFi)
 
-El firmware incorpora un portal web OTA y `ArduinoOTA` (ver la carpeta `firmware/lib/ota/`),
-con verificación por MD5 y una guardia de rollback. Las credenciales se toman de
+El firmware incorpora un portal web OTA y `ArduinoOTA` (ver la carpeta `firmware/lib/ota/`), con
+verificación por MD5 y una guardia de rollback. Las credenciales se toman de
 `firmware/include/secrets.h` (plantilla en
 [`firmware/include/secrets.example.h`](firmware/include/secrets.example.h)); ese archivo no se
 versiona.
@@ -188,14 +214,14 @@ El procedimiento, el manifiesto MD5 y las comprobaciones de rollback están docu
 [`pruebas/guia_de_pruebas.md`](pruebas/guia_de_pruebas.md) (§7). **La actualización OTA está
 implementada y documentada, pero no se declara validada en hardware en este README.**
 
-### Distribución (ejecutables)
+### 6. Distribución (ejecutables)
 
 `scripts/empaquetar_distribucion.py` genera un ZIP por plataforma con la app empaquetada
 (PyInstaller), el firmware de la MISMA versión, `LEEME.md` y `SHA256SUMS.txt`:
 
 ```bash
-python scripts/empaquetar_distribucion.py            # paquete completo de esta plataforma
-python scripts/empaquetar_distribucion.py --solo-firmware   # solo firmware.bin + .md5
+python scripts/empaquetar_distribucion.py                  # paquete completo de esta plataforma
+python scripts/empaquetar_distribucion.py --solo-firmware  # solo firmware.bin + .md5
 ```
 
 PyInstaller **no cross-compila**: cada ZIP se genera en su sistema operativo.
@@ -204,27 +230,27 @@ PyInstaller **no cross-compila**: cada ZIP se genera en su sistema operativo.
 - **Windows:** se compila en CI (GitHub Actions, `windows-latest`), `wall-e-<ver>-win64.zip`.
 - **macOS:** fuera de momento (exigiría firma de Apple para no avisar a Gatekeeper).
 
-En CI, el firmware se compila **una vez** en Linux (el `.bin` del ESP32 es igual desde
-cualquier PC) con la clave de distribución —los secrets `WIFI_AP_CLAVE` y `OTA_CLAVE` del
-repo— y los builds de Windows lo adjuntan con `--firmware-bin`. Para publicar una versión:
-sincronizar `PROYECTO_VERSION` en [`firmware/include/config.h`](firmware/include/config.h),
-etiquetar (`git tag v1.0.0 && git push origin v1.0.0`) y el workflow
+En CI, el firmware se compila **una vez** en Linux (el `.bin` del ESP32 es igual desde cualquier
+PC) con la clave de distribución —los secrets `WIFI_AP_CLAVE` y `OTA_CLAVE` del repo— y los
+builds de Windows lo adjuntan con `--firmware-bin`. Para publicar una versión: sincronizar
+`PROYECTO_VERSION` en [`firmware/include/config.h`](firmware/include/config.h), etiquetar
+(`git tag v1.0.0 && git push origin v1.0.0`) y el workflow
 [`release.yml`](.github/workflows/release.yml) publica el GitHub Release con los ZIPs y el
 firmware.
 
-## Estado del proyecto
+## 📊 Estado del proyecto
 
 - App de escritorio: interfaz completa y usable; requiere el robot (o su red WiFi) para recibir datos.
 - Firmware: comunica, lee sensores y mueve servos/motores; integrándose con hardware real.
 - Pruebas: suite automatizada (pytest) más los cajones manuales heredados.
-- Pendiente: validar cableado y direcciones de motores, calibrar umbrales, afinar la
-  navegación autónoma en hardware y validar OTA en el robot.
+- Pendiente: validar cableado y direcciones de motores, calibrar umbrales, afinar la navegación
+  autónoma en hardware y validar OTA en el robot.
 
-## Documentación
+## 📑 Documentación adicional
 
-- [`esquema_de_conexion.md`](esquema_de_conexion.md) — cableado por componente.
-- [`pruebas/guia_de_pruebas.md`](pruebas/guia_de_pruebas.md) — operación, pruebas y OTA.
+* [Esquema de conexión](esquema_de_conexion.md) — cableado físico por componente.
+* [Guía de pruebas](pruebas/guia_de_pruebas.md) — operación, protocolo JSON, pruebas y OTA.
 
-## Licencia
+## 📄 Licencia
 
-Ver [`LICENSE`](LICENSE).
+Este proyecto está bajo la Licencia **GPL-3.0**. Consulta [`LICENSE`](LICENSE) para más detalles.

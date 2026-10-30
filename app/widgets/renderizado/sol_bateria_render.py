@@ -1,5 +1,6 @@
 # wall-e-robot/app/widgets/renderizado/sol_bateria_render.py
 # Kevin Gámez - 13/09/2026
+# Rediseño: sol de 8 rayos con contorno, como en el diseño.
 
 
 import math
@@ -10,99 +11,70 @@ from .recoloreo import Recoloreo
 
 class SolBateriaRenderer(RenderizadorBase):
     """Renderer del Sol de batería."""
-    TOTAL_RAYOS = 12
 
-    def __init__(self, widget, canvas, cx, cy, radio_interior=16,
-                 radio_rayo_encendido=44, radio_rayo_apagado=30):
-        """Inicializa la geometría del sol.
-
-        cx, cy               : centro del sol dentro del canvas.
-        radio_interior       : radio del círculo central.
-        radio_rayo_encendido : longitud de los rayos encendidos.
-        radio_rayo_apagado   : longitud de los rayos apagados.
-        """
+    def __init__(self, widget, canvas, e, cx, cy, radio=183):
+        """cx, cy, radio: centro y radio exterior del sol, en unidades de diseño."""
         super().__init__(canvas)
         self.widget = widget
-        self.cx, self.cy = cx, cy
-        self.r_in = radio_interior
-        self.r_on = radio_rayo_encendido
-        self.r_off = radio_rayo_apagado
+        self.e = e
+        self.cx, self.cy, self.radio = cx, cy, radio
+        self.total = widget.TOTAL_RAYOS
 
-    def _punto_rayo(self, indice, radio):
-        """Devuelve (x1, y1, x2, y2) de una línea de rayo en 'radio'."""
-        angulo = (indice / self.TOTAL_RAYOS) * 2 * math.pi - math.pi / 2  # empieza arriba
+    def _extremos_rayo(self, indice):
+        """(x1, y1, x2, y2) en píxeles del rayo 'indice' (el 0 apunta arriba)."""
+        e = self.e
+        angulo = (indice / self.total) * 2 * math.pi - math.pi / 2
         vx, vy = math.cos(angulo), math.sin(angulo)
-        return (self.cx + vx * (self.r_in + 3),
-                self.cy + vy * (self.r_in + 3),
-                self.cx + vx * radio,
-                self.cy + vy * radio)
+        r_ini, r_fin = self.radio * 0.60, self.radio - 17
+        return (e(self.cx + vx * r_ini), e(self.cy + vy * r_ini),
+                e(self.cx + vx * r_fin), e(self.cy + vy * r_fin))
 
     def dibujar(self):
-        """Dibuja o actualiza los 12 rayos, el anillo y el núcleo."""
-        encendidos = self.widget.rayos_encendidos
-        color = self.widget.color
-        apagado = Paleta.HUD_LINE
+        """Dibuja o actualiza los rayos, el anillo y el núcleo."""
+        e = self.e
+        cx, cy = e(self.cx), e(self.cy)
+        grosor = max(3, e(36))
+        borde = max(2, e(10))
 
-        # Primera vez: crear los rayos, sus halos y el núcleo central.
-        for i in range(self.TOTAL_RAYOS):
+        for i in range(self.total):
+            coords = self._extremos_rayo(i)
+            self._primera_vez(
+                f"contorno_{i}",
+                lambda c=coords: self.canvas.create_line(
+                    *c, width=grosor + 2 * borde, capstyle="round"))
             self._primera_vez(
                 f"rayo_{i}",
-                lambda i=i: self.canvas.create_line(
-                    *self._punto_rayo(i, self.r_off),
-                    width=5, capstyle="round",
-                ),
-            )
-            self._primera_vez(
-                f"halo_{i}",
-                lambda i=i: self.canvas.create_line(
-                    *self._punto_rayo(i, self.r_off),
-                    width=11, capstyle="round",
-                ),
-            )
+                lambda c=coords: self.canvas.create_line(
+                    *c, width=grosor, capstyle="round"))
+        r_anillo = e(self.radio * 0.40)
         self._primera_vez(
-            "circulo",
+            "anillo",
             lambda: self.canvas.create_oval(
-                self.cx - self.r_in, self.cy - self.r_in,
-                self.cx + self.r_in, self.cy + self.r_in,
-                outline="", width=3,
-            ),
-        )
+                cx - r_anillo, cy - r_anillo, cx + r_anillo, cy + r_anillo,
+                width=borde))
+        r_hueco = e(self.radio * 0.26)
         self._primera_vez(
-            "nucleo",
+            "hueco",
             lambda: self.canvas.create_oval(
-                self.cx - 8, self.cy - 8, self.cx + 8, self.cy + 8,
-                fill="", outline="",
-            ),
-        )
+                cx - r_hueco, cy - r_hueco, cx + r_hueco, cy + r_hueco,
+                fill=Paleta.FONDO_WIDGET, width=borde))
 
-        # El valor derivado no cambió: no hay nada que repintar.
+        encendidos = self.widget.rayos_encendidos
+        color = self.widget.color
         if not self._hay_cambio("estado", (encendidos, color)):
             return
 
-        color_halo = Recoloreo.interpolar(color, Paleta.FONDO_WIDGET, 0.7)
-        for i in range(self.TOTAL_RAYOS):
-            rayo = self._ids[f"rayo_{i}"]
-            halo = self._ids[f"halo_{i}"]
-            encendido = i < encendidos
-            coords = self._punto_rayo(i, self.r_on if encendido else self.r_off)
-            self.canvas.coords(rayo, *coords)
-            self.canvas.itemconfig(rayo, fill=color if encendido else apagado)
-            # El halo solo aparece encendido, detrás de cada rayo vivo.
-            self.canvas.coords(halo, *coords)
+        oscuro = Recoloreo.interpolar(color, "#000000", 0.62)
+        for i in range(self.total):
+            vivo = i < encendidos
             self.canvas.itemconfig(
-                halo,
-                fill=color_halo if encendido else Paleta.FONDO_WIDGET,
-            )
-
-        # Anillo central: del color del estado si hay energía; tenue si no.
-        circulo = self._ids["circulo"]
-        color_circulo = color if encendidos > 0 else Paleta.GRIS
-        self.canvas.itemconfig(circulo, outline=color_circulo)
-
-        # Núcleo: disco relleno con el color de estado (o apagado).
-        nucleo = self._ids["nucleo"]
+                self._ids[f"contorno_{i}"],
+                fill=oscuro if vivo else Paleta.FONDO_CANVAS)
+            self.canvas.itemconfig(
+                self._ids[f"rayo_{i}"],
+                fill=color if vivo else Paleta.HUD_LINE)
         self.canvas.itemconfig(
-            nucleo,
-            fill=color_circulo if encendidos > 0 else Paleta.FONDO_WIDGET,
-            outline="",
-        )
+            self._ids["anillo"], fill=color if encendidos > 0 else Paleta.HUD_LINE,
+            outline=oscuro if encendidos > 0 else Paleta.FONDO_CANVAS)
+        self.canvas.itemconfig(self._ids["hueco"], outline=oscuro
+                               if encendidos > 0 else Paleta.FONDO_CANVAS)

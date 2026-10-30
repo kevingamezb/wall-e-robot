@@ -8,6 +8,7 @@
 
 import tkinter as tk
 from .nucleo.paleta import Paleta
+from .nucleo.disenio import escala_para_pantalla
 from .nucleo.estado import EstadoRobot, NivelLog, Modo
 from .comunicacion.conexion import Comunicacion, ConexionOffline
 from .pantallas.pantalla_principal import PantallaPrincipal
@@ -17,7 +18,7 @@ from .widgets.logica.control_teclado import ControlTeclado
 
 
 # Cada cuántos milisegundos se lee el "robot" y se redibuja la pantalla.
-INTERVALO_CICLO_MS = 60
+INTERVALO_CICLO_MS = 33
 
 # Puerto en el que escucha el ESP32 (firmware y socket deben coincidir).
 PUERTO = 8080
@@ -25,7 +26,7 @@ PUERTO = 8080
 
 class Aplicacion:
     """Coordina estado, conexión y pantalla."""
-    def __init__(self, root: tk.Tk):
+    def __init__(self, root: tk.Tk, escala):
         """Monta la ventana, el estado, la conexión y la pantalla."""
         self.root = root
         self.root.title("Wall-E · Panel de control")
@@ -43,7 +44,8 @@ class Aplicacion:
         self.pantalla = PantallaPrincipal(
             self.contenedor,
             self.estado,
-            on_conectar=self._pedir_ip,
+            escala,
+            on_conectar=self._conectar,
             on_desconectar=self._desconectar,
             on_controles=self._abrir_controles,
             on_modo=self._cambiar_modo,
@@ -62,73 +64,13 @@ class Aplicacion:
         ModalControles(self.root, self.mapeo, on_cambio=self.mapeo.guardar)
 
     # Conexión con el robot
-    def _pedir_ip(self):
-        """Abre el modal que pide la IP del ESP32."""
-        modal = tk.Toplevel(self.root)
-        modal.title("Conectar al Wall-E")
-        modal.configure(bg=Paleta.FONDO_APP)
-        modal.resizable(False, False)
-        modal.transient(self.root)
-        modal.grab_set()
+    def _conectar(self, ip: str, puerto: int = PUERTO):
+        """Cambia a la conexión real con el ESP32 de la IP y puerto dados.
 
-        tk.Label(modal, text="Dirección IP del Wall-E:",
-                 bg=Paleta.FONDO_APP, fg=Paleta.TEXTO_LOG,
-                 font=(Paleta.FUENTE_TEXTO, 10)).grid(
-            row=0, column=0, columnspan=2, sticky="w",
-            padx=Paleta.UNIDAD, pady=(Paleta.UNIDAD, 0))
-
-        entrada = tk.Entry(modal, width=20, font=(Paleta.FUENTE_TEXTO, 10),
-                           bg=Paleta.FONDO_WIDGET, fg=Paleta.TEXTO_LOG,
-                           insertbackground=Paleta.DORADO)
-        entrada.grid(row=1, column=0, columnspan=2, sticky="we",
-                     padx=Paleta.UNIDAD, pady=(Paleta.UNIDAD // 2, 0))
-        entrada.insert(0, "192.168.4.1")  # IP típica del modo AP del ESP32
-        entrada.focus_set()
-
-        lbl_error = tk.Label(modal, text="", bg=Paleta.FONDO_APP,
-                             fg=Paleta.ROJO, font=(Paleta.FUENTE_TEXTO, 9))
-        lbl_error.grid(row=2, column=0, columnspan=2, sticky="w",
-                       padx=Paleta.UNIDAD, pady=(Paleta.UNIDAD // 2, 0))
-
-        def _confirmar():
-            """Intenta abrir el socket; si falla, muestra el error en el modal."""
-            try:
-                self._conectar(entrada.get().strip())
-            except (OSError, ValueError) as error:
-                lbl_error.config(text=f"No se pudo conectar: {error}")
-                return
-            modal.destroy()
-
-        def _cancelar():
-            """Cierra el modal sin conectar."""
-            modal.destroy()
-
-        btn_conectar = tk.Button(modal, text="CONECTAR", width=10,
-                                 bg=Paleta.FONDO_WIDGET, fg=Paleta.DORADO,
-                                 activebackground=Paleta.DORADO_DIM,
-                                 activeforeground=Paleta.TEXTO_LOG,
-                                 font=(Paleta.FUENTE_TEXTO, 9, "bold"), relief="flat",
-                                 command=_confirmar)
-        btn_conectar.grid(row=3, column=0, sticky="we",
-                          padx=(Paleta.UNIDAD, Paleta.UNIDAD // 2),
-                          pady=Paleta.UNIDAD)
-
-        btn_cancelar = tk.Button(modal, text="CANCELAR", width=10,
-                                 bg=Paleta.FONDO_WIDGET, fg=Paleta.TEXTO_TENUE,
-                                 activebackground=Paleta.GRIS,
-                                 activeforeground=Paleta.TEXTO_LOG,
-                                 font=(Paleta.FUENTE_TEXTO, 9, "bold"), relief="flat",
-                                 command=_cancelar)
-        btn_cancelar.grid(row=3, column=1, sticky="we",
-                          padx=(Paleta.UNIDAD // 2, Paleta.UNIDAD),
-                          pady=Paleta.UNIDAD)
-
-        modal.bind("<Return>", lambda _e: _confirmar())
-        modal.bind("<Escape>", lambda _e: _cancelar())
-
-    def _conectar(self, ip: str):
-        """Cambia a la conexión real con el ESP32 de la IP dada."""
-        nueva = Comunicacion(ip, PUERTO)
+        Lanza OSError/ValueError si no se puede abrir el socket; la pantalla
+        lo muestra bajo el botón Conectar.
+        """
+        nueva = Comunicacion(ip, puerto)
         self._cerrar_conexion_actual()
         self.conexion = nueva
         self.pantalla.establecer_conexion(True, ip)
@@ -170,24 +112,24 @@ class Aplicacion:
                 NivelLog.ADVERTENCIA,
             )
 
+        self.pantalla.actualizar_latencia(getattr(self.conexion, "edad_ms", None))
         self.pantalla.dibujar()
         self.root.after(INTERVALO_CICLO_MS, self.ciclo)
 
     def iniciar(self):
-        """Arranca el bucle, abre la ventana y pide la IP del robot."""
+        """Arranca el bucle y abre la ventana (la IP se escribe en la barra lateral)."""
         self.ciclo()
-        # El modal se abre después del primer ciclo: así la ventana ya está
-        # mapeada y el grab_set() del modal no falla en algunos window managers.
-        self.root.after(200, self._pedir_ip)
         self.root.mainloop()
 
 
 def main():
     """Crea la ventana raíz y arranca la aplicación."""
     ventana = tk.Tk()
-    ventana.geometry("1280x860")
-    ventana.minsize(1200, 800)
-    app = Aplicacion(ventana)
+    escala = escala_para_pantalla(ventana.winfo_screenwidth(),
+                                  ventana.winfo_screenheight())
+    ventana.geometry(f"{escala.ancho}x{escala.alto}")
+    ventana.resizable(False, False)   # el diseño escala a la pantalla al abrir
+    app = Aplicacion(ventana, escala)
     app.iniciar()
 
 

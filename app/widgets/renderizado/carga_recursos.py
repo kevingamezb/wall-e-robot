@@ -54,6 +54,51 @@ def cargar(nombre: str, color: str, alto: int, espejo: bool = False):
     return foto
 
 
+def cargar_ancho(nombre: str, ancho: int, rotar: int = 0, sustituciones=(),
+                 espejo: bool = False):
+    """Carga el PNG 'nombre' escalado a 'ancho' px, conservando sus colores.
+
+    rotar         : grados en sentido horario (0, 90, 180, 270).
+    sustituciones : pares (color_origen, color_destino) que se cambian dentro
+                    de la imagen (ver Recoloreo.sustituir). Sirve para variar
+                    el estado de una pieza sin exportar un PNG por estado.
+    """
+    sustituciones = tuple(sustituciones)
+    clave = ("ancho", nombre, ancho, rotar, sustituciones, espejo)
+    if clave in _CACHE:
+        return _CACHE[clave]
+
+    with Image.open(ruta_asset(nombre)) as abierta:
+        imagen = abierta.convert("RGBA")
+
+    for par in sustituciones:
+        origen, destino = par[0], par[1]
+        tolerancia = par[2] if len(par) > 2 else 70
+        imagen = Recoloreo.sustituir(imagen, origen, destino, tolerancia)
+    if rotar % 360:
+        imagen = imagen.rotate(-rotar, expand=True, resample=Image.BICUBIC)
+    alto = max(1, round(ancho * imagen.height / imagen.width))
+    imagen = imagen.resize((max(1, ancho), alto), Image.LANCZOS)
+    if espejo:
+        imagen = ImageOps.mirror(imagen)
+
+    foto = ImageTk.PhotoImage(imagen)
+    _CACHE[clave] = foto
+    return foto
+
+
+def cargar_fondo(nombre: str, ancho: int, alto: int):
+    """Carga el PNG 'nombre' estirado exactamente a ancho x alto (fondo)."""
+    clave = ("fondo", nombre, ancho, alto)
+    if clave in _CACHE:
+        return _CACHE[clave]
+    with Image.open(ruta_asset(nombre)) as abierta:
+        imagen = abierta.convert("RGBA").resize((ancho, alto), Image.LANCZOS)
+    foto = ImageTk.PhotoImage(imagen)
+    _CACHE[clave] = foto
+    return foto
+
+
 # Cajón de Pruebas
 # Ejecutar desde la raíz del proyecto:
 #   python -m app.widgets.renderizado.carga_recursos
@@ -93,7 +138,7 @@ if __name__ == "__main__":
         print("tinte conservando alfa (vía Recoloreo)")
         teñida = Recoloreo.tenir(muestra, Paleta.DORADO)
         assert teñida.size == (20, 10)
-        assert teñida.getpixel((2, 2)) == (0xcb, 0xa1, 0x35, 255), \
+        assert teñida.getpixel((2, 2)) == Recoloreo.a_rgb(Paleta.DORADO) + (255,), \
             "El píxel opaco toma el color pedido"
         assert teñida.getpixel((15, 5))[3] == 0, "El fondo sigue transparente"
         print("OK: colores del dibujo sí, fondo no\n")

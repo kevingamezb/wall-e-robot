@@ -17,6 +17,13 @@ firmware/include/secrets.h
 # C extensions
 *.so
 
+# .zip
+.zip
+
+# SVGs de trabajo
+app/recursos/SVGs/
+app/recursos/*.svg
+
 # VsCode (config compartida; resto ignorado)
 .vscode/*
 !.vscode/settings.json

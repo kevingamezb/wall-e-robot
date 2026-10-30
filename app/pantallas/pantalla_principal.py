@@ -1,9 +1,15 @@
 # wall-e-robot/app/pantallas/pantalla_principal.py
 # Kevin Gámez - 13/09/2026
+# Rediseño de la GUI.
 
 
+import time
+import textwrap
 import tkinter as tk
-from ..nucleo.paleta import Paleta, color_por_umbral
+import tkinter.font as tkfont
+
+from ..nucleo.paleta import Paleta
+from ..nucleo.disenio import Disenio
 from ..nucleo.estado import EstadoRobot, Modo
 from ..widgets.logica.boton import Boton
 from ..widgets.logica.ojos import Ojos
@@ -20,304 +26,301 @@ from ..widgets.renderizado.barras_consumo_render import BarrasConsumoRenderer
 from ..widgets.renderizado.sol_bateria_render import SolBateriaRenderer
 from ..widgets.renderizado.navegacion_render import NavegacionRenderer
 from ..widgets.renderizado.logger_widget_render import LoggerWidgetRenderer
-from ..widgets.renderizado.boton_render import BotonRenderer
+from ..widgets.renderizado.boton_imagen_render import BotonImagenRenderer
 from ..widgets.renderizado.gamepad_render import GamepadRenderer
-from ..widgets.renderizado.tarjeta import crear_tarjeta, subir_decoracion
+from ..widgets.renderizado.base_render import rectangulo_redondeado
+from ..widgets.renderizado.recoloreo import Recoloreo
+from ..widgets.renderizado.tarjeta import Tarjeta, pantalla_oscura, linea_vertical
+from ..widgets.renderizado.texto_render import Texto
+from ..widgets.renderizado import carga_recursos
+
+
+# Tipografía de los textos del diseño (px por unidad de diseño).
+COLOR_TAB_FONDO = "#24272b"
+SIN_CONEXION = "SIN CONEXIÓN"
+
+
+def _achaflanado(caja, chaflan):
+    """Puntos de un rectángulo con las 4 esquinas cortadas en diagonal."""
+    x1, y1, x2, y2 = caja
+    c = chaflan
+    return [x1 + c, y1, x2 - c, y1, x2, y1 + c, x2, y2 - c,
+            x2 - c, y2, x1 + c, y2, x1, y2 - c, x1, y1 + c]
 
 
 class PantallaPrincipal:
-    """
-    Pantalla única de la aplicación: un panel de control, sin navegación.
-
-    Construye los widgets y renderers que leen el EstadoRobot compartido; el
-    ciclo de main.py la refresca llamando a dibujar(). Los callbacks
-    on_conectar/on_desconectar/on_controles los enganchan los tres botones.
-    """
-    def __init__(self, parent, estado: EstadoRobot,
+    """Pantalla única de la aplicación: barra lateral de conexión + panel de control."""
+    def __init__(self, parent, estado: EstadoRobot, escala,
                  on_conectar=None, on_desconectar=None, on_controles=None,
                  on_modo=None):
         """
-        Constructor de la pantalla.
-
         parent         : el frame contenedor (en main.py).
         estado         : el estado compartido con todo el programa.
-        on_conectar    : callback al pulsar CONECTAR (abre el modal con la IP).
-        on_desconectar : callback al pulsar DESCONECTAR (cierra la conexión).
+        escala         : Escala (unidades de diseño -> píxeles).
+        on_conectar    : callback(ip, puerto); puede lanzar OSError/ValueError.
+        on_desconectar : callback al pulsar DESCONECTAR.
         on_controles   : callback al pulsar CONTROLES (abre el mapeo de teclado).
-        on_modo        : callback al pulsar MODO (alterna manual/automático).
+        on_modo        : callback al pulsar el rótulo de modo (manual/automático).
         """
         self.estado = estado
-        self.frame = tk.Frame(parent, bg=Paleta.FONDO_APP)
-        self.frame.pack(fill="both", expand=True)
+        self.e = e = escala
+        self.campo_ip: tk.Entry
+        self.campo_port: tk.Entry
+        self._on_conectar = on_conectar
+        self._on_desconectar = on_desconectar
+        self._conexion_activa = False
+        self._tiempos = []          # instantes de los últimos dibujos (FPS)
+        self._latencia_ms = None
+
+        self.canvas = tk.Canvas(parent, width=e.ancho, height=e.alto,
+                                bg=Paleta.FONDO_APP, highlightthickness=0)
+        self.canvas.pack()
+        self.frame = self.canvas   # compatibilidad con el diseño anterior
 
         # Widgets lógicos
         self.ojos = Ojos(estado)
-        self.iconos = [IconoSistema(estado, t) for t in TipoIcono]
+        self.iconos = {t: IconoSistema(estado, t) for t in TipoIcono}
         self.sol = SolBateria(estado)
         self.barras = BarrasConsumo(estado)
         self.proximidad = Proximidad(estado)
         self.navegacion = Navegacion(estado)
         self.logger = LoggerWidget(estado)
         self.gamepad = Gamepad(estado)
-        self.boton_conectar = Boton("CONECTAR")
-        self.boton_desconectar = Boton("DESCONECTAR")
-        self.boton_controles = Boton("CONTROLES")
+        self.boton_conectar = Boton("Conectar")
+        self.boton_controles = Boton("Controles")
         # El botón de modo solo se habilita con conexión (necesita al robot).
         self.boton_modo = Boton("MODO: --", habilitado=False)
-        if on_conectar is not None:
-            self.boton_conectar.suscribir(on_conectar)
-        if on_desconectar is not None:
-            self.boton_desconectar.suscribir(on_desconectar)
+        self.boton_conectar.suscribir(self._al_pulsar_conectar)
         if on_controles is not None:
             self.boton_controles.suscribir(on_controles)
         if on_modo is not None:
             self.boton_modo.suscribir(on_modo)
 
-        # Distribución de la grilla
-        self.frame.grid_columnconfigure(0, weight=10)
-        self.frame.grid_columnconfigure(1, weight=16)
-        self.frame.grid_rowconfigure(0, weight=0)
-        self.frame.grid_rowconfigure(1, weight=0)
-        self.frame.grid_rowconfigure(2, weight=1)
-
-        self._construir_barra_sistema()
-        self._construir_columna_estado()
-        self._construir_logger()
+        self._construir_marco()
+        self._construir_barra_lateral()
+        self._construir_estado()
+        self._construir_energia()
+        self._construir_registro()
         self._construir_navegacion()
-        self._construir_control_manual()
+        self._construir_control()
 
-        # Arrancamos "sin conexión": main.py la marcará según corresponda.
-        self.establecer_conexion(False, "SIN CONEXI\u00d3N")
+        self.establecer_conexion(False, SIN_CONEXION)
 
-    # Construcción de cada bloque
-    def _construir_barra_sistema(self):
-        """Barra HUD superior: identidad de la nave + indicadores en vivo."""
-        
-        barra = tk.Frame(self.frame, bg=Paleta.FONDO_APP)
-        barra.grid(row=0, column=0, columnspan=2, sticky="ew",
-                   padx=Paleta.UNIDAD // 2,
-                   pady=(Paleta.UNIDAD // 3, Paleta.UNIDAD // 3))
+    # Marco de la ventana
+    def _construir_marco(self):
+        """Fondo plateado, logo, cabecera y los dos paneles negros."""
+        e, c = self.e, self.canvas
+        c.create_image(0, 0, image=carga_recursos.cargar_fondo(
+            "fondo_app", e.ancho, e.alto), anchor="nw")
+        c.create_image(e(66), e(238), image=carga_recursos.cargar_ancho(
+            "titulo", e(828)), anchor="nw")
 
-        izq = tk.Frame(barra, bg=Paleta.FONDO_APP)
-        izq.pack(side="left")
-        tk.Label(
-            izq, text="Control Wall-E",
-            bg=Paleta.FONDO_APP, fg=Paleta.AXIOM_CYAN,
-            font=(Paleta.FUENTE_HUD, 15, "bold"),
-        ).pack(side="left")
-        tk.Label(
-            izq, text="\u25b8 M\u00d3DULO DE CONTROL \u25b8 UNIDAD WALL-E",
-            bg=Paleta.FONDO_APP, fg=Paleta.TEXTO_TENUE,
-            font=(Paleta.FUENTE_HUD, 9),
-        ).pack(side="left", padx=(8, 0))
+        for caja, chaflan in ((Disenio.BARRA_LATERAL, 40),
+                              (Disenio.PANEL_CENTRAL, Disenio.CHAFLAN_PANEL)):
+            puntos = [e(v) for v in _achaflanado(caja, chaflan)]
+            c.create_polygon(puntos, fill=Paleta.FONDO_NEGRO, outline="#24272b",
+                             width=max(1, e(8)))
 
-        der = tk.Frame(barra, bg=Paleta.FONDO_APP)
-        der.pack(side="right")
+        # Cabecera: rayas + título + telemetría.
+        x1, y1, x2, _ = Disenio.RAYAS_TITULO
+        c.create_image(e(x1), e(y1), image=carga_recursos.cargar_ancho(
+            "bombillitos", e(x2 - x1)), anchor="nw")
+        tx, ty, _, tb = Disenio.TITULO_PANEL
+        Texto(c, e(tx), e((ty + tb) / 2), "Panel de Control", e.fuente(92),
+              Paleta.TEXTO_LOG, ancla="w", contorno=Paleta.TINTA,
+              grosor=max(2, e(7)))
+        mx, my, _, mb = Disenio.TELEMETRIA
+        self._telemetria = Texto(c, e(mx), e((my + mb) / 2), "| -- FPS | -- ms |",
+                                 e.fuente(30), Paleta.TEXTO_LOG, ancla="w")
 
-        self.lbl_ind_enlace = tk.Label(
-            der, text="", bg=Paleta.FONDO_APP, font=(Paleta.FUENTE_HUD, 9, "bold"),
-        )
-        self.lbl_ind_enlace.pack(side="left", padx=(0, 22))
-        self.lbl_ind_modo = tk.Label(
-            der, text="", bg=Paleta.FONDO_APP, font=(Paleta.FUENTE_HUD, 9, "bold"),
-        )
-        self.lbl_ind_modo.pack(side="left", padx=(0, 22))
-        self.lbl_ind_bateria = tk.Label(
-            der, text="", bg=Paleta.FONDO_APP, font=(Paleta.FUENTE_HUD, 9, "bold"),
-        )
-        self.lbl_ind_bateria.pack(side="left")
+    # Barra lateral (conexión)
+    def _construir_barra_lateral(self):
+        e, c = self.e, self.canvas
+        x1, y1, x2, y2 = e.caja(Disenio.SELECTOR)
+        c.create_polygon(
+            x1 + e(40), y1, x2 - e(40), y1, x2, y1 + e(40), x2, y2, x1, y2,
+            x1, y1 + e(40), fill=COLOR_TAB_FONDO, outline="")
 
-        tk.Canvas(barra, height=2, bg=Paleta.CYAN_DIM,
-                  highlightthickness=0).pack(fill="x", pady=(6, 0))
+        # Pestañas: "Conectar" (activa) y "Controles" (abre el mapeo de teclas).
+        cx, cy, cx2, cy2 = Disenio.TAB_CONECTAR
+        Texto(c, e((cx + cx2) / 2), e((cy + cy2) / 2), "Conectar", e.fuente(44),
+              Paleta.DORADO, ancla="center")
+        kx, ky, kx2, ky2 = Disenio.TAB_CONTROLES
+        self._tab_controles = Texto(c, e((kx + kx2) / 2), e((ky + ky2) / 2),
+                                    "Controles", e.fuente(44), Paleta.TEXTO_LOG,
+                                    ancla="center")
+        self._enlazar_clic(self._tab_controles.id, self.boton_controles,
+                           lambda hover: self._tab_controles.poner(
+                               color=Paleta.DORADO if hover else Paleta.TEXTO_LOG))
 
-    def _actualizar_indicadores(self):
-        """Refresca los 3 indicadores de la barra solo si algo cambió."""
-        # Enlace: el estado que fijó establecer_conexion().
-        activa = self._conexion_activa
-        texto_enlace = "\u25cf ENLACE ACTIVO" if activa else "\u25cf SIN ENLACE"
-        color_enlace = Paleta.AXIOM_CYAN if activa else Paleta.GRIS
-        if (self.lbl_ind_enlace.cget("text") != texto_enlace
-                or self.lbl_ind_enlace.cget("fg") != color_enlace):
-            self.lbl_ind_enlace.config(text=texto_enlace, fg=color_enlace)
+        # Campos IP y puerto.
+        familia = tkfont.nametofont("TkDefaultFont").actual("family")
+        for caja_etiqueta, caja_campo, etiqueta, valor, nombre in (
+            (Disenio.ETIQUETA_IP, Disenio.CAMPO_IP, "IP:", "192.168.4.1", "campo_ip"),
+            (Disenio.ETIQUETA_PORT, Disenio.CAMPO_PORT, "PORT:", "8080", "campo_port"),
+        ):
+            ex, ey, _, eb = caja_etiqueta
+            Texto(c, e(ex), e(eb), etiqueta, e.fuente(88), Paleta.DORADO,
+                  ancla="sw")
+            fx1, fy1, fx2, fy2 = e.caja(caja_campo)
+            campo = tk.Entry(
+                c, font=(familia, -max(10, e(48))), bg=Paleta.TARJETA,
+                fg=Paleta.TINTA, insertbackground=Paleta.TINTA, relief="flat",
+                bd=0, highlightthickness=0, disabledbackground="#b9bfc5",
+                disabledforeground=Paleta.FONDO_WIDGET)
+            campo.insert(0, valor)
+            campo.bind("<Return>", lambda _ev: self.boton_conectar.presionar())
+            c.create_window(fx1, fy1, window=campo, anchor="nw",
+                            width=fx2 - fx1, height=fy2 - fy1)
+            setattr(self, nombre, campo)
 
-        # Modo: dorado en manual, tenue en automático.
-        manual = self.estado.modo == Modo.MANUAL
-        texto_modo = "MODO MANUAL" if manual else "MODO AUTOM\u00c1TICO"
-        color_modo = Paleta.DORADO if manual else Paleta.TEXTO_TENUE
-        if (self.lbl_ind_modo.cget("text") != texto_modo
-                or self.lbl_ind_modo.cget("fg") != color_modo):
-            self.lbl_ind_modo.config(text=texto_modo, fg=color_modo)
+        # Botón Conectar / Desconectar.
+        bx1, by1, bx2, by2 = e.caja(Disenio.BOTON_CONECTAR)
+        self.render_conectar = BotonImagenRenderer(
+            self.boton_conectar, c, bx1, by1, bx2 - bx1, "boton_conectar",
+            variantes={
+                "hover":      [(Paleta.DORADO, "#f3cd5a", 45)],
+                "presionado": [(Paleta.DORADO, "#c79a1f", 45)],
+            },
+            texto="Conectar", texto_px=e.fuente(116), texto_color=Paleta.TINTA)
 
-        # Batería: porcentaje coloreado con la misma regla por umbral. Sin
-        # conexión no hay lectura, así que se muestra "--".
-        if self.estado.conexion_activa:
-            pct = int(round(max(0.0, min(1.0, self.estado.bateria)) * 100))
-            texto_bat = f"BATER\u00cdA {pct}%"
-            color_bat = color_por_umbral(self.estado.bateria)
-        else:
-            texto_bat = "BATER\u00cdA --"
-            color_bat = Paleta.GRIS
-        if (self.lbl_ind_bateria.cget("text") != texto_bat
-                or self.lbl_ind_bateria.cget("fg") != color_bat):
-            self.lbl_ind_bateria.config(text=texto_bat, fg=color_bat)
+        # Estado de la conexión / errores.
+        sx, sy, _, _ = Disenio.ESTADO_CONEXION
+        self._estado_conexion = Texto(c, e(sx), e(sy), "", e.fuente(46),
+                                      Paleta.GRIS, ancla="nw")
 
-    def _construir_columna_estado(self):
-        """
-        Tarjeta 'ESTADO': ojos | íconos+consumo | sol, en 3 columnas.
+    def _enlazar_clic(self, item, boton, al_hover=None):
+        """Hace que un ítem del canvas se comporte como botón lógico."""
+        c = self.canvas
 
-        La tarjeta se estira a toda su celda (sticky nsew) y el contenido se
-        reparte en 3 columnas que expanden parejo (pack side=left expand).
-        Así no queda una franja apretada a la izquierda: cada grupo (ojos,
-        consumo, sol) ocupa su tercio del ancho disponible, como el mockup.
-        """
-        
-        col = crear_tarjeta(self.frame, "ESTADO")
-        col.grid(row=1, column=0, sticky="nsew",
-                 padx=Paleta.UNIDAD // 2, pady=Paleta.UNIDAD // 2)
+        def entrar(_ev):
+            if boton.habilitado:
+                c.configure(cursor="hand2")
+                if al_hover:
+                    al_hover(True)
 
-        pad = Paleta.UNIDAD // 3
-        arriba = Paleta.UNIDAD // 4
+        def salir(_ev):
+            c.configure(cursor="")
+            if al_hover:
+                al_hover(False)
 
-        # 3 columnas de igual peso (cada una expande a su tercio de ancho),
-        # separadas por 2 líneas verticales tenues (estilo mockup).
-        col0 = tk.Frame(col, bg=Paleta.FONDO_WIDGET)
-        col0.pack(side="left", expand=True, fill="both")
-        tk.Frame(col, bg=Paleta.HUD_LINE, width=1).pack(
-            side="left", fill="y", pady=(pad, pad))
-        col1 = tk.Frame(col, bg=Paleta.FONDO_WIDGET)
-        col1.pack(side="left", expand=True, fill="both")
-        tk.Frame(col, bg=Paleta.HUD_LINE, width=1).pack(
-            side="left", fill="y", pady=(pad, pad))
-        col2 = tk.Frame(col, bg=Paleta.FONDO_WIDGET)
-        col2.pack(side="left", expand=True, fill="both")
+        c.tag_bind(item, "<ButtonPress-1>", lambda _ev: boton.presionar())
+        c.tag_bind(item, "<ButtonRelease-1>", lambda _ev: boton.soltar())
+        c.tag_bind(item, "<Enter>", entrar)
+        c.tag_bind(item, "<Leave>", salir)
 
-        # Columna 0: ojos.
-        canvas_ojos = tk.Canvas(col0, width=130, height=56,
-                                bg=Paleta.FONDO_WIDGET, highlightthickness=0)
-        canvas_ojos.pack(anchor="n", pady=(arriba, 0))
-        self.render_ojos = OjosRenderer(self.ojos, canvas_ojos, 12, 14)
+    # Tarjetas
+    def _construir_estado(self):
+        e, c = self.e, self.canvas
+        self.t_estado = Tarjeta(c, e, Disenio.TARJETA_ESTADO, Disenio.LINEA_ESTADO,
+                                "estado", "Estado")
+        pantalla_oscura(c, e, Disenio.PANTALLA_ESTADO)
 
-        # Columna 1: íconos de sistema arriba, barras de consumo + watts debajo.
-        canvas_iconos = tk.Canvas(col1, width=150, height=30,
-                                  bg=Paleta.FONDO_WIDGET, highlightthickness=0)
-        canvas_iconos.pack(anchor="n", pady=(arriba, 0))
+        # Rótulo de modo: ícono del mando + texto (clic = cambiar de modo).
+        ix, iy, ix2, _ = Disenio.ICONO_MODO
+        self.render_modo_icono = IconoSistemaRenderer(
+            self.iconos[TipoIcono.MODO_MANUAL], c, e(ix), e(iy), e(ix2 - ix))
+        self.render_modo_icono.dibujar()
+        tx, ty = Disenio.TEXTO_MODO
+        self._modo_titulo = Texto(c, e(tx), e(ty), "Modo Manual", e.fuente(44),
+                                  Paleta.GRIS, ancla="nw")
+        sx, sy = Disenio.TEXTO_MODO_SUB
+        self._modo_sub = Texto(c, e(sx), e(sy), "Desactivado", e.fuente(30),
+                               Paleta.GRIS, ancla="nw")
+        for item in (self.render_modo_icono._ids["imagen"], self._modo_titulo.id,
+                     self._modo_sub.id):
+            self._enlazar_clic(item, self.boton_modo)
+
+        ox, oy = Disenio.OJOS_CENTRO
+        alto = e(Disenio.OJOS_ALTO)
+        self.render_ojos = OjosRenderer(
+            self.ojos, c, e(ox) - alto, e(oy) - alto / 2, alto_imagen=alto)
+
         self.render_iconos = []
-        for i, icono in enumerate(self.iconos):
-            render = IconoSistemaRenderer(icono, canvas_iconos, 3 + i * 27, 3, 24)
-            self.render_iconos.append(render)
+        orden = (TipoIcono.CONEXION, TipoIcono.CARGANDO, TipoIcono.ADVERTENCIA,
+                 TipoIcono.ERROR)
+        for tipo, x in zip(orden, Disenio.ICONOS_X):
+            self.render_iconos.append(IconoSistemaRenderer(
+                self.iconos[tipo], c, e(x), e(Disenio.ICONOS_Y),
+                e(Disenio.ICONO_LADO)))
 
-        fila_barras = tk.Frame(col1, bg=Paleta.FONDO_WIDGET)
-        fila_barras.pack(anchor="n", pady=(pad, 0))
+    def _construir_energia(self):
+        e, c = self.e, self.canvas
+        self.t_consumo = Tarjeta(c, e, Disenio.TARJETA_ENERGIA, Disenio.LINEA_CONSUMO,
+                                 "consumo", "Consumo")
+        self.t_bateria = Tarjeta(c, e, None, Disenio.LINEA_BATERIA,
+                                 "bateria", "Batería")
+        self.render_barras = BarrasConsumoRenderer(self.barras, c, e)
+        wx, wy = Disenio.CONSUMO_ETIQUETA
+        self._lbl_consumo = Texto(c, e(wx), e(wy), "", e.fuente(62), Paleta.GRIS,
+                                  ancla="center", contorno=Paleta.TINTA,
+                                  grosor=max(2, e(6)))
 
-        # Barras x5 (v4). 10 barritas de (alto+sep) = 10*21 = 210px de columna;
-        # canvas de 214 para que la base respire dentro del alto disponible.
-        canvas_barras = tk.Canvas(fila_barras, width=38, height=214,
-                                  bg=Paleta.FONDO_WIDGET, highlightthickness=0)
-        canvas_barras.pack(side="left")
-        self.render_barras = BarrasConsumoRenderer(
-            self.barras, canvas_barras, 4, 210,
-            ancho_barra=30, alto_barra=16, separacion=5)
+        pantalla_oscura(c, e, Disenio.PANTALLA_BATERIA)
+        sx, sy = Disenio.SOL_CENTRO
+        self.render_sol = SolBateriaRenderer(self.sol, c, e, sx, sy,
+                                             Disenio.SOL_RADIO)
+        l1x, l1y = Disenio.BATERIA_LINEA1
+        l2x, l2y = Disenio.BATERIA_LINEA2
+        self._lbl_sol = Texto(c, e(l1x), e(l1y), "", e.fuente(62), Paleta.DORADO_DIM,
+                              ancla="center", contorno=Paleta.DORADO_BORDE,
+                              grosor=max(2, e(6)))
+        self._lbl_pct = Texto(c, e(l2x), e(l2y), "", e.fuente(62), Paleta.DORADO,
+                              ancla="center", contorno=Paleta.DORADO_BORDE,
+                              grosor=max(2, e(6)))
 
-        self.lbl_consumo = tk.Label(fila_barras, text="", bg=Paleta.FONDO_WIDGET,
-                                    fg=Paleta.TEXTO_LOG,
-                                    font=(Paleta.FUENTE_TEXTO, 8))
-        self.lbl_consumo.pack(side="left", padx=(pad, 0))
-
-        # Columna 2: sol de batería + etiquetas debajo.
-        canvas_sol = tk.Canvas(col2, width=100, height=100,
-                               bg=Paleta.FONDO_WIDGET, highlightthickness=0)
-        canvas_sol.pack(anchor="n", pady=(arriba, 0))
-        self.render_sol = SolBateriaRenderer(self.sol, canvas_sol, 50, 50)
-
-        self.lbl_sol = tk.Label(col2, text="", bg=Paleta.FONDO_WIDGET,
-                                font=(Paleta.FUENTE_TEXTO, 10, "bold"))
-        self.lbl_sol.pack(anchor="n", pady=(Paleta.UNIDAD // 4, 0))
-        self.lbl_tiempo = tk.Label(col2, text="", bg=Paleta.FONDO_WIDGET,
-                                   fg=Paleta.TEXTO_LOG,
-                                   font=(Paleta.FUENTE_TEXTO, 9))
-        self.lbl_tiempo.pack(anchor="n")
-
-        subir_decoracion(col)
-
-    def _construir_logger(self):
-        """Tarjeta 'TERMINAL': la terminal de log."""
-        marco = crear_tarjeta(self.frame, "TERMINAL")
-        marco.grid(row=1, column=1, sticky="nsew",
-                   padx=Paleta.UNIDAD // 2, pady=Paleta.UNIDAD // 2)
-        self.render_logger = LoggerWidgetRenderer(self.logger, marco)
-        subir_decoracion(marco)
+    def _construir_registro(self):
+        e, c = self.e, self.canvas
+        self.t_registro = Tarjeta(c, e, Disenio.TARJETA_REGISTRO,
+                                  Disenio.LINEA_REGISTRO, "registro", "Registro")
+        x1, y1, x2, y2 = e.caja(Disenio.PANTALLA_REGISTRO)
+        rectangulo_redondeado(c, x1, y1, x2, y2, e(46), fill=Paleta.TARJETA,
+                              outline=Paleta.TINTA, width=max(2, e(9)))
+        self.render_logger = LoggerWidgetRenderer(self.logger, c, e)
 
     def _construir_navegacion(self):
-        """Tarjeta 'NAVEGACIÓN': medidor de proximidad + decisión de maniobra."""
-        marco = crear_tarjeta(self.frame, "NAVEGACIÓN")
-        marco.grid(row=2, column=0, sticky="nsew",
-                   padx=Paleta.UNIDAD // 2, pady=(0, Paleta.UNIDAD // 2))
-
-        canvas_nav = tk.Canvas(marco, width=300, height=300,
-                               bg=Paleta.FONDO_WIDGET, highlightthickness=0)
-        canvas_nav.pack(expand=True, pady=(Paleta.UNIDAD // 4, Paleta.UNIDAD // 3))
+        e, c = self.e, self.canvas
+        self.t_navegacion = Tarjeta(c, e, Disenio.TARJETA_NAVEGACION,
+                                    Disenio.LINEA_NAVEGACION, "navegacion",
+                                    "Navegación")
+        sx, y1, y2, g = Disenio.SEP_NAVEGACION
+        linea_vertical(c, e, sx, y1, y2, g)
         self.render_navegacion = NavegacionRenderer(
-            self.proximidad, self.navegacion, canvas_nav, 150, 200, 120)
-        subir_decoracion(marco)
+            self.proximidad, self.navegacion, c, e)
 
-    def _construir_control_manual(self):
-        """Tarjeta 'CONTROL MANUAL': conexión + gamepad."""
-        marco = crear_tarjeta(self.frame, "CONTROL MANUAL")
-        marco.grid(row=2, column=1, sticky="nsew",
-                   padx=Paleta.UNIDAD // 2, pady=(0, Paleta.UNIDAD // 2))
-
-        # Cabecera: estado de conexión (izquierda) y botones (derecha).
-        cabecera = tk.Frame(marco, bg=Paleta.FONDO_WIDGET)
-        cabecera.pack(fill="x", padx=Paleta.UNIDAD // 3,
-                      pady=(Paleta.UNIDAD // 4, 0))
-
-        lbl_captura = tk.Label(cabecera, text="CONEXI\u00d3N", bg=Paleta.FONDO_WIDGET,
-                               fg=Paleta.TEXTO_TENUE, font=(Paleta.FUENTE_TEXTO, 7))
-        lbl_captura.pack(anchor="w")
-        self.lbl_estado_conexion = tk.Label(cabecera, text="", bg=Paleta.FONDO_WIDGET,
-                                            font=(Paleta.FUENTE_TEXTO, 10, "bold"))
-        self.lbl_estado_conexion.pack(anchor="w")
-
-        botones = tk.Frame(cabecera, bg=Paleta.FONDO_WIDGET)
-        botones.pack(side="right", pady=(0, Paleta.UNIDAD // 4))
-
-        canvas_modo = tk.Canvas(botones, width=150, height=30,
-                                bg=Paleta.FONDO_WIDGET, highlightthickness=0)
-        canvas_modo.pack(side="left", padx=(0, Paleta.UNIDAD // 3))
-        self.render_modo = BotonRenderer(
-            self.boton_modo, canvas_modo, 6, 5, 138, 20, tamano_fuente=8)
-
-        canvas_controles = tk.Canvas(botones, width=86, height=30,
-                                     bg=Paleta.FONDO_WIDGET, highlightthickness=0)
-        canvas_controles.pack(side="left", padx=(0, Paleta.UNIDAD // 3))
-        self.render_controles = BotonRenderer(
-            self.boton_controles, canvas_controles, 6, 5, 74, 20, tamano_fuente=8)
-
-        canvas_conectar = tk.Canvas(botones, width=106, height=30,
-                                    bg=Paleta.FONDO_WIDGET, highlightthickness=0)
-        canvas_conectar.pack(side="left", padx=(0, Paleta.UNIDAD // 3))
-        self.render_conectar = BotonRenderer(
-            self.boton_conectar, canvas_conectar, 6, 5, 94, 20, tamano_fuente=9)
-
-        canvas_desconectar = tk.Canvas(botones, width=130, height=30,
-                                       bg=Paleta.FONDO_WIDGET, highlightthickness=0)
-        canvas_desconectar.pack(side="left")
-        self.render_desconectar = BotonRenderer(
-            self.boton_desconectar, canvas_desconectar, 6, 5, 118, 20, tamano_fuente=9)
-
-        # Gamepad (el mando se centra en la tarjeta, no queda pegado arriba).
-        canvas_gamepad = tk.Canvas(marco, width=600, height=300,
-                                   bg=Paleta.FONDO_WIDGET, highlightthickness=0)
-        canvas_gamepad.pack(expand=True,
-                            padx=Paleta.UNIDAD // 3,
-                            pady=(Paleta.UNIDAD // 4, Paleta.UNIDAD // 3))
-        self.render_gamepad = GamepadRenderer(self.gamepad, canvas_gamepad, 600, 300)
-        subir_decoracion(marco)
+    def _construir_control(self):
+        e, c = self.e, self.canvas
+        self.t_control = Tarjeta(c, e, Disenio.TARJETA_CONTROL,
+                                 Disenio.LINEA_CONTROL, "control", "Control")
+        sx, y1, y2, g = Disenio.SEP_CONTROL
+        linea_vertical(c, e, sx, y1, y2, g)
+        self.render_gamepad = GamepadRenderer(self.gamepad, c, e)
 
     # Conexión
     def conectar_gamepad(self, callback):
         """Conecta los comandos del gamepad hacia la conexión del robot."""
         self.gamepad.suscribir_comando(callback)
+
+    def _al_pulsar_conectar(self):
+        """Botón de la barra lateral: conecta o desconecta."""
+        if self._conexion_activa:
+            if self._on_desconectar:
+                self._on_desconectar()
+            return
+        ip = self.campo_ip.get().strip()
+        try:
+            puerto = int(self.campo_port.get().strip())
+            if not 0 < puerto < 65536:
+                raise ValueError("el puerto debe estar entre 1 y 65535")
+            if self._on_conectar:
+                self._on_conectar(ip, puerto)
+        except (OSError, ValueError) as error:
+            self.mostrar_error(f"No se pudo conectar: {error}")
+
+    def mostrar_error(self, mensaje: str):
+        """Muestra un error de conexión bajo el botón (en rojo)."""
+        self._estado_conexion.poner(
+            texto=textwrap.fill(mensaje, 24), color=Paleta.ROJO)
 
     def establecer_conexion(self, activa: bool, etiqueta: str):
         """
@@ -329,57 +332,93 @@ class PantallaPrincipal:
         self._conexion_activa = activa
         # El botón de modo necesita al robot para enviarle el comando.
         self.boton_modo.habilitado = activa
-        self.lbl_estado_conexion.config(
-            text=etiqueta,
-            fg=Paleta.DORADO if activa else Paleta.GRIS,
-        )
+        self.boton_conectar.texto = "Desconectar" if activa else "Conectar"
+        for campo in (self.campo_ip, self.campo_port):
+            campo.config(state="disabled" if activa else "normal")
+        self._estado_conexion.poner(
+            texto=textwrap.fill(etiqueta, 24),
+            color=Paleta.DORADO if activa else Paleta.GRIS)
+
+    def actualizar_latencia(self, milisegundos):
+        """Dato de latencia (ms) para la cabecera; None si no hay."""
+        self._latencia_ms = milisegundos
 
     # Ciclo de actualización
+    def _fps(self) -> int:
+        ahora = time.perf_counter()
+        self._tiempos.append(ahora)
+        self._tiempos = [t for t in self._tiempos if ahora - t <= 1.0]
+        return len(self._tiempos)
+
+    @staticmethod
+    def _oscuro(color, t=0.62):
+        return Recoloreo.interpolar(color, "#000000", t)
+
     def dibujar(self):
         """Redibuja todos los bloques de la pantalla (se llama cada ciclo)."""
-        # El gamepad solo manda en manual: en automático decide el robot, así
-        # que conectar no da control de motores por sí solo.
+        estado = self.estado
+        # El gamepad solo manda en manual: en automático decide el robot.
         self.gamepad.habilitar(
-            self._conexion_activa and self.estado.modo == Modo.MANUAL)
+            self._conexion_activa and estado.modo == Modo.MANUAL)
 
-        # El botón de modo refleja el estado actual del robot (o "--" sin enlace).
+        manual = estado.modo == Modo.MANUAL
         if not self._conexion_activa:
             self.boton_modo.texto = "MODO: --"
-        elif self.estado.modo == Modo.MANUAL:
-            self.boton_modo.texto = "MODO: MANUAL"
         else:
-            self.boton_modo.texto = "MODO: AUTOM\u00c1TICO"
+            self.boton_modo.texto = "MODO: MANUAL" if manual else "MODO: AUTOMÁTICO"
 
-        self._actualizar_indicadores()
+        # Cabecera
+        ms = "--" if self._latencia_ms is None else self._latencia_ms
+        self._telemetria.poner(texto=f"| {self._fps()} FPS | {ms} ms |")
+
+        # Estado
+        self.render_modo_icono.dibujar()
+        self._modo_titulo.poner(
+            color=Paleta.DORADO if manual else Paleta.GRIS)
+        self._modo_sub.poner(texto="Activado" if manual else "Desactivado",
+                             color=Paleta.DORADO if manual else Paleta.GRIS)
         self.render_ojos.dibujar()
         for render in self.render_iconos:
             render.dibujar()
+
+        # Energía
         self.render_barras.dibujar()
         self.render_sol.dibujar()
+        color_consumo = self.barras.color
+        self._lbl_consumo.poner(texto=self.barras.etiqueta_watts,
+                                color=color_consumo,
+                                contorno=self._oscuro(color_consumo, 0.7))
+        color_sol = self.sol.color
+        pct = (f"{int(round(max(0.0, min(1.0, estado.bateria)) * 100))} %"
+               if estado.conexion_activa else "-- %")
+        self._lbl_sol.poner(texto=self.sol.etiqueta,
+                            color=self._oscuro(color_sol, 0.33),
+                            contorno=self._oscuro(color_sol, 0.7))
+        self._lbl_pct.poner(texto=pct, color=color_sol,
+                            contorno=self._oscuro(color_sol, 0.62))
+
+        # Navegación y control
         self.render_navegacion.dibujar()
-        self.render_modo.dibujar()
-        self.render_conectar.dibujar()
-        self.render_desconectar.dibujar()
-        self.render_controles.dibujar()
         self.render_gamepad.dibujar()
 
-        # Etiquetas que dependen del estado (el logger se actualiza solo).
-        # Cada una solo se reconfigura si su texto cambió (evita trabajo
-        # muerto de Tk en cada ciclo de 60 ms).
-        texto_consumo = self.barras.etiqueta_watts
-        color_consumo = self.barras.color
-        if (self.lbl_consumo.cget("text") != texto_consumo
-                or self.lbl_consumo.cget("fg") != color_consumo):
-            self.lbl_consumo.config(text=texto_consumo, fg=color_consumo)
-
-        texto_sol = self.sol.etiqueta
-        if self.lbl_sol.cget("text") != texto_sol or self.lbl_sol.cget("fg") != self.sol.color:
-            self.lbl_sol.config(text=texto_sol, fg=self.sol.color)
-
-        minutos = self.estado.tiempo_restante_min
-        texto_tiempo = f"~{minutos} min" if minutos else "--"
-        if self.lbl_tiempo.cget("text") != texto_tiempo:
-            self.lbl_tiempo.config(text=texto_tiempo)
+        # Pastillas de alerta de cada tarjeta.
+        if estado.hay_error or estado.modulo_inactivo:
+            alerta = Paleta.ROJO
+        elif estado.hay_advertencia:
+            alerta = Paleta.NARANJA
+        else:
+            alerta = Paleta.DORADO
+        self.t_estado.alertar(alerta)
+        self.t_consumo.alertar(color_consumo if color_consumo != Paleta.GRIS
+                               else Paleta.DORADO)
+        self.t_bateria.alertar(color_sol if color_sol != Paleta.GRIS
+                               else Paleta.DORADO)
+        cerca = self.proximidad.cercania
+        self.t_navegacion.alertar(Paleta.ROJO if cerca > 0.7 else
+                                  Paleta.NARANJA if cerca > 0.4 else Paleta.DORADO)
+        self.t_control.alertar(Paleta.DORADO if self.gamepad.habilitado
+                               else Paleta.GRIS)
+        self.render_conectar.dibujar()
 
 
 # Cajón de Pruebas
@@ -387,31 +426,40 @@ class PantallaPrincipal:
 #   python -m app.pantallas.pantalla_principal
 
 if __name__ == "__main__":
+    from ..nucleo.disenio import Escala
     print("PantallaPrincipal")
 
     raiz = tk.Tk()
-    raiz.geometry("1280x860")
-    raiz.minsize(1200, 800)
+    escala = Escala(0.3)
+    raiz.geometry(f"{escala.ancho}x{escala.alto}")
     raiz.configure(bg=Paleta.FONDO_APP)
 
     estado = EstadoRobot()
-    pantalla = PantallaPrincipal(raiz, estado,
-                                 on_conectar=lambda: None,
+    pantalla = PantallaPrincipal(raiz, estado, escala,
+                                 on_conectar=lambda ip, puerto: None,
                                  on_desconectar=lambda: None)
-
-    # Un par de ciclos "conectado" y luego "sin conexión" para comprobar que
-    # el renderer del gamepad conmuta bien la capa "apagado".
     comandos = []
     pantalla.conectar_gamepad(comandos.append)
-    pantalla.establecer_conexion(True, "192.168.4.1")
 
+    # Conectado y en manual -> el mando queda activo; luego sin conexión.
+    estado.conexion_activa = True
+    estado.modo = Modo.MANUAL
+    pantalla.establecer_conexion(True, "192.168.4.1")
     for _ in range(3):
-        estado.conexion_activa = True
         pantalla.dibujar()
         raiz.update()
+    assert pantalla.gamepad.habilitado, "Conectado + manual habilita el mando"
+
     estado.conexion_activa = False
-    pantalla.establecer_conexion(False, "SIN CONEXI\u00d3N")
+    pantalla.establecer_conexion(False, SIN_CONEXION)
     pantalla.dibujar()
     raiz.update()
-    print("OK: pantalla única construida, ciclos y capa offline dibujados")
+    assert not pantalla.gamepad.habilitado, "Sin conexión apaga el mando"
+
+    # Un puerto inválido se muestra como error, sin lanzar excepción.
+    pantalla.campo_port.delete(0, "end")
+    pantalla.campo_port.insert(0, "abc")
+    pantalla.boton_conectar.presionar()
+    assert "No se pudo conectar" in pantalla._estado_conexion.texto
+    print("OK: pantalla construida, ciclos, capa apagada y error de puerto")
     raiz.destroy()

@@ -31,13 +31,23 @@ RECURSOS = {
 
 class OjosRenderer(RenderizadorBase):
     """Renderer de los ojos de Wall-E."""
-    def __init__(self, widget, canvas, x=20, y=8):
-        """x, y: esquina superior-izquierda del bloque de ojos."""
+    def __init__(self, widget, canvas, x=20, y=8, alto_imagen=ALTO_OJO_IMAGEN):
+        """x, y: esquina superior-izquierda del bloque de ojos.
+
+        alto_imagen: alto (px) con que se dibuja cada PNG de ojo. Los dos
+        PNG se colocan pegados (el puente de la nariz de cada uno se une).
+        """
         super().__init__(canvas)
         self.widget = widget
         self.x = x
         self.y = y
+        self.alto_imagen = alto_imagen
         self.alto_total = OJO_ALTO_ABIERTO + 16  # margen arriba/abajo
+
+    @property
+    def ancho_bloque(self) -> float:
+        """Ancho total del bloque de ojos en px (los PNG son cuadrados)."""
+        return 2 * self.alto_imagen
 
     # Geometría
     def _coords_caja(self, cx, alto, y_superior):
@@ -52,9 +62,8 @@ class OjosRenderer(RenderizadorBase):
 
     def _centros(self):
         """Centros (cx) del ojo izquierdo y derecho."""
-        cx_izq = self.x + OJO_ANCHO / 2
-        cx_der = self.x + OJO_ANCHO + OJO_ANCHO / 2
-        return cx_izq, cx_der
+        ancho = self.ancho_bloque / 2
+        return self.x + ancho / 2, self.x + ancho + ancho / 2
 
     # Selección de modo (imágenes vs. procedural)
     def _usa_imagenes(self, expresion):
@@ -67,29 +76,10 @@ class OjosRenderer(RenderizadorBase):
         color = self.widget.color
         cx_izq, cx_der = self._centros()
 
-        self._dibujar_glow(color)
-
         if self._usa_imagenes(expresion):
             self._dibujar_imagenes(expresion, color, cx_izq, cx_der)
         else:
             self._dibujar_procedural(expresion, color, cx_izq, cx_der)
-
-    def _dibujar_glow(self, color):
-        """Halo de fondo: una pantalla tenue detrás de las cajas, del mismo
-        color que los ojos (se recolorea cuando cambia la expresión)."""
-        self._primera_vez(
-            "glow",
-            lambda: rectangulo_redondeado(
-                self.canvas, self.x - 3, self.y, self.x + 101, self.y + 44,
-                radio=8, fill=Recoloreo.interpolar(color, Paleta.FONDO_WIDGET, 0.88),
-                outline="", width=0,
-            ),
-        )
-        if self._hay_cambio("glow", color):
-            self.canvas.itemconfig(
-                self._ids["glow"],
-                fill=Recoloreo.interpolar(color, Paleta.FONDO_WIDGET, 0.88),
-            )
 
     def _ocultar(self, nombre):
         """Oculta un ítem si ya existe."""
@@ -107,10 +97,10 @@ class OjosRenderer(RenderizadorBase):
         for nombre in ("caja_izq", "caja_der", "pupila_izq", "pupila_der"):
             self._ocultar(nombre)
 
-        cy = self.y + self.alto_total / 2
+        cy = self.y + self.alto_imagen / 2
         archivo = RECURSOS[expresion]
-        izquierda = carga_recursos.cargar(archivo, color, ALTO_OJO_IMAGEN)
-        derecha = carga_recursos.cargar(archivo, color, ALTO_OJO_IMAGEN, espejo=True)
+        izquierda = carga_recursos.cargar(archivo, color, self.alto_imagen)
+        derecha = carga_recursos.cargar(archivo, color, self.alto_imagen, espejo=True)
 
         ojo_izq = self._primera_vez(
             "img_izq",

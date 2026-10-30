@@ -8,7 +8,7 @@ from ...nucleo.paleta import Paleta
 
 
 class TipoIcono(Enum):
-    """Identificadores de los iconos de sistema definidos en el mockup."""
+    """Identificadores de los iconos de sistema definidos en el diseño."""
     ADVERTENCIA = "advertencia"
     CARGANDO    = "cargando"
     MODO_MANUAL = "modo_manual"
@@ -39,12 +39,19 @@ class IconoSistema:
         if not self.activo:
             return Paleta.GRIS
 
+        if self.tipo == TipoIcono.CONEXION:
+            # La señal se colorea según su calidad (alta/media/baja).
+            return {
+                NivelConexion.ALTA:  Paleta.DORADO,
+                NivelConexion.MEDIA: Paleta.NARANJA,
+                NivelConexion.BAJA:  Paleta.ROJO,
+                NivelConexion.NULA:  Paleta.AXIOM_CYAN,
+            }[self.estado.nivel_conexion]
         colores = {
             TipoIcono.ADVERTENCIA: Paleta.NARANJA,
             TipoIcono.CARGANDO:    Paleta.VERDE_LIMA,
-            TipoIcono.MODO_MANUAL: Paleta.AXIOM_CYAN,
+            TipoIcono.MODO_MANUAL: Paleta.DORADO,
             TipoIcono.ERROR:       Paleta.ROJO,
-            TipoIcono.CONEXION:    Paleta.AXIOM_CYAN,
         }
         return colores[self.tipo]
 
@@ -103,10 +110,10 @@ if __name__ == "__main__":
     estado.modo = Modo.MANUAL
     estado.cargando = True
     assert iconos[TipoIcono.MODO_MANUAL].activo
-    assert iconos[TipoIcono.MODO_MANUAL].color == Paleta.AXIOM_CYAN
+    assert iconos[TipoIcono.MODO_MANUAL].color == Paleta.DORADO
     assert iconos[TipoIcono.CARGANDO].activo
     assert iconos[TipoIcono.CARGANDO].color == Paleta.VERDE_LIMA
-    print("OK: MODO_MANUAL cian, CARGANDO verde lima\n")
+    print("OK: MODO_MANUAL dorado, CARGANDO verde lima\n")
 
     print("Módulo inactivo enciende ERROR")
     estado.hay_error = False

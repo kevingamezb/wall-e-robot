@@ -1,90 +1,83 @@
 # wall-e-robot/app/widgets/renderizado/tarjeta.py
-# Kevin Gámez - 13/09/2026
+# Rediseño de la GUI según el diseño
+#
+# Tarjetas claras con doble contorno, pastilla de alerta y título (Quadrillion),
+# más las pantallas oscuras que van dentro de ellas.
 
 
-import tkinter as tk
 from ...nucleo.paleta import Paleta
+from ...nucleo.disenio import Disenio
+from .base_render import rectangulo_redondeado
+from .recoloreo import Recoloreo
+from .texto_render import Texto
+from . import carga_recursos
 
 
-# Largo de cada trazo de los corchetes de esquina (px).
-LARGO_CORCHETE = 12
-# Desfase de cada corchete respecto al borde de la tarjeta (px).
-DESFASE_CORCHETE = 3
+def pantalla_oscura(canvas, e, caja, radio=48):
+    """Pantalla oscura con contorno negro (p. ej. donde van los ojos o el sol)."""
+    x1, y1, x2, y2 = e.caja(caja)
+    return rectangulo_redondeado(
+        canvas, x1, y1, x2, y2, e(radio),
+        fill=Paleta.FONDO_WIDGET, outline=Paleta.TINTA, width=max(2, e(11)))
 
 
-def _corchete(parent, ancla, relx, rely, dx, dy, esquina):
-    """Crea una esquina con su corchete HUD."""
-    can = tk.Canvas(
-        parent,
-        width=LARGO_CORCHETE + 2, height=LARGO_CORCHETE + 2,
-        bg=parent.cget("bg"), highlightthickness=0,
-    )
-    can.place(anchor=ancla, relx=relx, rely=rely, x=dx, y=dy)
-
-    i = 1
-    j = LARGO_CORCHETE + 1
-    # Cada 'L' apunta hacia adentro de su esquina (a = extremo vertical,
-    # b = vértice, c = extremo horizontal de la polilínea).
-    if esquina == "sup-izq":
-        pts = (i, j, i, i, j, i)
-    elif esquina == "sup-der":
-        pts = (j, j, j, i, i, i)
-    elif esquina == "inf-izq":
-        pts = (i, i, i, j, j, j)
-    else:  # inf-der
-        pts = (j, i, j, j, i, j)
-
-    can.create_line(*pts, fill=Paleta.CYAN_DIM, width=2, joinstyle="miter") # Ignorar error de Pylance.
-    return can
+def linea_vertical(canvas, e, x, y1, y2, grosor):
+    """Separador vertical entre zonas de una tarjeta."""
+    ancho = max(2, e(grosor))
+    return canvas.create_line(e(x), e(y1), e(x), e(y2), fill=Paleta.TINTA,
+                              width=ancho, capstyle="round")
 
 
-def subir_decoracion(marco):
-    """Trae los 4 corchetes HUD de una tarjeta al frente."""
-    for can in getattr(marco, "_corchetes", []):
-        # En un Canvas, tkraise() de Tkinter es el tag_raise (ítems); para subir
-        # la ventana hay que invocar el 'raise' de Tcl directamente.
-        can.tk.call("raise", can._w)
+class Tarjeta:
+    """Una tarjeta del panel: cara, línea interior, pastilla y título."""
 
+    def __init__(self, canvas, e, caja, linea, clave, titulo):
+        """
+        caja   : caja exterior de la tarjeta (unidades de diseño); None si la cara
+                 ya la dibujó otra tarjeta (Consumo y Batería comparten una).
+        linea  : caja de la línea interior; None si la tarjeta no la lleva.
+        clave  : nombre de la pastilla en Disenio.PASTILLA.
+        titulo : texto del rótulo.
+        """
+        self.canvas = canvas
+        self.e = e
+        self.cara = None
+        if caja is not None:
+            x1, y1, x2, y2 = e.caja(caja)
+            self.cara = rectangulo_redondeado(
+                canvas, x1, y1, x2, y2, e(52),
+                fill=Paleta.TARJETA, outline=Paleta.TINTA, width=max(2, e(8)))
+        self.linea = None
+        if linea is not None:
+            lx1, ly1, lx2, ly2 = e.caja(linea)
+            self.linea = rectangulo_redondeado(
+                canvas, lx1, ly1, lx2, ly2, e(60),
+                fill="", outline=Paleta.TINTA, width=max(2, e(9)))
 
-def crear_tarjeta(parent, titulo=None):
-    """Crea un tk.Frame con el aspecto de tarjeta."""
-    marco = tk.Frame(
-        parent,
-        bg=Paleta.FONDO_WIDGET,
-        highlightbackground=Paleta.BORDE_SUAVE,
-        highlightthickness=1,
-    )
+        px, py = Disenio.PASTILLA[clave]
+        self._pastilla_xy = (e(px), e(py))
+        self._pastilla = None
+        self._color_pastilla = None
+        self.alertar(Paleta.DORADO)
 
-    # Corchetes de esquina
-    setattr(marco, "_corchetes", [
-        _corchete(marco, "nw", 0, 0, DESFASE_CORCHETE, DESFASE_CORCHETE, "sup-izq"),
-        _corchete(marco, "ne", 1, 0, -DESFASE_CORCHETE, DESFASE_CORCHETE, "sup-der"),
-        _corchete(marco, "sw", 0, 1, DESFASE_CORCHETE, -DESFASE_CORCHETE, "inf-izq"),
-        _corchete(marco, "se", 1, 1, -DESFASE_CORCHETE, -DESFASE_CORCHETE, "inf-der"),
-    ])
+        self.titulo = Texto(
+            canvas, e(px + Disenio.PASTILLA_ANCHO + 18),
+            e(py + Disenio.PASTILLA_ALTO / 2), titulo, e.fuente(70),
+            Paleta.TINTA, ancla="w", contorno=Paleta.TINTA, grosor=1)
 
-    if titulo is not None:
-        fila = tk.Frame(marco, bg=Paleta.FONDO_WIDGET)
-        # El título se indenta más allá del corchete superior-izquierdo para que
-        # el glifo no lo tape; la sangría además refuerza el aspecto HUD.
-        fila.pack(anchor="w",
-                  padx=(Paleta.UNIDAD // 3 + LARGO_CORCHETE, Paleta.UNIDAD // 3),
-                  pady=(Paleta.UNIDAD // 4, 0))
-
-        # El glifo en cian enciende la sección; el texto queda tenue.
-        tk.Label(
-            fila,
-            text="\u25b8 ",                     # ▸
-            bg=Paleta.FONDO_WIDGET,
-            fg=Paleta.AXIOM_CYAN,
-            font=(Paleta.FUENTE_HUD, 9, "bold"),
-        ).pack(side="left")
-        tk.Label(
-            fila,
-            text=titulo.upper(),
-            bg=Paleta.FONDO_WIDGET,
-            fg=Paleta.TEXTO_TENUE,
-            font=(Paleta.FUENTE_TEXTO, 8),
-        ).pack(side="left")
-
-    return marco
+    def alertar(self, color):
+        """Pinta la pastilla de alerta del rótulo con 'color'."""
+        if color == self._color_pastilla:
+            return
+        self._color_pastilla = color
+        foto = carga_recursos.cargar_ancho(
+            "bombillito_alertor", max(8, self.e(Disenio.PASTILLA_ALTO * 0.34)),
+            sustituciones=[
+                (Paleta.DORADO_BORDE, Recoloreo.interpolar(color, "#000000", 0.62)),
+                (Paleta.DORADO, color),
+            ])
+        if self._pastilla is None:
+            self._pastilla = self.canvas.create_image(
+                *self._pastilla_xy, image=foto, anchor="nw")
+        else:
+            self.canvas.itemconfig(self._pastilla, image=foto)

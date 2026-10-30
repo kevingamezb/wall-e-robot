@@ -48,12 +48,24 @@ class Navegacion:
         return ETIQUETAS[self.maniobra]
 
     @property
+    def descripcion(self) -> str:
+        """Frase larga de la maniobra para la tarjeta de navegación."""
+        if self.en_manual:
+            return "Control manual"
+        return {
+            Maniobra.RECTO:     "Avanzando recto",
+            Maniobra.IZQUIERDA: "Girando a la\nIzquierda",
+            Maniobra.DERECHA:   "Girando a la\nDerecha",
+            Maniobra.ALTO:      "Detenido",
+        }[self.maniobra]
+
+    @property
     def color(self) -> str:
         if self.en_manual:
             return Paleta.NARANJA
         if self.maniobra == Maniobra.ALTO:
             return Paleta.ROJO
-        return Paleta.AXIOM_CYAN
+        return Paleta.AZUL
 
 # Cajón de Pruebas
 # Ejecutar desde la raíz del proyecto:
@@ -69,7 +81,7 @@ if __name__ == "__main__":
     assert not nav.en_manual
     assert nav.maniobra == Maniobra.RECTO
     assert nav.etiqueta == "RECTO"
-    assert nav.color == Paleta.AXIOM_CYAN
+    assert nav.color == Paleta.AZUL
     print(f"OK: {nav.simbolo} {nav.etiqueta} / {nav.color}\n")
 
     print("Automático, obstáculo: alto")

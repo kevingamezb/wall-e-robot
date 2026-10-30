@@ -2,23 +2,32 @@
 # Kevin Gámez - 13/09/2026
 
 
+import math
 from ...nucleo.paleta import Paleta
 from .recoloreo import Recoloreo
 
 
 def rectangulo_redondeado(canvas, x1, y1, x2, y2, radio, **opciones):
-    """Dibuja un rectángulo de esquinas redondeadas y devuelve su id."""
-    puntos = [
-        x1 + radio, y1,
-        x2 - radio, y1,
-        x2, y1 + radio,
-        x2, y2 - radio,
-        x2 - radio, y2,
-        x1 + radio, y2,
-        x1, y2 - radio,
-        x1, y1 + radio,
-    ]
-    return canvas.create_polygon(puntos, smooth=True, **opciones)
+    """Dibuja un rectángulo de esquinas redondeadas y devuelve su id.
+
+    Las esquinas son arcos reales (varios segmentos por esquina), no un
+    octógono suavizado, para que el radio se parezca al del diseño.
+    """
+    radio = max(0, min(radio, (x2 - x1) / 2, (y2 - y1) / 2))
+    puntos = []
+    segmentos = 8
+    esquinas = (
+        (x2 - radio, y1 + radio, -90),   # sup-der
+        (x2 - radio, y2 - radio, 0),     # inf-der
+        (x1 + radio, y2 - radio, 90),    # inf-izq
+        (x1 + radio, y1 + radio, 180),   # sup-izq
+    )
+    for cx, cy, inicio in esquinas:
+        for k in range(segmentos + 1):
+            angulo = math.radians(inicio + 90 * k / segmentos)
+            puntos += [cx + radio * math.cos(angulo),
+                       cy + radio * math.sin(angulo)]
+    return canvas.create_polygon(puntos, **opciones)
 
 
 def borde_panel(canvas, radio=Paleta.RADIO_TARJETA, margen=2, color=Paleta.BORDE_SUAVE):

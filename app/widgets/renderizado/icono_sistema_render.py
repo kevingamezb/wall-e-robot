@@ -52,7 +52,7 @@ class IconoSistemaRenderer(RenderizadorBase):
     def _dibujar_imagen(self, color):
         """Dibuja (o recolorea) el PNG del ícono y oculta el glifo procedural."""
         cx, cy = self.x + self.lado / 2, self.y + self.lado / 2
-        foto = carga_recursos.cargar(self.widget.archivo, color, self.lado - 4)
+        foto = carga_recursos.cargar(self.widget.archivo, color, self.lado)
 
         imagen = self._primera_vez(
             "imagen",
@@ -77,38 +77,9 @@ class IconoSistemaRenderer(RenderizadorBase):
             self.canvas.itemconfig(self._ids[nombre], state="hidden")
 
     def dibujar(self):
-        """Dibuja o actualiza el halo, la caja y el glifo/imagen del ícono."""
-        activo = self.widget.activo
-        color = self.widget.color
-        borde = color if activo else Paleta.HUD_LINE
-
-        # Halo: relleno diluido detrás de la caja (una sola pieza).
-        halo = self._primera_vez(
-            "halo",
-            lambda: self.canvas.create_rectangle(
-                self.x - 2, self.y - 2,
-                self.x + self.lado + 2, self.y + self.lado + 2,
-                outline="", width=0,
-            ),
-        )
-        caja = self._primera_vez(
-            "caja",
-            lambda: self.canvas.create_rectangle(
-                self.x, self.y, self.x + self.lado, self.y + self.lado,
-                outline=borde, width=1,
-            ),
-        )
-
+        """Dibuja o actualiza el ícono (el PNG ya trae su propia caja)."""
         # Contenido: PNG si existe, si no el glifo procedural.
         if carga_recursos.existe(self.widget.archivo):
-            self._dibujar_imagen(color)
+            self._dibujar_imagen(self.widget.color)
         else:
-            self._dibujar_glifo(color)
-
-        # El ícono solo cambia de color (recoloreo)
-        if not self._hay_cambio("estado", (color, activo)):
-            return
-
-        self.canvas.itemconfig(halo, fill=Recoloreo.interpolar(
-            color, Paleta.FONDO_WIDGET, 0.80) if activo else Paleta.FONDO_WIDGET)
-        self.canvas.itemconfig(caja, outline=borde)
+            self._dibujar_glifo(self.widget.color)

@@ -9,7 +9,7 @@ from ...nucleo.paleta import Paleta, color_por_umbral
 class BarrasConsumo:
     """
     Determina el número y color de las barras de consumo según la fracción de consumo instantáneo."""
-    TOTAL_BARRITAS = 10
+    TOTAL_BARRITAS = 6   # 5 barras + la barra base (más grande)
 
     def __init__(self, estado: EstadoRobot):
         self.estado = estado
@@ -50,25 +50,25 @@ if __name__ == "__main__":
     assert barras.fraccion == 0.0
     assert barras.barritas_encendidas == 0
     assert barras.color == Paleta.GRIS
-    print(f"OK: {barras.barritas_encendidas}/10, {barras.etiqueta_watts}\n")
+    print(f"OK: {barras.barritas_encendidas}/6, {barras.etiqueta_watts}\n")
 
     print("Consumo medio (4.2-15 W)")
     estado.consumo_watts = 4.2
     assert abs(barras.fraccion - 0.28) < 0.001
-    assert barras.barritas_encendidas == 3
+    assert barras.barritas_encendidas == 2
     assert barras.color == Paleta.DORADO
-    print(f"OK: {barras.barritas_encendidas}/10, {barras.etiqueta_watts}\n")
+    print(f"OK: {barras.barritas_encendidas}/6, {barras.etiqueta_watts}\n")
 
     print("Consumo alto (8-15 W)")
     estado.consumo_watts = 8.0
-    assert barras.barritas_encendidas == 5
+    assert barras.barritas_encendidas == 3
     assert barras.color == Paleta.NARANJA
-    print(f"OK: {barras.barritas_encendidas}/10, {barras.etiqueta_watts}\n")
+    print(f"OK: {barras.barritas_encendidas}/6, {barras.etiqueta_watts}\n")
 
     print("Consumo máximo (15-15 W)")
     estado.consumo_watts = 15.0
-    assert barras.barritas_encendidas == 10
+    assert barras.barritas_encendidas == 6
     assert barras.color == Paleta.ROJO
-    print(f"OK: {barras.barritas_encendidas}/10, {barras.etiqueta_watts}\n")
+    print(f"OK: {barras.barritas_encendidas}/6, {barras.etiqueta_watts}\n")
 
     print("Pruebas OK")

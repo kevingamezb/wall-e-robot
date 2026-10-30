@@ -75,6 +75,14 @@ class Comunicacion(Conexion):
         # getattr: algunos tests construyen la clase con __new__.
         return getattr(self, "_perdida", False)
 
+    @property
+    def edad_ms(self):
+        """Milisegundos desde el último estado recibido."""
+        ultima = getattr(self, "_ultima_recepcion", None)
+        if ultima is None:
+            return None
+        return int((time.time() - ultima) * 1000)
+
     def actualizar_estado(self, estado: EstadoRobot):
         """Recibe lo pendiente del socket y lo aplica a EstadoRobot."""
         try:
