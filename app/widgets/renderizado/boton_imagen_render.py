@@ -1,5 +1,5 @@
 # wall-e-robot/app/widgets/renderizado/boton_imagen_render.py
-# Kevin Gámez - 29/10/2026
+# Kevin Gámez - 30/10/2026
 
 
 import math
@@ -65,7 +65,7 @@ class BotonImagenRenderer(RenderizadorBase):
     def _foto(self, estado):
         return carga_recursos.cargar_ancho(
             self.recurso, self.ancho, rotar=self.rotar,
-            sustituciones=self.variantes.get(estado, ()))
+            sustituciones=self.variantes.get(estado, ()), master=self.canvas)
 
     def _estado(self):
         if not self.widget.habilitado:
@@ -100,6 +100,14 @@ class BotonImagenRenderer(RenderizadorBase):
         if self.widget.presionado:
             self.widget.soltar()
         self.canvas.configure(cursor="")
+
+    def mostrar(self, visible: bool):
+        """Muestra u oculta el botón (imagen y etiqueta)."""
+        estado = "normal" if visible else "hidden"
+        if "imagen" in self._ids:
+            self.canvas.itemconfig(self._ids["imagen"], state=estado)
+        if self._texto is not None:
+            self._texto.mostrar(visible)
 
     def dibujar(self):
         """Dibuja (o actualiza) la imagen del estado actual y su etiqueta."""

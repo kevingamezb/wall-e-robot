@@ -7,7 +7,16 @@ from ... import rutas
 
 
 ARCHIVO_FUENTE = "Quadrillion Sb.otf"
+# Quadrillion no trae flechas (↑ ↓ ← →) ni otros signos: para esas teclas se
+# usa una fuente del sistema que sí los tenga.
+RUTAS_RESPALDO = (
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+    "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+    "C:/Windows/Fonts/segoeui.ttf",
+)
 _FUENTES = {}
+_FUENTES_RESPALDO = {}
 _CACHE = {}
 _MAX_CACHE = 600
 
@@ -24,11 +33,39 @@ def fuente(px: int):
     return _FUENTES[px]
 
 
+def fuente_respaldo(px: int):
+    """Fuente del sistema para los glifos que Quadrillion no incluye."""
+    px = max(6, int(px))
+    if px not in _FUENTES_RESPALDO:
+        for ruta in RUTAS_RESPALDO:
+            try:
+                _FUENTES_RESPALDO[px] = ImageFont.truetype(ruta, px)
+                break
+            except OSError:
+                continue
+        else:
+            _FUENTES_RESPALDO[px] = ImageFont.load_default(px)
+    return _FUENTES_RESPALDO[px]
+
+
+def faltan_glifos(texto: str, tipo) -> bool:
+    """True si 'tipo' no dibuja alguno de los caracteres de 'texto'."""
+    referencia = tipo.getmask("\U0010FFFF")
+    firma = (referencia.size, bytes(referencia))
+    for caracter in texto:
+        if caracter.isspace():
+            continue
+        mascara = tipo.getmask(caracter)
+        if (mascara.size, bytes(mascara)) == firma:
+            return True
+    return False
+
+
 def imagen_texto(texto: str, px: int, color: str, contorno: str | None = None,
                  grosor: int = 0, interlineado: float = 1.1,
-                 alinear: str = "left") -> Image.Image:
+                 alinear: str = "left", tipo=None) -> Image.Image:
     """Imagen RGBA (fondo transparente) con 'texto' ya dibujado."""
-    tipo = fuente(px)
+    tipo = tipo or fuente(px)
     grosor = grosor if contorno else 0
     relleno = max(2, grosor + 1)
     medidor = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
@@ -44,15 +81,36 @@ def imagen_texto(texto: str, px: int, color: str, contorno: str | None = None,
     return lienzo
 
 
-def foto_texto(texto, px, color, contorno=None, grosor=0, alinear="left"):
-    """PhotoImage cacheado del texto pedido."""
-    clave = (texto, px, color, contorno, grosor, alinear)
-    if clave not in _CACHE:
-        if len(_CACHE) >= _MAX_CACHE:
-            _CACHE.clear()
-        _CACHE[clave] = ImageTk.PhotoImage(
-            imagen_texto(texto, px, color, contorno, grosor, alinear=alinear))
-    return _CACHE[clave]
+def foto_texto(texto, px, color, contorno=None, grosor=0, alinear="left",
+               respaldo=False, master=None):
+    """PhotoImage cacheado del texto pedido.
+
+    respaldo=True usa una fuente del sistema cuando Quadrillion no tiene
+    alguno de los glifos (p. ej. las flechas del teclado). 'master' fija el
+    intérprete de Tk y la caché (una por raíz, para que dos intérpretes no
+    compartan la misma PhotoImage).
+    """
+    tipo = fuente(px)
+    if respaldo and faltan_glifos(texto, tipo):
+        tipo = fuente_respaldo(px)
+    # La caché vive en la raíz de Tk: al destruirla se liberan sus imágenes y
+    # dos raíces distintas (como en las pruebas) nunca comparten PhotoImage.
+    if master is not None:
+        raiz = master.winfo_toplevel()
+        cache = getattr(raiz, "_cache_texto_quadrillion", None)
+        if cache is None:
+            cache = {}
+            raiz._cache_texto_quadrillion = cache
+    else:
+        cache = _CACHE
+    clave = (texto, px, color, contorno, grosor, alinear, tipo)
+    if clave not in cache:
+        if len(cache) >= _MAX_CACHE:
+            cache.clear()
+        cache[clave] = ImageTk.PhotoImage(
+            imagen_texto(texto, px, color, contorno, grosor, alinear=alinear,
+                         tipo=tipo), master=master)
+    return cache[clave]
 
 
 class Texto:
@@ -67,7 +125,8 @@ class Texto:
         self.alinear = alinear
         self._texto = texto
         self._color = color
-        self._foto = foto_texto(texto, px, color, contorno, grosor, alinear)
+        self._foto = foto_texto(texto, px, color, contorno, grosor, alinear,
+                                master=canvas)
         self.id = canvas.create_image(x, y, image=self._foto, anchor=ancla,
                                       state=estado)
 
@@ -84,7 +143,7 @@ class Texto:
         self._texto, self._color = texto, color
         self.px, self.contorno = px, contorno
         self._foto = foto_texto(texto, self.px, color, self.contorno,
-                                self.grosor, self.alinear)
+                                self.grosor, self.alinear, master=self.canvas)
         self.canvas.itemconfig(self.id, image=self._foto)
 
     def mover(self, x, y):

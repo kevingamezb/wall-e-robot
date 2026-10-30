@@ -18,9 +18,6 @@ Un robot Wall-E autónomo y controlado por WiFi basado en el chip **ESP32**. Cue
 arquitectura desacoplada de software, una aplicación de escritorio interactiva y un sistema de
 actualización inalámbrica (OTA).
 
-Este README es el punto de entrada al repositorio. El detalle de cada tema vive en los documentos
-especializados enlazados más abajo.
-
 ## ✨ Características principales
 
 * **🧠 Navegación inteligente:** modo autónomo con bucle de control no bloqueante (`millis()`) y evasión de obstáculos.

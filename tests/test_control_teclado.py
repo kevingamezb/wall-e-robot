@@ -9,6 +9,7 @@ raíz de Tkinter retirada, sin abrir ninguna ventana.
 
 
 import types
+import tkinter as tk
 
 import pytest
 
@@ -144,3 +145,33 @@ def test_auto_repite_del_eje_avanza(control, monkeypatch):
 
     ctl._al_soltar(_tecla("q"))
     assert "q" not in ctl._temporizadores
+
+
+def test_suspendido_ignora_teclas(control):
+    """Mientras se captura una tecla, el control no mueve al robot."""
+    ctl, comandos = control
+    n = len(comandos)
+
+    ctl.suspendido = True
+    ctl._al_presionar(_tecla("Up"))
+    ctl._al_presionar(_tecla("q"))
+    ctl._al_soltar(_tecla("Up"))
+    ctl._al_soltar(_tecla("q"))
+
+    assert len(comandos) == n
+    assert not ctl.gamepad.direccion_arriba.presionado
+    assert ctl.gamepad.cuello.posicion == 0
+
+
+def test_eventos_desde_un_campo_de_texto_se_ignoran(control):
+    """Escribir en un Entry no debe disparar acciones del gamepad."""
+    ctl, comandos = control
+    campo = tk.Entry(ctl.raiz)
+    evento = types.SimpleNamespace(keysym="Up", widget=campo)
+    n = len(comandos)
+
+    ctl._al_presionar(evento)
+    ctl._al_soltar(evento)
+
+    assert len(comandos) == n
+    assert not ctl.gamepad.direccion_arriba.presionado

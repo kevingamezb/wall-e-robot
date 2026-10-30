@@ -18,7 +18,25 @@ DIRECTORIO = rutas.directorio_recursos()
 
 # Cache de PhotoImage ya construidos: (nombre, color, alto, espejo) -> foto.
 # Mantener las referencias evita que el recolector de basura libere las imágenes.
+# Sin 'master' se usa este cache global (cajones y pruebas sueltas); con
+# 'master' se usa uno por raíz de Tk para que dos intérpretes no compartan
+# imágenes (cada PhotoImage pertenece a un solo intérprete).
 _CACHE = {}
+
+
+def _cache_para(master):
+    """Devuelve el cache de PhotoImage que corresponde al widget/raíz."""
+    if master is None:
+        return _CACHE
+    try:
+        raiz = master.winfo_toplevel()
+    except AttributeError:
+        raiz = master
+    cache = getattr(raiz, "_cache_carga_recursos", None)
+    if cache is None:
+        cache = {}
+        raiz._cache_carga_recursos = cache
+    return cache
 
 
 def ruta_asset(nombre: str, extension: str = "png") -> Path:
@@ -31,14 +49,16 @@ def existe(nombre: str) -> bool:
     return ruta_asset(nombre).is_file()
 
 
-def cargar(nombre: str, color: str, alto: int, espejo: bool = False):
+def cargar(nombre: str, color: str, alto: int, espejo: bool = False, master=None):
     """Carga, tiñe con 'color' y escala a 'alto' (conservando aspecto).
 
     'espejo=True' devuelve la imagen reflejada (para el ojo derecho).
+    'master' fija el intérprete de Tk de la PhotoImage.
     """
     clave = (nombre, color, alto, espejo)
-    if clave in _CACHE:
-        return _CACHE[clave]
+    cache = _cache_para(master)
+    if clave in cache:
+        return cache[clave]
 
     with Image.open(ruta_asset(nombre)) as abierta:
         imagen = abierta.convert("RGBA")
@@ -49,13 +69,13 @@ def cargar(nombre: str, color: str, alto: int, espejo: bool = False):
     if espejo:
         imagen = ImageOps.mirror(imagen)
 
-    foto = ImageTk.PhotoImage(imagen)
-    _CACHE[clave] = foto
+    foto = ImageTk.PhotoImage(imagen, master=master)
+    cache[clave] = foto
     return foto
 
 
 def cargar_ancho(nombre: str, ancho: int, rotar: int = 0, sustituciones=(),
-                 espejo: bool = False):
+                 espejo: bool = False, master=None):
     """Carga el PNG 'nombre' escalado a 'ancho' px, conservando sus colores.
 
     rotar         : grados en sentido horario (0, 90, 180, 270).
@@ -65,8 +85,9 @@ def cargar_ancho(nombre: str, ancho: int, rotar: int = 0, sustituciones=(),
     """
     sustituciones = tuple(sustituciones)
     clave = ("ancho", nombre, ancho, rotar, sustituciones, espejo)
-    if clave in _CACHE:
-        return _CACHE[clave]
+    cache = _cache_para(master)
+    if clave in cache:
+        return cache[clave]
 
     with Image.open(ruta_asset(nombre)) as abierta:
         imagen = abierta.convert("RGBA")
@@ -82,20 +103,21 @@ def cargar_ancho(nombre: str, ancho: int, rotar: int = 0, sustituciones=(),
     if espejo:
         imagen = ImageOps.mirror(imagen)
 
-    foto = ImageTk.PhotoImage(imagen)
-    _CACHE[clave] = foto
+    foto = ImageTk.PhotoImage(imagen, master=master)
+    cache[clave] = foto
     return foto
 
 
-def cargar_fondo(nombre: str, ancho: int, alto: int):
+def cargar_fondo(nombre: str, ancho: int, alto: int, master=None):
     """Carga el PNG 'nombre' estirado exactamente a ancho x alto (fondo)."""
     clave = ("fondo", nombre, ancho, alto)
-    if clave in _CACHE:
-        return _CACHE[clave]
+    cache = _cache_para(master)
+    if clave in cache:
+        return cache[clave]
     with Image.open(ruta_asset(nombre)) as abierta:
         imagen = abierta.convert("RGBA").resize((ancho, alto), Image.LANCZOS)
-    foto = ImageTk.PhotoImage(imagen)
-    _CACHE[clave] = foto
+    foto = ImageTk.PhotoImage(imagen, master=master)
+    cache[clave] = foto
     return foto
 
 

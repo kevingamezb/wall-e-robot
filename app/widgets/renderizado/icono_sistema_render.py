@@ -52,7 +52,8 @@ class IconoSistemaRenderer(RenderizadorBase):
     def _dibujar_imagen(self, color):
         """Dibuja (o recolorea) el PNG del ícono y oculta el glifo procedural."""
         cx, cy = self.x + self.lado / 2, self.y + self.lado / 2
-        foto = carga_recursos.cargar(self.widget.archivo, color, self.lado)
+        foto = carga_recursos.cargar(self.widget.archivo, color, self.lado,
+                                     master=self.canvas)
 
         imagen = self._primera_vez(
             "imagen",

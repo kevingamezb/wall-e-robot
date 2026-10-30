@@ -33,6 +33,7 @@ from ..widgets.renderizado.recoloreo import Recoloreo
 from ..widgets.renderizado.tarjeta import Tarjeta, pantalla_oscura, linea_vertical
 from ..widgets.renderizado.texto_render import Texto
 from ..widgets.renderizado import carga_recursos
+from .modal_controles import ModalControles
 
 
 # Tipografía de los textos del diseño (px por unidad de diseño).
@@ -51,16 +52,19 @@ def _achaflanado(caja, chaflan):
 class PantallaPrincipal:
     """Pantalla única de la aplicación: barra lateral de conexión + panel de control."""
     def __init__(self, parent, estado: EstadoRobot, escala,
-                 on_conectar=None, on_desconectar=None, on_controles=None,
-                 on_modo=None):
+                 on_conectar=None, on_desconectar=None, on_modo=None,
+                 mapeo=None, on_cambio_mapeo=None, al_captura=None):
         """
         parent         : el frame contenedor (en main.py).
         estado         : el estado compartido con todo el programa.
         escala         : Escala (unidades de diseño -> píxeles).
         on_conectar    : callback(ip, puerto); en main abre la conexión en un hilo.
         on_desconectar : callback al pulsar DESCONECTAR o cancelar la conexión.
-        on_controles   : callback al pulsar CONTROLES (abre el mapeo de teclado).
         on_modo        : callback al pulsar el rótulo de modo (manual/automático).
+        mapeo          : MapeoTeclado que edita la pestaña "Controles" de la barra
+                         lateral (None = sin esa pestaña).
+        on_cambio_mapeo: callback tras cada cambio del mapeo (para guardarlo).
+        al_captura     : callback(bool): True mientras se captura una tecla nueva.
         """
         self.estado = estado
         self.e = e = escala
@@ -68,6 +72,11 @@ class PantallaPrincipal:
         self.campo_port: tk.Entry
         self._on_conectar = on_conectar
         self._on_desconectar = on_desconectar
+        self._mapeo = mapeo
+        self._on_cambio_mapeo = on_cambio_mapeo
+        self._al_captura = al_captura
+        self._pagina = "conectar"
+        self._items_conexion = []   # ítems del formulario de conexión
         self._conexion_activa = False
         self._conexion_pendiente = False
         self._tiempos = []          # instantes de los últimos dibujos (FPS)
@@ -88,12 +97,9 @@ class PantallaPrincipal:
         self.logger = LoggerWidget(estado)
         self.gamepad = Gamepad(estado)
         self.boton_conectar = Boton("Conectar")
-        self.boton_controles = Boton("Controles")
         # El botón de modo solo se habilita con conexión (necesita al robot).
         self.boton_modo = Boton("MODO: --", habilitado=False)
         self.boton_conectar.suscribir(self._al_pulsar_conectar)
-        if on_controles is not None:
-            self.boton_controles.suscribir(on_controles)
         if on_modo is not None:
             self.boton_modo.suscribir(on_modo)
 
@@ -112,9 +118,9 @@ class PantallaPrincipal:
         """Fondo plateado, logo, cabecera y los dos paneles negros."""
         e, c = self.e, self.canvas
         c.create_image(0, 0, image=carga_recursos.cargar_fondo(
-            "fondo_app", e.ancho, e.alto), anchor="nw")
+            "fondo_app", e.ancho, e.alto, master=c), anchor="nw")
         c.create_image(e(66), e(238), image=carga_recursos.cargar_ancho(
-            "titulo", e(828)), anchor="nw")
+            "titulo", e(828), master=c), anchor="nw")
 
         for caja, chaflan in ((Disenio.BARRA_LATERAL, 40),
                               (Disenio.PANEL_CENTRAL, Disenio.CHAFLAN_PANEL)):
@@ -125,7 +131,7 @@ class PantallaPrincipal:
         # Cabecera: rayas + título + telemetría.
         x1, y1, x2, _ = Disenio.RAYAS_TITULO
         c.create_image(e(x1), e(y1), image=carga_recursos.cargar_ancho(
-            "bombillitos", e(x2 - x1)), anchor="nw")
+            "bombillitos", e(x2 - x1), master=c), anchor="nw")
         tx, ty, _, tb = Disenio.TITULO_PANEL
         Texto(c, e(tx), e((ty + tb) / 2), "Panel de Control", e.fuente(92),
               Paleta.TEXTO_LOG, ancla="w", contorno=Paleta.TINTA,
@@ -142,17 +148,22 @@ class PantallaPrincipal:
             x1 + e(40), y1, x2 - e(40), y1, x2, y1 + e(40), x2, y2, x1, y2,
             x1, y1 + e(40), fill=COLOR_TAB_FONDO, outline="")
 
-        # Pestañas: "Conectar" (activa) y "Controles" (abre el mapeo de teclas).
+        # Pestañas: "Conectar" (activa) y "Controles" (editor de teclas).
         cx, cy, cx2, cy2 = Disenio.TAB_CONECTAR
-        Texto(c, e((cx + cx2) / 2), e((cy + cy2) / 2), "Conectar", e.fuente(44),
-              Paleta.DORADO, ancla="center")
+        self._tab_conectar = Texto(c, e((cx + cx2) / 2), e((cy + cy2) / 2),
+                                   "Conectar", e.fuente(44), Paleta.DORADO,
+                                   ancla="center")
         kx, ky, kx2, ky2 = Disenio.TAB_CONTROLES
         self._tab_controles = Texto(c, e((kx + kx2) / 2), e((ky + ky2) / 2),
                                     "Controles", e.fuente(44), Paleta.TEXTO_LOG,
                                     ancla="center")
-        self._enlazar_clic(self._tab_controles.id, self.boton_controles,
-                           lambda hover: self._tab_controles.poner(
-                               color=Paleta.DORADO if hover else Paleta.TEXTO_LOG))
+        for pestana, nombre in ((self._tab_conectar, "conectar"),
+                                (self._tab_controles, "controles")):
+            c.tag_bind(pestana.id, "<ButtonPress-1>",
+                       lambda _ev, n=nombre: self.mostrar_pagina(n))
+            c.tag_bind(pestana.id, "<Enter>",
+                       lambda _ev: c.configure(cursor="hand2"))
+            c.tag_bind(pestana.id, "<Leave>", lambda _ev: c.configure(cursor=""))
 
         # Campos IP y puerto.
         familia = tkfont.nametofont("TkDefaultFont").actual("family")
@@ -161,8 +172,9 @@ class PantallaPrincipal:
             (Disenio.ETIQUETA_PORT, Disenio.CAMPO_PORT, "PORT:", "8080", "campo_port"),
         ):
             ex, ey, _, eb = caja_etiqueta
-            Texto(c, e(ex), e(eb), etiqueta, e.fuente(88), Paleta.DORADO,
-                  ancla="sw")
+            self._items_conexion.append(Texto(
+                c, e(ex), e(eb), etiqueta, e.fuente(88), Paleta.DORADO,
+                ancla="sw").id)
             fx1, fy1, fx2, fy2 = e.caja(caja_campo)
             campo = tk.Entry(
                 c, font=(familia, -max(10, e(48))), bg=Paleta.TARJETA,
@@ -171,8 +183,9 @@ class PantallaPrincipal:
                 disabledforeground=Paleta.FONDO_WIDGET)
             campo.insert(0, valor)
             campo.bind("<Return>", lambda _ev: self.boton_conectar.presionar())
-            c.create_window(fx1, fy1, window=campo, anchor="nw",
-                            width=fx2 - fx1, height=fy2 - fy1)
+            self._items_conexion.append(c.create_window(
+                fx1, fy1, window=campo, anchor="nw",
+                width=fx2 - fx1, height=fy2 - fy1))
             setattr(self, nombre, campo)
 
         # Botón Conectar / Desconectar.
@@ -189,6 +202,40 @@ class PantallaPrincipal:
         sx, sy, _, _ = Disenio.ESTADO_CONEXION
         self._estado_conexion = Texto(c, e(sx), e(sy), "", e.fuente(46),
                                       Paleta.GRIS, ancla="nw")
+        self._items_conexion.append(self._estado_conexion.id)
+
+        # Pestaña "Controles": el editor de teclas ocupa el lugar del formulario.
+        self.panel_controles = None
+        if self._mapeo is not None:
+            self.panel_controles = ModalControles(
+                c, self._mapeo, on_cambio=self._on_cambio_mapeo or (lambda: None),
+                incrustado=True, al_captura=self._al_captura, escala=e)
+            px, py, px2, py2 = e.caja(Disenio.PANEL_CONTROLES)
+            self._ventana_controles = c.create_window(
+                px, py, window=self.panel_controles.ventana, anchor="nw",
+                width=px2 - px, height=py2 - py, state="hidden")
+
+    def mostrar_pagina(self, pagina: str):
+        """Cambia el contenido de la barra lateral: 'conectar' o 'controles'."""
+        if pagina == "controles" and self.panel_controles is None:
+            return
+        if pagina == "conectar" and self.panel_controles is not None:
+            # Si se oculta el panel a mitad de captura, se cancela: si no, la
+            # siguiente tecla (p. ej. al escribir la IP) cambiaría el mapeo.
+            self.panel_controles.cancelar_captura()
+        self._pagina = pagina
+        c = self.canvas
+        en_conexion = pagina == "conectar"
+        for item in self._items_conexion:
+            c.itemconfig(item, state="normal" if en_conexion else "hidden")
+        self.render_conectar.mostrar(en_conexion)
+        if self.panel_controles is not None:
+            c.itemconfig(self._ventana_controles,
+                         state="hidden" if en_conexion else "normal")
+        self._tab_conectar.poner(
+            color=Paleta.DORADO if en_conexion else Paleta.TEXTO_LOG)
+        self._tab_controles.poner(
+            color=Paleta.TEXTO_LOG if en_conexion else Paleta.DORADO)
 
     def _enlazar_clic(self, item, boton, al_hover=None):
         """Hace que un ítem del canvas se comporte como botón lógico."""
@@ -437,6 +484,7 @@ class PantallaPrincipal:
         self.t_control.alertar(Paleta.DORADO if self.gamepad.habilitado
                                else Paleta.GRIS)
         self.render_conectar.dibujar()
+        self.render_conectar.mostrar(self._pagina == "conectar")
 
 
 # Cajón de Pruebas

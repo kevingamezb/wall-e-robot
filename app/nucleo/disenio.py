@@ -60,6 +60,9 @@ class Disenio:
     LOGO            = (68, 216, 880, 394)
     BARRA_LATERAL   = (26, 410, 937, 2134)
     SELECTOR        = (26, 410, 937, 475)
+    # Editor de teclas incrustado: debajo de las pestañas y dentro de la barra,
+    # sin tocar el panel central.
+    PANEL_CONTROLES = (26, 520, 937, 2080)
     PANEL_CENTRAL   = (985, 387, 3820, 2139)
     CHAFLAN_PANEL   = 44
 

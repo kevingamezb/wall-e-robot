@@ -8,6 +8,7 @@ El modal se monta sobre una raíz de Tkinter retirada; no se muestra ventana.
 
 
 import types
+import tkinter as tk
 
 import pytest
 
@@ -36,7 +37,8 @@ def test_filas_muestran_las_teclas_de_fabrica(modal):
     instancia, _ = modal
     instancia._refrescar_filas()
     btn_arriba, _ = instancia._filas["arriba"]
-    assert btn_arriba.cget("text") == "\u2191"
+    assert btn_arriba._texto_plano == "\u2191"
+    assert btn_arriba._texto_quadrillion is not None
 
 
 def test_captura_asigna_y_notifica(modal):
@@ -86,7 +88,7 @@ def test_tecla_robada_avisa_quien_la_perdio(modal):
 
     assert instancia.mapeo.tecla_de("abajo") == "q"
     assert instancia.mapeo.tecla_de("cuello_mas") is None
-    assert "la perdi\u00f3" in instancia.lbl_estado.cget("text")
+    assert "la perdi\u00f3" in instancia.lbl_estado._texto_plano
 
 
 def test_limpiar_y_restaurar(modal):
@@ -116,3 +118,34 @@ def test_accion_inexistente_lanza_keyerror(modal):
     instancia, _ = modal
     with pytest.raises(KeyError):
         instancia._accion("no_existe")
+
+
+def test_incrustado_usa_frame_y_avisa_captura(raiz_tk):
+    """El modo incrustado crea un Frame y notifica al entrar/salir de captura."""
+    avisos = []
+    instancia = ModalControles(
+        raiz_tk, MapeoTeclado(), incrustado=True, al_captura=avisos.append)
+    raiz_tk.update()
+
+    assert isinstance(instancia.ventana, tk.Frame)
+
+    instancia._empezar_captura("arriba")
+    assert avisos == [True]
+
+    instancia._al_tecla(_tecla("U"))
+    assert avisos == [True, False]
+
+    instancia.ventana.destroy()
+
+
+def test_cancelar_captura_avisa_sin_cambiar(modal):
+    """cancelar_captura sale del modo sin tocar el mapeo ni notificar cambios."""
+    instancia, cambios = modal
+    original = instancia.mapeo.tecla_de("abajo")
+
+    instancia._empezar_captura("abajo")
+    instancia.cancelar_captura()
+
+    assert instancia._capturando is None
+    assert instancia.mapeo.tecla_de("abajo") == original
+    assert cambios == []

@@ -14,7 +14,6 @@ from .nucleo.disenio import escala_para_pantalla
 from .nucleo.estado import EstadoRobot, NivelLog, Modo
 from .comunicacion.conexion import Comunicacion, ConexionOffline
 from .pantallas.pantalla_principal import PantallaPrincipal
-from .pantallas.modal_controles import ModalControles
 from .widgets.logica.mapeo_teclado import MapeoTeclado
 from .widgets.logica.control_teclado import ControlTeclado
 
@@ -50,27 +49,30 @@ class Aplicacion:
         self.contenedor = tk.Frame(root, bg=Paleta.FONDO_APP)
         self.contenedor.pack(fill="both", expand=True)
 
+        # Mapeo de teclado.
+        self.mapeo = MapeoTeclado.cargar()
+
         self.pantalla = PantallaPrincipal(
             self.contenedor,
             self.estado,
             escala,
             on_conectar=self._conectar,
             on_desconectar=self._desconectar,
-            on_controles=self._abrir_controles,
             on_modo=self._cambiar_modo,
+            mapeo=self.mapeo,
+            on_cambio_mapeo=self.mapeo.guardar,
+            # Mientras se captura una tecla nueva, el teclado no mueve al robot.
+            al_captura=self._suspender_teclado,
         )
         # El gamepad dispara siempre hacia la conexión activa (real u offline).
         self.pantalla.conectar_gamepad(lambda cmd: self.conexion.enviar_mensaje(cmd))
 
-        # Mapeo de teclado: perfil persistido (o de fábrica).
-        self.mapeo = MapeoTeclado.cargar()
         self.control_teclado = ControlTeclado(self.root, self.mapeo,
                                               self.pantalla.gamepad)
 
-    # Controles de teclado
-    def _abrir_controles(self):
-        """Abre el modal de asignación de teclas y guarda cada cambio."""
-        ModalControles(self.root, self.mapeo, on_cambio=self.mapeo.guardar)
+    def _suspender_teclado(self, activa: bool):
+        """Suspende el control por teclado mientras se captura una tecla nueva."""
+        self.control_teclado.suspendido = activa
 
     # Conexión con el robot
     def _conectar(self, ip: str, puerto: int = PUERTO):

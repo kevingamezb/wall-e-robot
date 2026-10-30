@@ -75,7 +75,7 @@ class Tarjeta:
             sustituciones=[
                 (Paleta.DORADO_BORDE, Recoloreo.interpolar(color, "#000000", 0.62)),
                 (Paleta.DORADO, color),
-            ])
+            ], master=self.canvas)
         if self._pastilla is None:
             self._pastilla = self.canvas.create_image(
                 *self._pastilla_xy, image=foto, anchor="nw")

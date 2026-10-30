@@ -99,8 +99,10 @@ class OjosRenderer(RenderizadorBase):
 
         cy = self.y + self.alto_imagen / 2
         archivo = RECURSOS[expresion]
-        izquierda = carga_recursos.cargar(archivo, color, self.alto_imagen)
-        derecha = carga_recursos.cargar(archivo, color, self.alto_imagen, espejo=True)
+        izquierda = carga_recursos.cargar(archivo, color, self.alto_imagen,
+                                          master=self.canvas)
+        derecha = carga_recursos.cargar(archivo, color, self.alto_imagen,
+                                        espejo=True, master=self.canvas)
 
         ojo_izq = self._primera_vez(
             "img_izq",

@@ -1,7 +1,5 @@
 # wall-e-robot/app/widgets/logica/control_teclado.py
 # Kevin Gámez - 06/10/2026
-#
-
 
 
 import tkinter as tk
@@ -11,11 +9,8 @@ from .mapeo_teclado import (
     ACCIONES, DISCRETO, EJE, MODIFICADORAS, Accion, MapeoTeclado, accion_por_id,
 )
 
-# Milisegundos entre pasos mientras se mantiene pulsada una tecla de eje.
-INTERVALO_PASO_MS = 120
-# Direcciones de motor: se re-emiten con el auto-repetido del teclado para
-# que el movimiento no se corte por timeout en el robot.
-MOTOR_ACCIONES = {"arriba", "abajo", "izquierda", "derecha"}
+INTERVALO_PASO_MS = 120 # Milisegundos entre pasos mientras se mantiene pulsada una tecla de eje.
+MOTOR_ACCIONES = {"arriba", "abajo", "izquierda", "derecha"} # Direcciones de motor
 
 # Acción -> botón del Gamepad que la recibe.
 BOTONES = {
@@ -47,12 +42,16 @@ class ControlTeclado:
         self._pulsadas = set()
         self._temporizadores = {}
 
-        raiz.bind("<KeyPress>", self._al_presionar)
-        raiz.bind("<KeyRelease>", self._al_soltar)
+        # True mientras el panel de controles captura una tecla nueva.
+        self.suspendido = False
+        raiz.bind("<KeyPress>", self._al_presionar, add="+")
+        raiz.bind("<KeyRelease>", self._al_soltar, add="+")
         raiz.bind("<FocusOut>", lambda _e: self.limpiar_estado())
 
     # Entrada de teclado 
     def _al_presionar(self, evento):
+        if self.suspendido or isinstance(getattr(evento, "widget", None), tk.Entry):
+            return   # captura de tecla en curso, o se está escribiendo en un campo
         keysym = evento.keysym
         if keysym in MODIFICADORAS:
             return
@@ -73,6 +72,8 @@ class ControlTeclado:
             self._pulsar_boton(accion_id)
 
     def _al_soltar(self, evento):
+        if self.suspendido or isinstance(getattr(evento, "widget", None), tk.Entry):
+            return   # captura de tecla en curso, o se está escribiendo en un campo
         keysym = evento.keysym
         self._pulsadas.discard(keysym)
 
