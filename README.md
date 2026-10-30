@@ -24,7 +24,7 @@ especializados enlazados más abajo.
 ## ✨ Características principales
 
 * **🧠 Navegación inteligente:** modo autónomo con bucle de control no bloqueante (`millis()`) y evasión de obstáculos.
-* **💻 App de escritorio:** panel de control modular en Python (Tkinter); **sin hilos**, con socket no bloqueante y refresco por eventos (`after`).
+* **💻 App de escritorio:** panel de control modular en Python (Tkinter); la conexión se abre en un hilo aparte para no congelar la GUI, con socket no bloqueante y refresco por eventos (`after`).
 * **🎮 Control manual explícito:** botón **MODO** (manual/automático); el gamepad solo manda en manual.
 * **📡 Telemetría en tiempo real:** comunicación bidireccional WiFi/TCP con mensajes JSON de una sola línea (`\n`).
 * **⚡ Actualizaciones inalámbricas:** soporte OTA con validación MD5 y guardia de rollback.

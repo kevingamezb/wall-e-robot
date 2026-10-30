@@ -57,8 +57,8 @@ class PantallaPrincipal:
         parent         : el frame contenedor (en main.py).
         estado         : el estado compartido con todo el programa.
         escala         : Escala (unidades de diseño -> píxeles).
-        on_conectar    : callback(ip, puerto); puede lanzar OSError/ValueError.
-        on_desconectar : callback al pulsar DESCONECTAR.
+        on_conectar    : callback(ip, puerto); en main abre la conexión en un hilo.
+        on_desconectar : callback al pulsar DESCONECTAR o cancelar la conexión.
         on_controles   : callback al pulsar CONTROLES (abre el mapeo de teclado).
         on_modo        : callback al pulsar el rótulo de modo (manual/automático).
         """
@@ -69,6 +69,7 @@ class PantallaPrincipal:
         self._on_conectar = on_conectar
         self._on_desconectar = on_desconectar
         self._conexion_activa = False
+        self._conexion_pendiente = False
         self._tiempos = []          # instantes de los últimos dibujos (FPS)
         self._latencia_ms = None
 
@@ -302,7 +303,11 @@ class PantallaPrincipal:
         self.gamepad.suscribir_comando(callback)
 
     def _al_pulsar_conectar(self):
-        """Botón de la barra lateral: conecta o desconecta."""
+        """Botón de la barra lateral: conecta, cancela el intento o desconecta."""
+        if self._conexion_pendiente:
+            if self._on_desconectar:
+                self._on_desconectar()
+            return
         if self._conexion_activa:
             if self._on_desconectar:
                 self._on_desconectar()
@@ -322,6 +327,18 @@ class PantallaPrincipal:
         self._estado_conexion.poner(
             texto=textwrap.fill(mensaje, 24), color=Paleta.ROJO)
 
+    def establecer_conectando(self, etiqueta: str):
+        """Indica que se está abriendo la conexión; el botón permite cancelar."""
+        self._conexion_pendiente = True
+        self._conexion_activa = False
+        self.boton_modo.habilitado = False
+        self.boton_conectar.texto = "Cancelar"
+        for campo in (self.campo_ip, self.campo_port):
+            campo.config(state="disabled")
+        self._estado_conexion.poner(
+            texto=textwrap.fill(f"Conectando a {etiqueta}...", 24),
+            color=Paleta.DORADO)
+
     def establecer_conexion(self, activa: bool, etiqueta: str):
         """
         Refleja el estado de la conexión en la interfaz.
@@ -329,6 +346,7 @@ class PantallaPrincipal:
         activa   : si hay (o no) un robot del que leer.
         etiqueta : qué dice el indicador (p. ej. "SIN CONEXIÓN", una IP...).
         """
+        self._conexion_pendiente = False
         self._conexion_activa = activa
         # El botón de modo necesita al robot para enviarle el comando.
         self.boton_modo.habilitado = activa

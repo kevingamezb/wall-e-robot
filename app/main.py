@@ -6,6 +6,8 @@
 #   python -m app.main   (o, equivalentemente,  python -m app)
 
 
+import queue
+import threading
 import tkinter as tk
 from .nucleo.paleta import Paleta
 from .nucleo.disenio import escala_para_pantalla
@@ -38,6 +40,13 @@ class Aplicacion:
         # Arranca sin conexión: al entrar se pide la IP del robot (ver iniciar()).
         self.conexion = ConexionOffline()
 
+        # La conexión TCP se abre en un hilo para no congelar la GUI mientras
+        # el socket espera al ESP32. El hilo deja el resultado en esta cola y
+        # el ciclo de la aplicación (hilo de Tk) lo aplica.
+        self._conexion_pendiente = False
+        self._intento_conexion = 0
+        self._resultados_conexion: queue.Queue = queue.Queue()
+
         self.contenedor = tk.Frame(root, bg=Paleta.FONDO_APP)
         self.contenedor.pack(fill="both", expand=True)
 
@@ -65,18 +74,71 @@ class Aplicacion:
 
     # Conexión con el robot
     def _conectar(self, ip: str, puerto: int = PUERTO):
-        """Cambia a la conexión real con el ESP32 de la IP y puerto dados.
+        """Intenta abrir la conexión real con el ESP32 en segundo plano.
 
-        Lanza OSError/ValueError si no se puede abrir el socket; la pantalla
-        lo muestra bajo el botón Conectar.
+        El socket puede tardar varios segundos en responder (o agotar su
+        tiempo de espera), así que se abre en un hilo aparte para que la
+        ventana siga respondiendo. El resultado se recoge en ciclo().
         """
-        nueva = Comunicacion(ip, puerto)
+        if self._conexion_pendiente:
+            return   # ya hay un intento en curso
+
+        self._conexion_pendiente = True
+        self._intento_conexion += 1
+        self.pantalla.establecer_conectando(ip)
+
+        hilo = threading.Thread(
+            target=self._abrir_conexion,
+            args=(self._intento_conexion, ip, puerto),
+            name="conexion-robot",
+            daemon=True,
+        )
+        hilo.start()
+
+    def _abrir_conexion(self, intento: int, ip: str, puerto: int):
+        """Hilo de trabajo: crea la Comunicacion y publica el resultado."""
+        try:
+            nueva = Comunicacion(ip, puerto)
+        except (OSError, ValueError) as error:
+            self._resultados_conexion.put((intento, ip, None, error))
+        else:
+            self._resultados_conexion.put((intento, ip, nueva, None))
+
+    def _procesar_resultados_conexion(self):
+        """Aplica en el hilo de Tk los resultados que dejó el hilo de conexión."""
+        while True:
+            try:
+                intento, ip, nueva, error = self._resultados_conexion.get_nowait()
+            except queue.Empty:
+                return
+            self._aplicar_resultado_conexion(intento, ip, nueva, error)
+
+    def _aplicar_resultado_conexion(self, intento, ip, nueva, error):
+        """Cierra o adopta el socket según haya ido el intento."""
+        # Un intento viejo (el usuario desconectó o reconectó mientras tanto)
+        # no debe pisar la conexión actual; si abrió un socket, se descarta.
+        if intento != self._intento_conexion:
+            if nueva is not None:
+                nueva.cerrar()
+            return
+
+        self._conexion_pendiente = False
+
+        if error is not None:
+            self.pantalla.establecer_conexion(False, "SIN CONEXI\u00d3N")
+            self.pantalla.mostrar_error(f"No se pudo conectar: {error}")
+            return
+
         self._cerrar_conexion_actual()
         self.conexion = nueva
         self.pantalla.establecer_conexion(True, ip)
 
     def _desconectar(self):
         """Cierra la conexión actual y deja el panel sin conexión."""
+        # Invalida cualquier intento en curso: si su socket llega después,
+        # _aplicar_resultado_conexion lo cerrará sin activarlo.
+        self._intento_conexion += 1
+        self._conexion_pendiente = False
         self._cerrar_conexion_actual()
         self.conexion = ConexionOffline()
         self.pantalla.establecer_conexion(False, "SIN CONEXI\u00d3N")
@@ -98,6 +160,7 @@ class Aplicacion:
     # Bucle principal de la aplicación
     def ciclo(self):
         """Un paso de la aplicación: leer al robot y redibujar la pantalla."""
+        self._procesar_resultados_conexion()
         self.conexion.actualizar_estado(self.estado)
 
         # Si el robot se apagó/reinició en plena conexión, la red lo marca como
