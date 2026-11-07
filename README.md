@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  [![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/kevingamezb/badge.svg)](https://hub.xerj.org/contributors/kevingamezb)
+  <a href="https://hub.xerj.org/contributors/kevingamezb"><img alt="XERJ Corpus Hub contributor" src="https://hub.xerj.org/contributors/kevingamezb/badge.svg"></a>
 </p>
 
 ---
