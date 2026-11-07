@@ -77,6 +77,31 @@ sudo apt install ./wall-e_<versión>_amd64.deb
 
 Los pull request compilan los mismos artefactos, pero no publican release.
 
+### 🪟 Windows: SmartScreen y antivirus
+
+`Wall-E.exe` se compila con PyInstaller en modo `--onefile`, que se autoextrae
+en `%TEMP%` al arrancar. Ese patrón hace que SmartScreen o Defender puedan
+marcarlo como desconocido o como falso positivo (`Trojan:Win32/...!ml`), aunque
+el binario sea limpio. Los metadatos de versión, el icono propio y desactivar
+UPX reducen la probabilidad, pero **la solución definitiva es firmar el
+ejecutable** con un certificado de código.
+
+Si aparece el aviso:
+
+1. Pulsa **Más información → Ejecutar de todas formas**.
+2. Si Defender lo pone en cuarentena, restáuralo desde **Seguridad de Windows →
+   Protección antivirus y contra amenazas → Historial de protección**.
+3. Si prefieres evitar el `--onefile`, usa el ZIP
+   `wall-e-<versión>-win64.zip`: la app se ejecuta desde una carpeta
+   (`--onedir`), un patrón que los antivirus marcan mucho menos.
+
+Para ayudar a quitar el falso positivo, envía `Wall-E.exe` en
+[Microsoft Security Intelligence](https://www.microsoft.com/en-us/wdsi/filesubmission)
+como **Clean (false positive)**. La firma de código (SignPath Foundation para
+proyectos open source, o un certificado OV) permite además construir reputación
+en SmartScreen; un certificado autofirmado no sirve para distribución pública.
+
+
 ## 🚀 Inicio rápido (app)
 
 Desde la raíz del repositorio:

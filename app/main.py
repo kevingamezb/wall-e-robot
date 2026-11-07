@@ -9,6 +9,7 @@
 import queue
 import threading
 import tkinter as tk
+from .rutas import directorio_recursos
 from .nucleo.paleta import Paleta
 from .nucleo.disenio import escala_para_pantalla
 from .nucleo.estado import EstadoRobot, NivelLog, Modo
@@ -267,9 +268,23 @@ class Aplicacion:
         self.root.mainloop()
 
 
+def _aplicar_icono(ventana: tk.Tk):
+    """Usa app/recursos/icono.png como icono de la ventana, si existe."""
+    ruta = directorio_recursos() / "icono.png"
+    if not ruta.is_file():
+        return
+    try:
+        imagen = tk.PhotoImage(file=str(ruta))
+    except (tk.TclError, OSError):
+        return   # recurso invalido o Tk sin soporte: la app sigue arrancando
+    ventana.iconphoto(True, imagen)
+    setattr(ventana, "_icono", imagen)   # evita que el recolector libere la imagen
+
+
 def main():
     """Crea la ventana raíz y arranca la aplicación."""
     ventana = tk.Tk()
+    _aplicar_icono(ventana)
     escala = escala_para_pantalla(ventana.winfo_screenwidth(),
                                   ventana.winfo_screenheight())
     ventana.geometry(f"{escala.ancho}x{escala.alto}")

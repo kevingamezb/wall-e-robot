@@ -189,6 +189,47 @@ def test_generar_icono_cuadrado(empaquetador, tmp_path):
         assert imagen.size == (256, 256)
 
 
+def test_generar_icono_png_en_tamano_pedido(empaquetador, tmp_path):
+    """El .deb puede pedir cada tamano del icono por separado."""
+    from PIL import Image
+
+    ruta = empaquetador.generar_icono_cuadrado(
+        tmp_path / "wall-e-512.png", "png", 512)
+
+    with Image.open(ruta) as imagen:
+        assert imagen.size == (512, 512)
+
+
+def test_icono_dedicado_tiene_prioridad(empaquetador, tmp_path, monkeypatch):
+    """Si existe icono.png se usa en vez del titulo de respaldo."""
+    from PIL import Image
+
+    origen = tmp_path / "icono.png"
+    Image.new("RGBA", (64, 64), (255, 0, 0, 255)).save(origen)
+    monkeypatch.setattr(empaquetador, "ICONO", origen)
+    monkeypatch.setattr(empaquetador, "ICONO_RESPALDO",
+                        tmp_path / "no-existe.png")
+
+    ruta = empaquetador.generar_icono_cuadrado(
+        tmp_path / "salida.png", "png", 32)
+
+    with Image.open(ruta) as imagen:
+        assert imagen.size == (32, 32)
+        assert imagen.getpixel((16, 16))[:3] == (255, 0, 0)
+
+
+def test_generar_version_info_windows(empaquetador, tmp_path):
+    """El .exe lleva fabricante, producto y version en sus metadatos."""
+    ruta = empaquetador.generar_version_info_windows(
+        tmp_path / "version_info.txt", "1.2.3")
+
+    texto = ruta.read_text(encoding="utf-8")
+
+    assert "filevers=(1, 2, 3, 0)" in texto
+    assert "StringStruct('ProductName', 'WALL-E')" in texto
+    assert "StringStruct('FileVersion', '1.2.3')" in texto
+
+
 def test_exe_solo_se_construye_en_windows(empaquetador):
     """En Linux/macOS construir_exe falla con un error claro."""
     if sys.platform == "win32":

@@ -52,7 +52,10 @@ SECRETS_DIST = CARPETA_TRABAJO / "secrets.distribucion.h"
 LANZADOR = CARPETA_TRABAJO / "lanzador.py"
 NOMBRE_APP = "Wall-E"
 MANTENEDOR = "Kevin Gámez <est.kevin.gamez@unimilitar.edu.co>"
-ICONO = RAIZ / "app" / "recursos" / "titulo.png"
+# Icono dedicado (cuadrado, 1024x1024 recomendado). Si no existe se usa el
+# antiguo titulo.png como respaldo para no romper builds sin diseno nuevo.
+ICONO = RAIZ / "app" / "recursos" / "icono.png"
+ICONO_RESPALDO = RAIZ / "app" / "recursos" / "titulo.png"
 
 # Nombres que NUNCA deben entrar en la distribucion (secretos y artefactos de
 # desarrollo). Se comprueba sobre cada parte de la ruta relativa.
@@ -74,6 +77,54 @@ def leer_version(raiz: Path = RAIZ) -> str:
         return "?"
     coincidencia = re.search(r'PROYECTO_VERSION\s*=\s*"([^"]+)"', contenido)
     return coincidencia.group(1) if coincidencia else "?"
+
+
+def _version_numerica(version: str) -> tuple[int, int, int, int]:
+    """Convierte '1.2.3' en (1, 2, 3, 0), como exige el recurso PE."""
+    numeros = [int(n) for n in re.findall(r"\d+", version)[:4]]
+    return tuple((numeros + [0, 0, 0, 0])[:4])
+
+
+def generar_version_info_windows(destino: Path, version: str) -> Path:
+    """Genera el recurso de version PE que PyInstaller incrusta en el .exe.
+
+    Windows y los antivirus usan estos metadatos para identificar al
+    fabricante y al producto. Un ejecutable sin version info parece mas
+    sospechoso para SmartScreen y los motores heuristicos.
+    """
+    a, b, c, d = _version_numerica(version)
+    contenido = f"""# Generado por scripts/empaquetar_distribucion.py
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=({a}, {b}, {c}, {d}),
+    prodvers=({a}, {b}, {c}, {d}),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)
+  ),
+  kids=[
+    StringFileInfo([
+      StringTable(
+        '040904B0',
+        [StringStruct('CompanyName', 'Kevin Gamez'),
+         StringStruct('FileDescription', 'WALL-E - Panel de control del robot'),
+         StringStruct('FileVersion', '{version}'),
+         StringStruct('InternalName', 'Wall-E'),
+         StringStruct('LegalCopyright', 'Copyright (C) 2026 Kevin Gamez'),
+         StringStruct('OriginalFilename', 'Wall-E.exe'),
+         StringStruct('ProductName', 'WALL-E'),
+         StringStruct('ProductVersion', '{version}')])
+    ]),
+    VarFileInfo([VarStruct('Translation', [1033, 1200])])
+  ]
+)
+"""
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    destino.write_text(contenido, encoding="utf-8")
+    return destino
 
 
 def md5_archivo(ruta: Path) -> str:
@@ -245,32 +296,43 @@ def compilar_firmware_solo(salida: Path = None) -> Path:
     return destino
 
 
-def generar_icono_cuadrado(destino: Path, formato: str):
-    """Genera un icono cuadrado (ICO/PNG) a partir de app/recursos/titulo.png.
+def ruta_icono_origen() -> Path | None:
+    """Devuelve el icono dedicado o, si no existe, el titulo de respaldo."""
+    for ruta in (ICONO, ICONO_RESPALDO):
+        if ruta.is_file():
+            return ruta
+    return None
 
-    El PNG de origen no es cuadrado; se centra sobre un lienzo transparente
-    para que el icono no se deforme. Devuelve la ruta o None si no hay origen.
+
+def generar_icono_cuadrado(destino: Path, formato: str, lado: int = 256):
+    """Genera un icono cuadrado (ICO/PNG) desde el PNG de origen.
+
+    Si el origen no es cuadrado, se centra sobre un lienzo transparente para
+    que el icono no se deforme. El ICO incluye todos los tamanos que usa
+    Windows; el PNG se redimensiona al tamano pedido. Devuelve la ruta o None
+    si no hay origen o falta Pillow.
     """
-    if not ICONO.is_file():
+    origen = ruta_icono_origen()
+    if origen is None:
         return None
     try:
         from PIL import Image
     except ImportError:
         return None
 
-    imagen = Image.open(ICONO).convert("RGBA")
-    lado = max(imagen.size)
-    lienzo = Image.new("RGBA", (lado, lado), (0, 0, 0, 0))
-    lienzo.paste(imagen, ((lado - imagen.width) // 2,
-                          (lado - imagen.height) // 2), imagen)
+    imagen = Image.open(origen).convert("RGBA")
+    mayor = max(imagen.size)
+    lienzo = Image.new("RGBA", (mayor, mayor), (0, 0, 0, 0))
+    lienzo.paste(imagen, ((mayor - imagen.width) // 2,
+                          (mayor - imagen.height) // 2), imagen)
 
     destino.parent.mkdir(parents=True, exist_ok=True)
     if formato == "ico":
         lienzo.save(destino, format="ICO",
-                    sizes=[(16, 16), (24, 24), (32, 32), (48, 48),
-                           (64, 64), (128, 128), (256, 256)])
+                    sizes=[(16, 16), (20, 20), (24, 24), (32, 32), (40, 40),
+                           (48, 48), (64, 64), (128, 128), (256, 256)])
     else:
-        lienzo.resize((256, 256), Image.LANCZOS).save(destino, format="PNG")
+        lienzo.resize((lado, lado), Image.LANCZOS).save(destino, format="PNG")
     return destino
 
 
@@ -288,6 +350,8 @@ def _ejecutar_pyinstaller(destino: Path, temporal: Path, onefile: bool):
     comando = [
         sys.executable, "-m", "PyInstaller",
         "--noconfirm", "--onefile" if onefile else "--onedir", "--windowed",
+        # UPX comprime el binario y es un disparador clasico de heuristicas.
+        "--noupx",
         "--name", NOMBRE_APP,
         "--distpath", str(destino),
         "--workpath", str(temporal / "pyinstaller_build"),
@@ -302,6 +366,10 @@ def _ejecutar_pyinstaller(destino: Path, temporal: Path, onefile: bool):
         icono = generar_icono_cuadrado(temporal / "wall-e.ico", "ico")
         if icono:
             comando += ["--icon", str(icono)]
+        # Fabricante, producto y version visibles en las propiedades del .exe.
+        info = generar_version_info_windows(
+            temporal / "version_info.txt", leer_version())
+        comando += ["--version-file", str(info)]
     comando.append(str(LANZADOR))
 
     modo = "onefile" if onefile else "onedir"
@@ -484,10 +552,12 @@ def construir_deb(firmware_bin=None, salida: Path = None) -> Path:
             "Keywords=robot;esp32;wall-e;\n",
             encoding="utf-8",
         )
-        icono_dir = raiz / "usr" / "share" / "icons" / "hicolor" / \
-            "256x256" / "apps"
-        icono_dir.mkdir(parents=True)
-        generar_icono_cuadrado(icono_dir / "wall-e.png", "png")
+        # Iconos en todos los tamanos que usan los escritorios (freedesktop).
+        for lado in (16, 24, 32, 48, 64, 128, 256, 512):
+            icono_dir = raiz / "usr" / "share" / "icons" / "hicolor" / \
+                f"{lado}x{lado}" / "apps"
+            icono_dir.mkdir(parents=True)
+            generar_icono_cuadrado(icono_dir / "wall-e.png", "png", lado)
 
         # 4) Firmware OTA + documentación.
         doc_dir = raiz / "usr" / "share" / "doc" / "wall-e"
