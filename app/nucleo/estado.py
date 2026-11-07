@@ -2,6 +2,16 @@
 # Kevin Gámez - 26/08/2026
 
 
+# No es común (creo) encontrar mensajes del desarrollador en el código fuente, pero hoy es un día especial...
+# Llevo trabajando en este proyecto (universitario) para manejar un robot, este fue el primer archivo que escribí
+# "el corazón" de la máquina diría yo, hoy 6 de noviembre puedo decir que valió la pena, estoy agradecido con el
+# apoyo de mi equipo que recibí y el reconocimiento del equipo de XERJ a mi trabajo.
+# Este es mi primer proyecto "importante" en el que he trabajado, y estoy otgulloso hasta donde ha llegado...
+# y pueda llegar.
+#
+# - Con amor, Kevin Gámez
+
+
 from enum import Enum
 from dataclasses import dataclass, field
 from collections import deque
