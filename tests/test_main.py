@@ -14,6 +14,7 @@ import queue
 import pytest
 
 from app.comunicacion.conexion import ConexionOffline
+from app.nucleo.estado import EstadoRobot
 from app import main as modulo_main
 from app.main import Aplicacion
 
@@ -25,15 +26,38 @@ class _PantallaFalsa:
         self.conectando = None
         self.conexion = None
         self.error = None
+        self.latencia = None
+        self.dibujos = 0
 
-    def establecer_conectando(self, etiqueta):
-        self.conectando = etiqueta
+    def establecer_conectando(self, etiqueta, reconectando=False):
+        self.conectando = (etiqueta, reconectando)
 
     def establecer_conexion(self, activa, etiqueta):
         self.conexion = (activa, etiqueta)
 
     def mostrar_error(self, mensaje):
         self.error = mensaje
+
+    def actualizar_latencia(self, milisegundos):
+        self.latencia = milisegundos
+
+    def dibujar(self):
+        self.dibujos += 1
+
+
+class _RootFalsa:
+    """Raíz Tk mínima: solo agenda y cancela callbacks."""
+
+    def __init__(self):
+        self.agendados = []
+        self.cancelados = []
+
+    def after(self, milisegundos, callback):
+        self.agendados.append((milisegundos, callback))
+        return len(self.agendados)
+
+    def after_cancel(self, ident):
+        self.cancelados.append(ident)
 
 
 class _ComunicacionFalsa:
@@ -43,6 +67,10 @@ class _ComunicacionFalsa:
         self.ip = ip
         self.puerto = puerto
         self.cerrada = False
+        self.perdida = False
+
+    def actualizar_estado(self, _estado):
+        pass
 
     def cerrar(self):
         self.cerrada = True
@@ -75,14 +103,27 @@ def hilos(monkeypatch):
 
 @pytest.fixture
 def app():
-    """Aplicacion sin ventana, con pantalla falsa y sin conexión."""
+    """Aplicacion sin ventana, con pantalla, raíz y conexión falsas."""
     aplicacion = Aplicacion.__new__(Aplicacion)
+    aplicacion.root = _RootFalsa()
     aplicacion.pantalla = _PantallaFalsa()
     aplicacion.conexion = ConexionOffline()
     aplicacion._conexion_pendiente = False
     aplicacion._intento_conexion = 0
     aplicacion._resultados_conexion = queue.Queue()
+    aplicacion._ultima_ip = None
+    aplicacion._ultimo_puerto = modulo_main.PUERTO
+    aplicacion._reconectando = False
+    aplicacion._reintentos = 0
+    aplicacion._reconexion_id = None
     return aplicacion
+
+
+def _reintentar_agendado(app):
+    """Ejecuta el callback de reconexión que esté agendado."""
+    milisegundos, callback = app.root.agendados[-1]
+    callback()
+    return milisegundos
 
 
 def test_conectar_abre_el_socket_en_un_hilo(app, hilos, monkeypatch):
@@ -92,7 +133,7 @@ def test_conectar_abre_el_socket_en_un_hilo(app, hilos, monkeypatch):
     app._conectar("1.2.3.4", 8080)
 
     assert app._conexion_pendiente is True
-    assert app.pantalla.conectando == "1.2.3.4"
+    assert app.pantalla.conectando == ("1.2.3.4", False)
     assert len(hilos) == 1
     assert hilos[0].name == "conexion-robot"
     assert hilos[0].daemon is True
@@ -106,6 +147,7 @@ def test_conectar_abre_el_socket_en_un_hilo(app, hilos, monkeypatch):
     assert app.conexion.ip == "1.2.3.4"
     assert app.pantalla.conexion == (True, "1.2.3.4")
     assert app._conexion_pendiente is False
+    assert app._ultima_ip == "1.2.3.4"
 
 
 def test_error_al_conectar_se_muestra_sin_romper(app, hilos, monkeypatch):
@@ -160,3 +202,104 @@ def test_no_lanza_dos_intentos_a_la_vez(app, monkeypatch):
     app._conexion_pendiente = True
 
     app._conectar("1.2.3.4", 8080)   # no lanza
+
+
+# ------------------------------------------------------- reconexión automática
+def test_error_al_conectar_programa_reintento(app, hilos, monkeypatch):
+    """Un fallo deja el primer reintento agendado a 1 s."""
+    class _ComunicacionCaida:
+        def __init__(self, _ip, _puerto):
+            raise OSError("sin ruta al robot")
+
+    monkeypatch.setattr(modulo_main, "Comunicacion", _ComunicacionCaida)
+
+    app._conectar("1.2.3.4", 8080)
+    hilos[0].target(*hilos[0].args)
+    app._procesar_resultados_conexion()
+
+    assert app._reconectando is True
+    assert app._reintentos == 1
+    assert app.pantalla.conectando == ("1.2.3.4", True)
+    assert app.root.agendados[-1][0] == modulo_main.RECONEXION_ESPERA_INICIAL_MS
+
+
+def test_backoff_crece_hasta_el_maximo(app):
+    """Las esperas son 1, 2, 4, 8 y luego se estabilizan en 10 s."""
+    app._ultima_ip = "1.2.3.4"
+
+    for _ in range(6):
+        app._programar_reconexion()
+
+    esperas = [milisegundos for milisegundos, _ in app.root.agendados]
+    assert esperas == [1000, 2000, 4000, 8000, 10000, 10000]
+    # Cada reprogramación cancela el temporizador anterior.
+    assert len(app.root.cancelados) == 5
+
+
+def test_reintento_abre_otro_hilo(app, hilos, monkeypatch):
+    """Al vencer el temporizador se intenta conectar otra vez."""
+    monkeypatch.setattr(modulo_main, "Comunicacion", _ComunicacionFalsa)
+    app._ultima_ip = "1.2.3.4"
+    app._ultimo_puerto = 8080
+    app._programar_reconexion()
+
+    espera = _reintentar_agendado(app)
+
+    assert espera == modulo_main.RECONEXION_ESPERA_INICIAL_MS
+    assert len(hilos) == 1
+    assert app._conexion_pendiente is True
+    assert app.pantalla.conectando == ("1.2.3.4", True)
+
+
+def test_desconectar_cancela_la_reconexion(app):
+    """Desconectar a mano detiene el backoff y desactiva el timer."""
+    app._ultima_ip = "1.2.3.4"
+    app._programar_reconexion()
+    ident = app._reconexion_id
+    callback = app.root.agendados[-1][1]
+
+    app._desconectar()
+
+    assert app._reconectando is False
+    assert app._reintentos == 0
+    assert app._reconexion_id is None
+    assert ident in app.root.cancelados
+
+    callback()   # un timer ya disparado no debe reconectar
+    assert app._conexion_pendiente is False
+
+
+def test_conexion_lograda_cancela_el_reintento(app):
+    """Si el intento funciona, no queda ningún reintento pendiente."""
+    app._ultima_ip = "1.2.3.4"
+    app._programar_reconexion()
+    ident = app._reconexion_id
+    app._resultados_conexion.put(
+        (app._intento_conexion, "1.2.3.4", _ComunicacionFalsa("1.2.3.4", 8080), None))
+
+    app._procesar_resultados_conexion()
+
+    assert app._reconectando is False
+    assert app._reintentos == 0
+    assert app._reconexion_id is None
+    assert ident in app.root.cancelados
+
+
+def test_perdida_de_conexion_programa_reintento(app):
+    """Si el enlace se cae solo, la app pasa a offline y reintenta sola."""
+    falsa = _ComunicacionFalsa("1.2.3.4", 8080)
+    falsa.perdida = True
+    app.conexion = falsa
+    app._ultima_ip = "1.2.3.4"
+    app.estado = EstadoRobot()
+
+    app.ciclo()
+
+    assert isinstance(app.conexion, ConexionOffline)
+    assert falsa.cerrada is True
+    assert app._reconectando is True
+    assert app.pantalla.conexion == (False, "SIN CONEXI\u00d3N")
+    assert any(milisegundos == modulo_main.RECONEXION_ESPERA_INICIAL_MS
+               for milisegundos, _ in app.root.agendados)
+    ultima = app.estado.logger.obtener_lineas()[-1]
+    assert "Se perdió la conexión" in ultima.mensaje

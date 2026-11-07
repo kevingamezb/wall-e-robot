@@ -60,8 +60,11 @@ class Recoloreo:
         dif = ImageChops.difference(rgb, solido_origen)
         r, g, b = dif.split()
         distancia = ImageChops.lighter(ImageChops.lighter(r, g), b)
-        peso = distancia.point(
-            lambda v: max(0, min(255, round(255 * (1 - v / tolerancia)))))
+
+        def calcular_peso(v: int) -> int:
+            return max(0, min(255, round(255 * (1 - v / tolerancia))))
+
+        peso = distancia.point(calcular_peso)
         solido_destino = Image.new("RGB", imagen.size, Recoloreo.a_rgb(destino))
         mezcla = Image.composite(solido_destino, rgb, peso).convert("RGBA")
         mezcla.putalpha(imagen.getchannel("A"))
@@ -114,7 +117,8 @@ if __name__ == "__main__":
     assert tenida.size == (20, 10), "El tamaño no cambia"
     assert tenida.getpixel((2, 2)) == Recoloreo.a_rgb(Paleta.DORADO) + (255,), \
         "El píxel opaco toma el color pedido"
-    assert tenida.getpixel((15, 5))[3] == 0, "El fondo sigue transparente"
+    assert tenida.getchannel("A").getpixel((15, 5)) == 0, \
+        "El fondo sigue transparente"
     assert muestra.getpixel((2, 2)) == (255, 255, 255, 255), \
         "La imagen original no se toca (se devuelve una copia)"
     print("OK: colores del dibujo sí, fondo no, y original intacta\n")
@@ -123,7 +127,9 @@ if __name__ == "__main__":
     rgb = Image.new("RGB", (4, 4), (255, 255, 255))
     rgb_tenida = Recoloreo.tenir(rgb, Paleta.AXIOM_CYAN)
     assert rgb_tenida.mode == "RGBA"
-    assert rgb_tenida.getpixel((0, 0))[:3] == Recoloreo.a_rgb(Paleta.AXIOM_CYAN)
+    pixel = rgb_tenida.getpixel((0, 0))
+    assert isinstance(pixel, tuple)
+    assert pixel[:3] == Recoloreo.a_rgb(Paleta.AXIOM_CYAN)
     print("OK: imagen sin alfa -> opaca con el color pedido\n")
 
     print("Pruebas OK")

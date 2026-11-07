@@ -17,8 +17,14 @@ def nav():
     return Navegacion(EstadoRobot())
 
 
+def test_estado_arranca_detenido():
+    """Sin datos del robot, la GUI no puede inventarse un movimiento."""
+    assert EstadoRobot().navegacion == Maniobra.ALTO
+
+
 def test_automatico_recto(nav):
     """En automático recto, la etiqueta es RECTO y el color azul."""
+    nav.estado.navegacion = Maniobra.RECTO
     assert not nav.en_manual
     assert nav.maniobra == Maniobra.RECTO
     assert nav.etiqueta == "RECTO"

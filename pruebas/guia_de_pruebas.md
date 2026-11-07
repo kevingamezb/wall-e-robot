@@ -17,14 +17,17 @@ wall-e-robot/
 ├── app/            # App de escritorio (Python + Tkinter). Depende de Pillow (assets PNG).
 ├── firmware/       # Firmware del ESP32 (PlatformIO / C++). Librerías usadas se
 │                   # descargan solas al compilar (ingresar a la red).
+├── tests/          # Suite automatizada (pytest) de la app.
 ├── configuracion/  # JSON persistente (mapeo de teclas del control).
 ├── pruebas/        # Runner de cajones + esta guía.
-├── platformio.ini  # Configuración del build del firmware.
+├── scripts/        # Empaquetado de distribución y manifiesto del firmware.
+├── platformio.ini  # Configuración del build del firmware (raíz del repo).
 └── requirements.txt # Dependencias de la app (Pillow).
 ```
 
 Todas las pruebas del lado **PC** se ejecutan desde la raíz del repositorio
-(la carpeta donde está `app/`), NO dentro de `app/`.
+(la carpeta donde está `app/`), NO dentro de `app/`. PlatformIO también se
+invoca desde la raíz (el `platformio.ini` está ahí).
 
 ---
 
@@ -74,7 +77,7 @@ python -m app.pantallas.modal_controles
 > ```
 >
 > Imprime `[OK]`/`[FALLA]` por módulo y termina con código de salida 0 si todo está verde
-> (a la fecha: **17 cajones en verde**, incluye lógica y `base_render`, que cierra su ventana solo).
+> (a la fecha: **18 cajones en verde**, incluye lógica y `base_render`, que cierra su ventana solo).
 
 Qué revisa cada uno (resumen):
 
@@ -111,6 +114,10 @@ python -m app.main
   pulsarlo pide el cambio (`{"tipo":"modo"}`). Sin conexión queda apagado (**MODO: --**).
 - El **gamepad solo manda en manual**: en automático se ve apagado y descarta los comandos, para
   no pelear con la navegación autónoma. Conectar **no** pone al robot en manual por sí solo.
+- **Reconexión automática:** si el enlace se cae (el ESP32 se reinicia o se aleja), la app pasa a
+  **SIN CONEXIÓN**, lo anota en el Logger y reintenta sola con espera creciente (**1, 2, 4, 8 y
+  luego cada 10 s**). El botón muestra **Cancelar** mientras reintenta; al pulsarlo se detiene el
+  backoff y la app queda offline hasta que se conecte a mano.
 - Para cerrar: `Ctrl+C` en la terminal o cerrar la ventana.
 
 > Si algo falla sin robot conectado, el problema es de la app; con robot, revisar antes la red
@@ -201,8 +208,9 @@ python -m pytest --cov=app --cov-report=html
 `.coveragerc`: `source = app`; excluye `pragma: no cover`, `raise NotImplementedError` y **bloques `if __name__ == ["__main__"]:`** para evitar distorsionar la métrica de producción.
 
 **Limitaciones conocidas:**
-- `app/main.py`: 0% (punto de entrada GUI).
+- `app/main.py`: cubierto en lo posible con `__new__` y dobles (hilos, pantalla y `root.after` falsos); el `mainloop()` real no se ejecuta.
 - Renderizadores Tk (`app/widgets/renderizado/*`): parcialmente cubiertos (no se fuerzan rutas gráficas para evitar pruebas frágiles).
+- El CI exige **cobertura ≥ 80 %** (`--cov-fail-under=80`).
 
 ### 3a.4 VS Code Test Explorer
 
@@ -210,7 +218,7 @@ python -m pytest --cov=app --cov-report=html
 
 **Nota:** el descubrimiento desde VS Code depende del entorno del editor y **no se asume probado** en este documento.
 
-### 3a.5 ¿Por qué se conservan los 17 cajones junto a pytest?
+### 3a.5 ¿Por qué se conservan los 18 cajones junto a pytest?
 
 - Diagnóstico rápido (`python -m app.algun.modulo`) y chequeo manual.
 - Complementarios con la suite automatizada.
@@ -243,16 +251,17 @@ tests/
 
 ## 4. Pruebas del lado firmware: compilar y flashear el ESP32
 
-Abrir la carpeta `firmware/` como proyecto PlatformIO.
+Abrir la **raíz del repositorio** como proyecto PlatformIO (el `platformio.ini` vive
+ahí, no dentro de `firmware/`).
 
 **Opción A — VS Code (recomendada para la operación diaria):**
-1. Abrir `firmware/` con VS Code y la extensión PlatformIO.
+1. Abrir la raíz del repositorio con VS Code y la extensión PlatformIO.
 2. Botón **Build** (martillo) para compilar; botón **Upload and Monitor** para flashear y abrir el serial.
 
-**Opción B — Línea de comandos:**
+**Opción B — Línea de comandos (desde la raíz):**
 
 ```bash
-# Compilar el firmware
+# Compilar el firmware del ESP32
 pio run
 
 # Compilar + grabar al ESP32 por USB
@@ -260,11 +269,19 @@ pio run -t upload
 
 # Ver el monitor serial (velocidad 115200)
 pio device monitor
+
+# Pruebas nativas de la decisión autónoma (sin ESP32 ni hardware)
+pio test -e native
 ```
 
 > Si `pio` no está en el PATH, usar la ruta del entorno instalado, por ejemplo
 > `~/.platformio/penv/bin/platformio run` (Linux/macOS) o
 > `C:\Users\<usuario>\.platformio\penv\Scripts\platformio.exe run` (Windows).
+
+> **Credenciales obligatorias:** antes de compilar debe existir
+> `firmware/include/secrets.h` (ver §7.1). Sin ese archivo el build **falla a
+> propósito** (`#error`), y las claves se validan al compilar (AP y OTA de 8+
+> caracteres, usuario no vacío). No hay AP abierto ni portal OTA sin clave.
 
 > **Primer flasheo (USB):** antes de grabar, crear `firmware/include/secrets.h` a partir de
 > `secrets.example.h` (no se versiona). OTA **no** sirve para el primer firmware: hay que
@@ -309,12 +326,11 @@ static const ModulosActivos MODULOS = { true, true, true, true, true };
 
 **Configuración actual:** todos los módulos (`servos`, `distancia`, `bateria`, `oled`, `motores`) activos.
 
-> **Pendiente de verificación en hardware:** `MODULOS` asume que **todos** los sensores y
-> periféricos están cableados. Un módulo habilitado pero **sin conectar** no se detecta
-> (p. ej. el HC-SR04 sin eco tras 40 ms devuelve `-1` → `null`, `obstaculoCercano()` queda en
-> falso y `hayModuloInactivo()` permanece en falso). Es decir, **no enciende el LED rojo ni
-> avisa en la GUI**: el robot avanza en recto sin evasión. Antes de confiar en el arranque,
-> confirmar el cableado o poner en `false` los módulos que falten.
+> **Seguridad ante hardware ausente:** un módulo habilitado pero **sin conectar** sigue sin
+> encender el LED rojo ni marcar `modulo_inactivo` (el flag dice "debería estar", no "responde").
+> La diferencia es que la autonomía ya **no avanza a ciegas**: si el HC-SR04 no da eco o deja de
+> responder, el robot se detiene (§5.4). Aun así, antes de confiar en el arranque, confirmar el
+> cableado o poner en `false` los módulos que falten.
 
 **Reglas de comportamiento:**
 
@@ -333,8 +349,8 @@ static const ModulosActivos MODULOS = { true, true, true, true, true };
 1. Conectar el ESP32 por USB al PC y tener el monitor serial abierto.
 2. En `config.h`, poner en **1** solo el módulo que se va a probar (y en 0 los demás).
 3. Compilar + grabar (`pio run -t upload`).
-4. Conectar el PC a la red WiFi **WALL-E** (abierta por defecto; si se puso
-   `WIFI_AP_CLAVE`, usar esa clave).
+4. Conectar el PC a la red WiFi **WALL-E** con la clave `WIFI_AP_CLAVE` de
+   `firmware/include/secrets.h` (WPA2 obligatorio).
 5. Lanzar la app: `python -m app.main` → **CONECTAR** → IP `192.168.4.1` (puerto por defecto).
 6. Operar el control y comprobar: el componente responde y el monitor serial muestra los comandos.
 
@@ -344,7 +360,7 @@ static const ModulosActivos MODULOS = { true, true, true, true, true };
 |---|---|---|
 | **Servos** (flag `servos=1`) | Mover el deslizador del **cuello** y los **hombros** en la GUI; presionar **REPOSO**. | El cuello y los 2 brazos se mueven suaves (10°..170°). Serial: `Servo 'cuello' -> 30 grados.` |
 | **Motores** (flag `motores=1`) | Mantener el d-pad en direcciones: **arriba / abajo / izquierda / derecha**. | Las 2 ruedas giran: adelante, atrás, y giro en el sitio (a ~70 % de PWM, por ser motores de 6 V). Serial: `Motor -> arriba`. Las velocidades suben/bajan con rampa (sin tirón). **Seguridad:** si en modo manual no llega un comando en ~2 s, los motores se detienen solos con log `SEGURIDAD` ("Sin comando del operador..."). |
-| **Distancia** (flag `distancia=1`) | Poner la mano frente al sensor (fijo al frente) a < 15 cm. | Al acercar la mano aparece la **advertencia** en la GUI, el medidor de proximidad se llena, se enciende el LED **rojo** y sale el log `Obstáculo muy cerca: X.Xcm`. |
+| **Distancia** (flag `distancia=1`) | Poner la mano frente al sensor (fijo al frente) a < 15 cm. | Al acercar la mano aparece la **advertencia** en la GUI, el medidor de proximidad se llena, se enciende el LED **rojo** y sale el log `Obstáculo muy cerca: X.Xcm`. En automático, a ≤ 15 cm el robot gira a la derecha en el sitio; **sin eco o con lectura vieja se detiene** (§5.4). |
 | **Batería** (flag `bateria=1`) | Mirar el Sol de batería y el consumo con el robot alimentado y en reposo/operando. | El nivel se calcula del voltaje medido por el INA219 y baja conforme se descarga la batería. Log crítico (rojo) y LED **rojo** si el nivel cae por debajo de 0.10 (< ~6,8 V). |
 | **OLED** (flag `oled=1`) | Ninguna acción extra. | La pantalla 0.96" muestra BAT / DIS / MODO / CONECTADO. |
 | **LEDs** (siempre) | Ninguna acción extra. | Amarillo encendido cuando todo está normal; rojo cuando hay advertencia, error **o algún módulo desactivado** (config incompleta). El verde de encendido va directo al riel de 5 V. |
@@ -370,12 +386,35 @@ static const ModulosActivos MODULOS = { true, true, true, true, true };
 - Servos alimentados por un buck de 5 V; motores por el buck del TB6612 (`VM`); GND común con el ESP32.
 - **Nunca** meter 5 V a un GPIO: el ECHO del HC-SR04 pasa por un divisor de 1 kΩ / 2 kΩ.
 
+### 5.4 Matriz de seguridad física y autonomía
+
+Comportamiento **intencional** del firmware y de la app ante fallos. Es la
+referencia para probar que el robot falla del lado seguro.
+
+| Escenario | Qué hace el sistema | Dónde está |
+|---|---|---|
+| Arranque sin lectura válida del HC-SR04 | Autonomía en **ALTO**: no mueve motores hasta tener una medición fresca | `lib/auto/auto.cpp`, `lib/decision/decision.cpp` |
+| Obstáculo a **≤ 15 cm** | Gira a la **derecha** en el sitio (no avanza) | `decision.cpp` |
+| Sin eco (`-1`) o sensor colgado | **ALTO**; el eco tiene timeout de 40 ms y una lectura de más de **750 ms** ya no se considera fresca | `lib/distancia/distancia.cpp` |
+| Cambio manual ↔ automático | Detiene motores y reporta `alto`; el primer movimiento es una decisión nueva | `Auto::modoAutonomo()` |
+| Modo manual sin órdenes durante **2 s** | Detiene los motores y registra `SEGURIDAD` | `main.cpp` |
+| Se cae el TCP en **automático** | El ESP32 **sigue navegando solo** (no depende del PC); el modo se conserva | `comunicacion.cpp` + `main.cpp` |
+| Se cae el TCP en **manual** | A los 2 s sin órdenes los motores se detienen | `main.cpp` |
+| La app pierde el enlace | Pasa a **SIN CONEXIÓN** y reintenta con backoff (1→10 s); no inventa datos | `app/main.py` |
+| Petición de automático sin motores o sin distancia | No activa la autonomía y deja los motores detenidos | `main.cpp` |
+| Firmware sin `secrets.h`, o clave corta | **No compila** (`#error` / `static_assert`) | `config.h` |
+
+> Prueba sugerida: en automático, tapar el sensor (sin eco) y confirmar que las
+> ruedas se detienen; luego retirar la mano y ver que reanuda. Repetir cortando
+> la WiFi de la PC: el robot debe seguir su marcha autónoma.
+
 ---
 
 ## 6. Conectar la app al ESP32 real
 
 1. Encender el ESP32 (debe aparecer la red **WALL-E**).
-2. PC → conectarse a esa red WiFi (abierta por defecto; clave en `secrets.h` si se configuró).
+2. PC → conectarse a esa red WiFi con la clave `WIFI_AP_CLAVE` de
+   `firmware/include/secrets.h` (WPA2).
 3. Abrir la app (`python -m app.main`).
 4. Presionar **CONECTAR**, confirmar IP `192.168.4.1` y CONECTAR.
    - Si la IP no funciona, leer la IP real que imprimió el Serial del ESP32.
@@ -398,15 +437,16 @@ la PC conectada a la red **WALL-E** (`192.168.4.1`).
 ### 7.1 Antes de empezar: credenciales
 
 Las claves (WiFi del AP y del portal OTA) viven en `firmware/include/secrets.h`,
-que **no se versiona**. Si no existe, copiar la plantilla:
+que **no se versiona y es obligatorio**. Si no existe, copiar la plantilla:
 
 ```bash
 cp firmware/include/secrets.example.h firmware/include/secrets.h
 ```
 
-`OTA_USUARIO` / `OTA_CLAVE` protegen el portal (Basic Auth) y espota. **Con
-`OTA_CLAVE` vacía el portal queda abierto** (válido solo con la red aislada del
-robot).
+`OTA_USUARIO` / `OTA_CLAVE` protegen **siempre** el portal (Basic Auth) y espota:
+no existe el modo "portal abierto". El build falla si falta el archivo o si una
+clave tiene menos de 8 caracteres (`WIFI_AP_CLAVE` y `OTA_CLAVE`) o el usuario
+está vacío. El AP se levanta en **WPA2**.
 
 ### 7.2 Compilar y obtener el MD5
 
@@ -430,7 +470,7 @@ Ese MD5 es el que se pega en el portal para verificar la integridad de la subida
 ### 7.3 Vía A — Portal web (navegador)
 
 1. Conectar la PC a la red **WALL-E**.
-2. Abrir `http://192.168.4.1/`.
+2. Abrir `http://192.168.4.1/` e introducir `OTA_USUARIO` / `OTA_CLAVE` cuando el navegador pida autenticación.
 3. Pegar el MD5 en el campo **MD5** (recomendado; rechaza un `.bin` corrupto).
 4. Elegir `.pio/build/esp32dev/firmware.bin` y pulsar **Actualizar**.
 5. El ESP32 reinicia con la versión nueva y corre el self-test (§7.5).
@@ -472,36 +512,42 @@ cuando el self-test pasa; hasta entonces la app reporta `ota_pendiente=true`.
 ## 8. El protocolo en 30 segundos (para depurar)
 
 Medio: **WiFi TCP**, el ESP32 es el **servidor** y la PC el cliente. JSON, **un mensaje por línea**
-(termina en `\n`).
+(termina en `\n`). La versión del contrato viaja en el campo `protocolo` (actualmente **1**).
 
 **PC → ESP32 (comandos):**
 ```json
-{"tipo":"servo","servo":"cuello","angulo":30}
-{"tipo":"modo","modo":"manual"}
-{"tipo":"motor","direccion":"arriba"}
-{"tipo":"multi","comandos":[{"tipo":"servo","servo":"cuello","angulo":10}]}
+{"protocolo":1,"tipo":"servo","servo":"cuello","angulo":30}
+{"protocolo":1,"tipo":"modo","modo":"manual"}
+{"protocolo":1,"tipo":"motor","direccion":"arriba"}
+{"protocolo":1,"tipo":"multi","comandos":[{"tipo":"servo","servo":"cuello","angulo":10}]}
 ```
 
 **ESP32 → PC (estado ampliado y logs):**
 ```json
-{"tipo":"estado","bateria":0.83,"modo":"manual","hay_advertencia":true,"hay_error":false,
+{"protocolo":1,"tipo":"estado","bateria":0.83,"modo":"manual","hay_advertencia":true,"hay_error":false,
  "distancia_cm":12.3,"navegacion":"alto","consumo_watts":3.4,"conexion_activa":true,"cargando":false,
  "modulo_inactivo":false,"version_firmware":"1.0.0","ota_pendiente":false,
-  "tiempo_restante_min":42,"posiciones_servos":{"cuello":0,"hombro_izquierdo":10,"hombro_derecho":0}}
-{"tipo":"log","origen":"DISTANCIA","mensaje":"Obstáculo muy cerca: 8.0cm","nivel":"advertencia"}
+ "tiempo_restante_min":42,"posiciones_servos":{"cuello":0,"hombro_izquierdo":10,"hombro_derecho":0}}
+{"protocolo":1,"tipo":"log","origen":"DISTANCIA","mensaje":"Obstáculo muy cerca: 8.0cm","nivel":"advertencia"}
 ```
 
 Detalles útiles:
 - `distancia_cm` y `tiempo_restante_min` pueden venir como **null** (sin lectura del sensor de
   distancia / sin estimación de batería). La app lo interpreta como "no tocar ese dato".
-- `navegacion` es la maniobra decidida en automático (`recto`/`izquierda`/`derecha`/`alto`); un
-  valor desconocido se ignora y se conserva el anterior.
+- `navegacion` es la maniobra decidida en automático (`recto`/`derecha`/`alto`); en manual el
+  firmware reporta **`alto`** porque el operador manda. Un valor desconocido se ignora y se
+  conserva el anterior.
+- **Compatibilidad:** si la app envía un `protocolo` mayor, el firmware avisa **una vez** y sigue
+  aplicando los campos que conoce. Un mensaje entrante de más de **4096 caracteres** se descarta
+  completo (con aviso) para no agotar la RAM.
 - Límites físicos validados en el firmware (`LIMITES[]` en `lib/comunicacion`):
   cuello ±70°, hombros ±50°. La tabla aún incluye `pulgar_izquierdo`/`pulgar_derecho`
   (±22°) por compatibilidad, pero no tienen servo físico: `Servos::MAPA_SERVOS` solo
   mapea 3 nombres, así que una orden a un pulgar pasa la validación y luego se
   **ignora** (no mueve nada). Un ángulo fuera de rango se rechaza.
-- El ESP32 envía un estado cada **~500 ms**; la GUI redibuja cada 60 ms.
+- El ESP32 envía un estado cada **~500 ms**; la GUI redibuja cada **33 ms**.
+- En la app, la conexión usa **buffer de bytes**, no bloquea la GUI y tolera líneas partidas,
+  mensajes corruptos y backpressure; el detalle está en `app/comunicacion/conexion.py`.
 
 ---
 
@@ -524,14 +570,17 @@ no llenar el Logger de repeticiones.
 |---|---|
 | `ModuleNotFoundError` al correr un cajón | Se ejecutó desde dentro de `app/`. Correr desde la **raíz** del repositorio. |
 | `pio` no es un comando reconocido | Usar la ruta del entorno: `~/.platformio/penv/bin/platformio` (Linux/macOS) o `C:\Users\<usuario>\.platformio\penv\Scripts\platformio.exe` (Windows) |
+| El build falla con `Falta firmware/include/secrets.h` | Copiar `secrets.example.h` a `secrets.h` y definir las 3 credenciales (§7.1). Es obligatorio a propósito. |
+| `static_assert` de credenciales al compilar | `WIFI_AP_CLAVE` y `OTA_CLAVE` necesitan 8+ caracteres; `OTA_USUARIO` no puede estar vacío. |
+| `pio test -e native` falla con `g++ no se reconoce` | El entorno nativo necesita un compilador host (MinGW/Visual Studio en Windows, `build-essential` en Linux). En CI (Ubuntu) sí está disponible. |
 | Monitor serial no da la línea "AP iniciada..." | Bajar la velocidad del monitor a **115200**; revisar el puerto USB (Upload). |
 | "No se pudo conectar" en la GUI | El PC no está en la red **WALL-E**, el ESP32 no arrancó, o la IP no es `192.168.4.1`. Revisar Serial. |
 | La GUI no marca falso el hardware ausente | Un módulo en **0** reporta neutro; si algo alerta sin hardware, revisar que su flag esté en 0. |
 | Un servo no se mueve | Verificar la alimentación de 5 V (buck) y el GND común, y que `servos` esté en 1 en `config.h`. |
 | Los motores no giran | Revisar que `STBY` del TB6612 esté en HIGH y que `motores=1`. Ojo: si algún módulo está en 0, el LED **rojo** queda fijo (no el amarillo) — es normal. El amarillo solo confirma el setup cuando **todos** los módulos están activos. |
 | Las ruedas giran al revés / invertidas | Intercambiar A↔B en `lib/motores/motores.cpp` y confirmar ruedas en `pines.h`. |
-| OTA: el portal pide usuario/clave y no entro | Credenciales en `firmware/include/secrets.h` (`OTA_USUARIO`/`OTA_CLAVE`); si no hay archivo, se usan las de `secrets.example.h`. |
-| OTA: subida rechazada (401) | `OTA_CLAVE` configurada: el navegador debe autenticarse en el portal antes de subir. |
+| OTA: el portal pide usuario/clave y no entro | Credenciales en `firmware/include/secrets.h` (`OTA_USUARIO`/`OTA_CLAVE`). El portal **siempre** exige autenticación. |
+| OTA: subida rechazada (401) | El navegador debe autenticarse con `OTA_USUARIO`/`OTA_CLAVE` antes de subir; no hay modo abierto. |
 | OTA: "error de actualización" al subir el `.bin` | MD5 mal pegado, `.bin` corrupto o de otro proyecto; el firmware **no** se cambia y sigue la versión anterior. |
 | OTA: el robot volvió solo a la versión vieja | El self-test no confirmó a tiempo (`OTA_AUTOCONFIRMA_MS`, 15 s): el rollback nativo actuó. Revisar el Serial. |
 | OTA: no aparece `http://192.168.4.1/` | El PC no está en la red WALL-E o `WIFI_AP_SSID` cambió. Revisar el Serial del ESP32. |
@@ -542,25 +591,38 @@ no llenar el Logger de repeticiones.
 ## 11. Checklist de prueba (marcar cada ítem completado)
 
 **Lado PC (sin hardware):**
-- [ ] Todos los cajones de §3 imprimen `Pruebas OK`.
+- [ ] Todos los cajones de §3 imprimen `Pruebas OK` (`python pruebas/ejecutar_cajones.py`, **18 en verde**).
+- [ ] `python -m pytest` pasa completo y la cobertura de `app/` es **≥ 80 %**.
 - [ ] `python -m app.main` abre la pantalla única en **SIN CONEXIÓN** y pide la IP del robot.
 - [ ] El gamepad sin conexión no emite comandos (overlay SIN CONEXIÓN visible).
 - [ ] El botón **MODO** refleja el modo del robot y al pulsarlo cambia entre manual y automático; sin conexión queda en **MODO: --** y no envía nada.
 - [ ] En automático el gamepad no emite comandos; al pasar a **MODO: MANUAL** se habilita y las flechas/Q-A mueven el robot.
+- [ ] **Reconexión:** con el robot conectado, apagar el ESP32 → la app pasa a **SIN CONEXIÓN**, lo registra y muestra **Reconectando…**; al encenderlo vuelve sola.
+- [ ] **Cancelar reconexión:** pulsar **Cancelar** durante el backoff deja la app offline y no vuelve a intentar.
 - [ ] CONTROLES: asignar una tecla, limpiar una acción y restaurar por defecto; al cerrar, `configuracion/controles.json` refleja los cambios.
 - [ ] Sin conexión, el Sol de batería se ve lleno en **gris** y dice **sin datos** (y el indicador superior, `BATERÍA --`).
 - [ ] Con el gamepad conectado al robot, el teclado mueve el robot (flechas reproducen el comando motor; Q/A mueven el cuello; reposo dispara una vez).
 - [ ] Ojos e íconos se dibujan con los **assets PNG** de `app/recursos/` (instalar Pillow); al desconectar, los ojos pasan a **SIN_DATOS** y el ícono de conexión refleja el nivel por frescura. Si faltara un PNG, se ve el dibujo procedural.
 
 **Lado firmware aislado:**
+- [ ] `pio run` compila el ESP32 sin errores con `secrets.h` presente.
+- [ ] `pio test -e native` pasa las pruebas de decisión (requiere compilador host; en CI corre en Ubuntu).
 - [ ] Firma con solo `servos=1`: deslizadores mueven el cuello y los hombros; REPOSO los centra.
 - [ ] Solo `motores=1`: d-pad mueve las ruedas en las 4 direcciones.
 - [ ] `distancia=1`: el HC-SR04 fijo detecta y la mano cerca (< 15 cm) dispara advertencia, llena el medidor de proximidad y enciende el LED rojo.
 - [ ] La GUI conectada a `192.168.4.1` muestra el estado real (no neutro) de los módulos activos.
 
+**Seguridad física y autonomía (matriz §5.4):**
+- [ ] Al arrancar en automático sin lectura, el robot **no se mueve** hasta tener una medición válida.
+- [ ] Con un obstáculo a ≤ 15 cm, gira a la derecha en el sitio; sin eco o con lectura vieja, se detiene.
+- [ ] Cambiar entre manual y automático detiene los motores antes del siguiente movimiento.
+- [ ] En manual, dejar de mandar comandos 2 s detiene las ruedas y registra `SEGURIDAD`.
+- [ ] En automático, cortar la WiFi de la PC **no** detiene la navegación autónoma.
+- [ ] Pedir automático sin sensor de distancia o sin motores deja el robot detenido.
+
 **Lado OTA (por WiFi):**
 - [ ] `pio run` imprime versión + MD5 y genera `firmware.bin.md5`.
-- [ ] El portal `http://192.168.4.1/` abre (pide credenciales si `OTA_CLAVE` no está vacía).
+- [ ] El portal `http://192.168.4.1/` **siempre** pide credenciales (`OTA_USUARIO` / `OTA_CLAVE`).
 - [ ] Subir el `.bin` con su MD5 reinicia el robot con la versión nueva.
 - [ ] Subir un MD5 incorrecto **no** cambia el firmware (muestra error).
 - [ ] Tras una subida, el estado reporta `ota_pendiente=true` y luego se confirma solo (self-test OK) sin volver atrás.

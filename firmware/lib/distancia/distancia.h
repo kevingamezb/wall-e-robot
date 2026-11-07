@@ -39,7 +39,15 @@ public:
     // true si hay lectura válida dentro del umbral.
     bool obstaculoCercano(float umbralCm) const;
 
+    // true si la última medición terminó hace maxMs o menos. Incluye las
+    // mediciones sin eco: son frescas, pero distanciaCm() devuelve -1.
+    bool lecturaFresca(uint32_t maxMs) const;
+
 private:
+
+    // Cierra el ciclo: guarda el valor, marca la marca de tiempo y vuelve a
+    // reposo. -1 significa "sin eco".
+    void finalizarLectura(float distanciaCm);
 
     enum Fase {
         FASE_ESPERANDO,
@@ -54,6 +62,7 @@ private:
     Fase   _fase;
     bool   _sensorListo;    // iniciar() ya corrió
     bool   _lecturaNueva;   // aviso de medición completada
+    bool   _algunaLectura;  // al menos un ciclo terminó
     float  _distanciaCm;    // último valor
 
     uint32_t _microsInicio;     // marcas de tiempo por micros()

@@ -77,7 +77,15 @@ if __name__ == "__main__":
     estado = EstadoRobot()
     nav = Navegacion(estado)
 
+    print("Arranque sin datos: alto")
+    assert not nav.en_manual
+    assert nav.maniobra == Maniobra.ALTO
+    assert nav.etiqueta == "ALTO"
+    assert nav.color == Paleta.ROJO
+    print(f"OK: {nav.simbolo} {nav.etiqueta} / {nav.color}\n")
+
     print("Automático, recto")
+    estado.navegacion = Maniobra.RECTO
     assert not nav.en_manual
     assert nav.maniobra == Maniobra.RECTO
     assert nav.etiqueta == "RECTO"

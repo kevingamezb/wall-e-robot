@@ -114,13 +114,15 @@ class EstadoRobot:
     consumo_watts:          float = 0.0                                            # BarraConsumo
     max_consumo_watts:      float = 15.0                                           # BarraConsumo
     distancia_obstaculo_cm: float | None = None                                    # SensorDistancia y Ojos (None = sin lectura)
-    navegacion:             Maniobra = Maniobra.RECTO                              # PanelNavegacion (decisión del ESP32)
+    navegacion:             Maniobra = Maniobra.ALTO                               # PanelNavegacion (decisión del ESP32)
     conexion_activa:        bool  = False                                          # IconoEstadoConexión
     nivel_conexion:         NivelConexion = NivelConexion.NULA                     # IconoEstadoConexión (fuerza de señal)
     hay_advertencia:        bool  = False                                          # IconoAdvertencia
     hay_error:              bool  = False                                          # IconoError
     modulo_inactivo:        bool  = False                                          # IconoError (config incompleta)
     posiciones_servos:      PosicionServos = field(default_factory=PosicionServos) # Gamepad
+    version_firmware:       str   = ""                                             # Telemetría (versión del ESP32)
+    ota_pendiente:          bool  = False                                          # Telemetría (actualización OTA)
     logger:                 Logger         = field(default_factory=Logger)         # Logger
     # Para colorear una línea, el render debe usar entrada.nivel.value (texto
     # legible); el Enum crudo no le sirve al widget.
@@ -156,4 +158,9 @@ if __name__ == '__main__':
         "El estado arranca sin enlace"
     estado.nivel_conexion = NivelConexion.ALTA
     print(f"OK: nivel_conexion = {estado.nivel_conexion.value}")
+
+    print("\nArranque seguro")
+    assert EstadoRobot().navegacion == Maniobra.ALTO, \
+        "Sin datos, la GUI debe mostrar ALTO"
+    print("OK: navegacion = alto")
     print("Pruebas OK")

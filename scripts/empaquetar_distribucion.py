@@ -1,28 +1,37 @@
 # wall-e-robot/scripts/empaquetar_distribucion.py
 # Kevin Gámez - 17/10/2026
 #
-# Construye un ZIP versionado listo para entregar al equipo:
-#   - App de Windows empaquetada con PyInstaller (modo onedir).
-#   - Recursos de la interfaz incluidos en el bundle.
-#   - firmware.bin + firmware.bin.md5 de la MISMA version, compilados aparte
-#     con una clave de distribucion (nunca la de desarrollo).
-#   - LEEME.md y SHA256SUMS.txt (integridad, no autenticidad).
+# Construye artefactos versionados listos para entregar al equipo:
+#   - ZIP (por defecto): app de PyInstaller (onedir) + firmware + LEEME +
+#     SHA256SUMS.txt.
+#   - --exe: Wall-E.exe autocontenido para Windows (PyInstaller --onefile).
+#   - --deb: paquete Debian/Ubuntu/Mint con la app, lanzador, icono, .desktop
+#     y el firmware OTA.
+#   - --solo-firmware: solo firmware.bin + firmware.bin.md5 (para CI).
 #
-# No versiona artefactos: la salida vive en dist/ (ignorada por Git) y el
+# El firmware se compila SIEMPRE con una clave de distribucion (nunca la de
+# desarrollo) y su MD5 se verifica antes de empaquetarlo.
+#
+# No versiona artefactos: la salida vive en dist/ (ignorada por Git) y cada
 # paquete se ensambla en un temporal, sin mezclarse con builds anteriores.
 #
 # Uso:
 #   python scripts/empaquetar_distribucion.py
 #   python scripts/empaquetar_distribucion.py --firmware-bin RUTA/firmware.bin
 #   python scripts/empaquetar_distribucion.py --solo-firmware   (solo el .bin)
+#   python scripts/empaquetar_distribucion.py --exe             (solo Windows)
+#   python scripts/empaquetar_distribucion.py --deb \
+#       --firmware-bin dist/firmware.bin                        (solo Linux)
 #
-# PyInstaller no cross-compila: cada ZIP se genera en su sistema operativo.
-# En CI (ver .github/workflows/release.yml) el firmware se compila una vez
-# con --solo-firmware y los builds de Windows lo adjuntan con --firmware-bin.
+# PyInstaller no cross-compila: cada artefacto se genera en su sistema
+# operativo. En CI (ver .github/workflows/release.yml) el firmware se compila
+# una vez con --solo-firmware y los builds de Windows/Linux lo adjuntan con
+# --firmware-bin.
 #
 # Requisitos:
 #   - PyInstaller instalado (requirements-dev.txt).
 #   - PlatformIO (solo si se compila el firmware; ver --firmware-bin).
+#   - dpkg-deb (solo para --deb; viene con dpkg en Debian/Ubuntu).
 #   - empaquetado/secrets.distribucion.h con la clave del AP (no versionado).
 
 
@@ -42,6 +51,8 @@ CARPETA_TRABAJO = RAIZ / "empaquetado"
 SECRETS_DIST = CARPETA_TRABAJO / "secrets.distribucion.h"
 LANZADOR = CARPETA_TRABAJO / "lanzador.py"
 NOMBRE_APP = "Wall-E"
+MANTENEDOR = "Kevin Gámez <est.kevin.gamez@unimilitar.edu.co>"
+ICONO = RAIZ / "app" / "recursos" / "titulo.png"
 
 # Nombres que NUNCA deben entrar en la distribucion (secretos y artefactos de
 # desarrollo). Se comprueba sobre cada parte de la ruta relativa.
@@ -145,6 +156,29 @@ def localizar_platformio():
     return None
 
 
+def validar_secrets_distribucion(ruta: Path = SECRETS_DIST):
+    """Comprueba que las credenciales de distribución cumplen el mínimo.
+
+    No imprime los valores. Refleja los static_assert de firmware/config.h
+    para dar un error claro antes de invocar PlatformIO.
+    """
+    if not ruta.is_file():
+        raise FileNotFoundError(f"Falta la clave de distribucion: {ruta}")
+
+    contenido = ruta.read_text(encoding="utf-8")
+    minimos = {"WIFI_AP_CLAVE": 8, "OTA_USUARIO": 1, "OTA_CLAVE": 8}
+    for macro, minimo in minimos.items():
+        coincidencia = re.search(
+            rf'#define\s+{macro}\s+"([^"]*)"', contenido)
+        if not coincidencia:
+            raise RuntimeError(
+                f"Falta {macro} en {ruta.name}.")
+        if len(coincidencia.group(1)) < minimo:
+            raise RuntimeError(
+                f"{macro} en {ruta.name} debe tener al menos {minimo} "
+                "caracteres (mira firmware/include/secrets.example.h).")
+
+
 def construir_firmware_distribucion(temporal: Path) -> Path:
     """Compila el firmware en un arbol temporal con la clave de distribucion.
 
@@ -159,6 +193,8 @@ def construir_firmware_distribucion(temporal: Path) -> Path:
             "y rellena WIFI_AP_CLAVE / OTA_CLAVE (con una clave propia del "
             "equipo, no la de desarrollo)."
         )
+
+    validar_secrets_distribucion()
 
     trabajo = temporal / "firmware_build"
     shutil.copytree(RAIZ / "firmware", trabajo / "firmware",
@@ -193,7 +229,7 @@ def compilar_firmware_solo(salida: Path = None) -> Path:
     compila una vez (en Linux) y los builds de Windows/macOS lo adjuntan con
     --firmware-bin. Devuelve la ruta del .bin copiado.
     """
-    salida = Path(salida) if salida else RAIZ / "dist"
+    salida = (Path(salida) if salida else RAIZ / "dist").resolve()
     salida.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory(prefix="walle_fw_") as tmp_str:
@@ -209,8 +245,37 @@ def compilar_firmware_solo(salida: Path = None) -> Path:
     return destino
 
 
-def construir_app(destino: Path, temporal: Path):
-    """Empaqueta la app con PyInstaller (onedir) dentro de 'destino'."""
+def generar_icono_cuadrado(destino: Path, formato: str):
+    """Genera un icono cuadrado (ICO/PNG) a partir de app/recursos/titulo.png.
+
+    El PNG de origen no es cuadrado; se centra sobre un lienzo transparente
+    para que el icono no se deforme. Devuelve la ruta o None si no hay origen.
+    """
+    if not ICONO.is_file():
+        return None
+    try:
+        from PIL import Image
+    except ImportError:
+        return None
+
+    imagen = Image.open(ICONO).convert("RGBA")
+    lado = max(imagen.size)
+    lienzo = Image.new("RGBA", (lado, lado), (0, 0, 0, 0))
+    lienzo.paste(imagen, ((lado - imagen.width) // 2,
+                          (lado - imagen.height) // 2), imagen)
+
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    if formato == "ico":
+        lienzo.save(destino, format="ICO",
+                    sizes=[(16, 16), (24, 24), (32, 32), (48, 48),
+                           (64, 64), (128, 128), (256, 256)])
+    else:
+        lienzo.resize((256, 256), Image.LANCZOS).save(destino, format="PNG")
+    return destino
+
+
+def _ejecutar_pyinstaller(destino: Path, temporal: Path, onefile: bool):
+    """Invoca PyInstaller en modo onedir (ZIP/deb) o onefile (.exe)."""
     try:
         import PyInstaller  # noqa: F401
     except ImportError as error:
@@ -222,7 +287,7 @@ def construir_app(destino: Path, temporal: Path):
     separador = ";" if sys.platform == "win32" else ":"
     comando = [
         sys.executable, "-m", "PyInstaller",
-        "--noconfirm", "--onedir", "--windowed",
+        "--noconfirm", "--onefile" if onefile else "--onedir", "--windowed",
         "--name", NOMBRE_APP,
         "--distpath", str(destino),
         "--workpath", str(temporal / "pyinstaller_build"),
@@ -232,10 +297,245 @@ def construir_app(destino: Path, temporal: Path):
         # _imagingtk (C) importa PIL._tkinter_finder al crear PhotoImage;
         # PyInstaller no lo detecta y la app crashea al dibujar.
         "--hidden-import", "PIL._tkinter_finder",
-        str(LANZADOR),
     ]
-    print("[app] Empaquetando con PyInstaller (onedir)...")
+    if sys.platform == "win32":
+        icono = generar_icono_cuadrado(temporal / "wall-e.ico", "ico")
+        if icono:
+            comando += ["--icon", str(icono)]
+    comando.append(str(LANZADOR))
+
+    modo = "onefile" if onefile else "onedir"
+    print(f"[app] Empaquetando con PyInstaller ({modo})...")
     subprocess.run(comando, cwd=str(temporal), check=True)
+
+
+def construir_app(destino: Path, temporal: Path):
+    """Empaqueta la app con PyInstaller (onedir) dentro de 'destino'."""
+    _ejecutar_pyinstaller(destino, temporal, onefile=False)
+
+
+def construir_exe(salida: Path = None) -> Path:
+    """Construye Wall-E.exe autocontenido (Windows, PyInstaller onefile)."""
+    if sys.platform != "win32":
+        raise RuntimeError(
+            "El .exe solo se puede construir en Windows (PyInstaller no "
+            "cross-compila)."
+        )
+
+    salida = (Path(salida) if salida else RAIZ / "dist").resolve()
+    salida.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory(prefix="walle_exe_") as tmp_str:
+        _ejecutar_pyinstaller(salida, Path(tmp_str), onefile=True)
+
+    exe = salida / f"{NOMBRE_APP}.exe"
+    if not exe.is_file():
+        raise FileNotFoundError("PyInstaller no genero Wall-E.exe.")
+    return exe
+
+
+def adjuntar_firmware(destino: Path, firmware_bin, temporal: Path, version: str):
+    """Copia firmware.bin + firmware.bin.md5 + version.txt dentro de 'destino'.
+
+    Si no se pasa un .bin ya compilado, lo compila con la clave de
+    distribucion. Devuelve (ruta_bin, ruta_md5) ya copiados.
+    """
+    destino.mkdir(parents=True, exist_ok=True)
+    if firmware_bin:
+        origen_bin = Path(firmware_bin).resolve()
+        origen_md5 = origen_bin.with_name(origen_bin.name + ".md5")
+        if not origen_bin.is_file():
+            raise FileNotFoundError(f"No existe el bin: {origen_bin}")
+    else:
+        origen_bin = construir_firmware_distribucion(temporal)
+        origen_md5 = origen_bin.with_name(origen_bin.name + ".md5")
+
+    bin_final = destino / "firmware.bin"
+    md5_final = destino / "firmware.bin.md5"
+    shutil.copy2(origen_bin, bin_final)
+    if origen_md5.is_file():
+        shutil.copy2(origen_md5, md5_final)
+    else:
+        md5_final.write_text(md5_archivo(origen_bin), encoding="ascii")
+    (destino / "version.txt").write_text(version + "\n", encoding="utf-8")
+    return bin_final, md5_final
+
+
+def _arquitectura_debian() -> str:
+    """Arquitectura dpkg de la maquina (amd64 si no se puede consultar)."""
+    try:
+        salida = subprocess.check_output(["dpkg", "--print-architecture"],
+                                         text=True).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "amd64"
+    return salida or "amd64"
+
+
+def crear_leeme_deb(destino: Path, version: str, arquitectura: str):
+    """Genera el LEEME.md de la documentacion del paquete .deb."""
+    contenido = f"""# WALL-E {version} — Paquete Debian ({arquitectura})
+
+Instalado con `sudo apt install ./wall-e_{version}_{arquitectura}.deb` o
+`sudo dpkg -i wall-e_{version}_{arquitectura}.deb`.
+
+No requiere instalar Python: la aplicación viene empaquetada.
+
+## Ejecutar
+
+1. Abre **WALL-E** desde el menú de aplicaciones.
+2. O ejecuta `wall-e` en una terminal.
+
+La configuración de teclas se guarda en `~/.config/wall-e/controles.json`.
+
+## Archivos instalados
+
+- `/opt/wall-e/Wall-E` — aplicación de escritorio.
+- `/usr/bin/wall-e` — lanzador.
+- `/usr/share/wall-e/firmware/firmware.bin` — firmware OTA.
+- `/usr/share/wall-e/firmware/firmware.bin.md5` — MD5 para el portal OTA.
+
+## Actualizar el firmware (OTA)
+
+1. Conecta la PC a la red WiFi del robot.
+2. Abre `http://192.168.4.1/` en el navegador.
+3. Pega el MD5 de `firmware.bin.md5` y elige `firmware.bin`.
+4. Pulsa Actualizar; el robot reinicia con la versión nueva.
+
+La clave del WiFi del robot se entrega aparte, por un canal separado.
+"""
+    (destino / "LEEME.md").write_text(contenido, encoding="utf-8")
+
+
+def _copiar_copyright(destino: Path):
+    """Escribe el archivo copyright que exige la seccion doc de Debian."""
+    contenido = f"""Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: wall-e-robot
+Source: https://github.com/kevingamezb/wall-e-robot
+
+Files: *
+Copyright: 2026 Kevin Gámez
+License: GPL-3.0
+ En los sistemas Debian, el texto completo de la GNU General Public License
+ version 3 esta en /usr/share/common-licenses/GPL-3.
+"""
+    (destino / "copyright").write_text(contenido, encoding="utf-8")
+
+
+def construir_deb(firmware_bin=None, salida: Path = None) -> Path:
+    """Construye un .deb instalable (Linux) con la app + firmware OTA.
+
+    Requiere dpkg-deb (viene con dpkg en Debian/Ubuntu/Mint). PyInstaller no
+    cross-compila: el paquete se genera en Linux.
+    """
+    if sys.platform != "linux":
+        raise RuntimeError(
+            "El .deb solo se puede construir en Linux (dpkg-deb)."
+        )
+    if not shutil.which("dpkg-deb"):
+        raise FileNotFoundError(
+            "No se encontro dpkg-deb. Instala el paquete dpkg."
+        )
+
+    version = leer_version()
+    if version == "?":
+        raise RuntimeError("No se pudo leer PROYECTO_VERSION de config.h.")
+    if not re.fullmatch(r"\d[A-Za-z0-9.+~-]*", version):
+        raise RuntimeError(
+            f"La version '{version}' no es valida para un paquete Debian."
+        )
+
+    salida = (Path(salida) if salida else RAIZ / "dist").resolve()
+    salida.mkdir(parents=True, exist_ok=True)
+    arquitectura = _arquitectura_debian()
+    deb_ruta = salida / f"wall-e_{version}_{arquitectura}.deb"
+
+    with tempfile.TemporaryDirectory(prefix="walle_deb_") as tmp_str:
+        temporal = Path(tmp_str)
+        raiz = temporal / "paquete"
+
+        # 1) App onedir en /opt/wall-e (sin la carpeta intermedia Wall-E).
+        construido = temporal / "pyinstaller"
+        construir_app(construido, temporal)
+        origen_app = construido / NOMBRE_APP
+        if not origen_app.is_dir():
+            raise FileNotFoundError("PyInstaller no genero la app onedir.")
+        app_dir = raiz / "opt" / "wall-e"
+        app_dir.mkdir(parents=True)
+        for elemento in origen_app.iterdir():
+            shutil.move(str(elemento), str(app_dir / elemento.name))
+
+        # 2) Lanzador en /usr/bin.
+        bin_dir = raiz / "usr" / "bin"
+        bin_dir.mkdir(parents=True)
+        (bin_dir / "wall-e").symlink_to(f"/opt/wall-e/{NOMBRE_APP}")
+
+        # 3) Entrada de menú e icono.
+        escritorio_dir = raiz / "usr" / "share" / "applications"
+        escritorio_dir.mkdir(parents=True)
+        (escritorio_dir / "wall-e.desktop").write_text(
+            "[Desktop Entry]\n"
+            "Type=Application\n"
+            "Name=WALL-E\n"
+            "Comment=Panel de control del robot WALL-E\n"
+            f"Exec=/opt/wall-e/{NOMBRE_APP}\n"
+            "Icon=wall-e\n"
+            "Terminal=false\n"
+            "Categories=Utility;\n"
+            "Keywords=robot;esp32;wall-e;\n",
+            encoding="utf-8",
+        )
+        icono_dir = raiz / "usr" / "share" / "icons" / "hicolor" / \
+            "256x256" / "apps"
+        icono_dir.mkdir(parents=True)
+        generar_icono_cuadrado(icono_dir / "wall-e.png", "png")
+
+        # 4) Firmware OTA + documentación.
+        doc_dir = raiz / "usr" / "share" / "doc" / "wall-e"
+        doc_dir.mkdir(parents=True)
+        crear_leeme_deb(doc_dir, version, arquitectura)
+        _copiar_copyright(doc_dir)
+        firmware_dir = raiz / "usr" / "share" / "wall-e" / "firmware"
+        bin_final, md5_final = adjuntar_firmware(
+            firmware_dir, firmware_bin, temporal, version)
+
+        if not verificar_md5(bin_final, md5_final):
+            raise RuntimeError(
+                "El MD5 del firmware incluido no coincide con el .bin.")
+
+        # 5) Metadatos Debian.
+        tamano_kib = sum(
+            archivo.stat().st_size for archivo in raiz.rglob("*")
+            if archivo.is_file()
+        ) // 1024
+        debian = raiz / "DEBIAN"
+        debian.mkdir()
+        (debian / "control").write_text(
+            "Package: wall-e\n"
+            f"Version: {version}\n"
+            "Section: utils\n"
+            "Priority: optional\n"
+            f"Architecture: {arquitectura}\n"
+            f"Maintainer: {MANTENEDOR}\n"
+            f"Installed-Size: {tamano_kib}\n"
+            "Depends: libc6 (>= 2.35), libx11-6, libxext6, libxrender1, "
+            "libxft2, "
+            "libfontconfig1, libfreetype6, libgl1, libxcb1\n"
+            "Description: Panel de control del robot WALL-E\n"
+            " Aplicacion de escritorio (Tkinter) para controlar el robot\n"
+            " WALL-E por WiFi. Incluye el firmware ESP32 (BIN + MD5) para\n"
+            " actualizacion OTA.\n"
+            "Homepage: https://github.com/kevingamezb/wall-e-robot\n",
+            encoding="utf-8",
+        )
+
+        print("[deb] Construyendo el paquete Debian...")
+        subprocess.run(
+            ["dpkg-deb", "--root-owner-group", "--build",
+             str(raiz), str(deb_ruta)],
+            check=True,
+        )
+
+    return deb_ruta
 
 
 def crear_leeme(destino: Path, version: str):
@@ -295,7 +595,7 @@ copiarlos; no acredita autoría ni autenticidad.
 
 def empaquetar(firmware_bin=None, salida: Path = None):
     """Ensambla el paquete completo en un temporal y devuelve la ruta del ZIP."""
-    salida = Path(salida) if salida else RAIZ / "dist"
+    salida = (Path(salida) if salida else RAIZ / "dist").resolve()
     version = leer_version()
     if version == "?":
         raise RuntimeError("No se pudo leer PROYECTO_VERSION de config.h.")
@@ -317,24 +617,8 @@ def empaquetar(firmware_bin=None, salida: Path = None):
 
         # 2) Firmware de la misma version.
         firmware_destino = raiz_paquete / "firmware"
-        firmware_destino.mkdir(parents=True, exist_ok=True)
-        if firmware_bin:
-            origen_bin = Path(firmware_bin).resolve()
-            origen_md5 = origen_bin.with_name(origen_bin.name + ".md5")
-            if not origen_bin.is_file():
-                raise FileNotFoundError(f"No existe el bin: {origen_bin}")
-        else:
-            origen_bin = construir_firmware_distribucion(temporal)
-            origen_md5 = origen_bin.with_name(origen_bin.name + ".md5")
-
-        shutil.copy2(origen_bin, firmware_destino / "firmware.bin")
-        if origen_md5.is_file():
-            shutil.copy2(origen_md5, firmware_destino / "firmware.bin.md5")
-        else:
-            (firmware_destino / "firmware.bin.md5").write_text(
-                md5_archivo(origen_bin), encoding="ascii")
-        (firmware_destino / "version.txt").write_text(version + "\n",
-                                                      encoding="utf-8")
+        bin_final, md5_final = adjuntar_firmware(
+            firmware_destino, firmware_bin, temporal, version)
 
         # 3) LEEME e integridad.
         crear_leeme(raiz_paquete, version)
@@ -346,8 +630,6 @@ def empaquetar(firmware_bin=None, salida: Path = None):
                 "El paquete contiene archivos prohibidos (secretos/"
                 "artefactos):\n  " + lista)
 
-        bin_final = firmware_destino / "firmware.bin"
-        md5_final = firmware_destino / "firmware.bin.md5"
         if not verificar_md5(bin_final, md5_final):
             raise RuntimeError(
                 "El MD5 del firmware incluido no coincide con el .bin.")
@@ -367,29 +649,38 @@ def empaquetar(firmware_bin=None, salida: Path = None):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Genera el ZIP de distribucion de WALL-E.")
+        description="Genera los artefactos de distribucion de WALL-E "
+                    "(ZIP, .exe o .deb).")
     parser.add_argument("--firmware-bin", default=None,
                         help="Usar un firmware.bin ya compilado en vez de "
                              "compilar en temporal (avanzado).")
-    parser.add_argument("--solo-firmware", action="store_true",
-                        help="Solo compilar el firmware de distribucion "
-                             "(deja firmware.bin + .md5 en --salida) y salir. "
-                             "Para CI: compilar una vez y repartir con "
-                             "--firmware-bin en el resto de plataformas.")
+    modo = parser.add_mutually_exclusive_group()
+    modo.add_argument("--solo-firmware", action="store_true",
+                      help="Solo compilar el firmware de distribucion "
+                           "(deja firmware.bin + .md5 en --salida) y salir. "
+                           "Para CI: compilar una vez y repartir con "
+                           "--firmware-bin en el resto de plataformas.")
+    modo.add_argument("--exe", action="store_true",
+                      help="Solo construir Wall-E.exe autocontenido (Windows).")
+    modo.add_argument("--deb", action="store_true",
+                      help="Solo construir el paquete .deb (Linux).")
     parser.add_argument("--salida", default=None,
                         help="Carpeta de salida (por defecto: dist/).")
     args = parser.parse_args(argv)
 
-    if args.solo_firmware:
-        ruta = compilar_firmware_solo(
-            Path(args.salida) if args.salida else None)
-        print("\nListo:")
-        print("  " + str(ruta))
-        return 0
+    salida = Path(args.salida) if args.salida else None
 
-    zip_ruta = empaquetar(firmware_bin=args.firmware_bin, salida=args.salida)
+    if args.solo_firmware:
+        ruta = compilar_firmware_solo(salida)
+    elif args.exe:
+        ruta = construir_exe(salida)
+    elif args.deb:
+        ruta = construir_deb(firmware_bin=args.firmware_bin, salida=salida)
+    else:
+        ruta = empaquetar(firmware_bin=args.firmware_bin, salida=salida)
+
     print("\nListo:")
-    print("  " + str(zip_ruta))
+    print("  " + str(ruta))
     return 0
 
 

@@ -112,6 +112,7 @@ class NavegacionRenderer(RenderizadorBase):
             c.itemconfig(self._glifo, fill=color, state="normal")
             c.itemconfig(self._glifo_caja, state="hidden")
         else:
+            assert caja is not None
             c.coords(self._glifo_caja, *[e(v) for v in caja])
             c.itemconfig(self._glifo_caja, fill=color, state="normal")
             c.itemconfig(self._glifo, state="hidden")

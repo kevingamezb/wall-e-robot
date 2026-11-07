@@ -1,89 +1,137 @@
-# wall-e-robot — build de distribución y GitHub Release.
+# wall-e-robot — builds de distribución y publicación automática.
 #
-# PyInstaller NO cross-compila: cada ZIP se genera en su sistema operativo.
+# Se ejecuta en cada push y pull request a main:
+#   - push a main: compila y publica/actualiza la Release "latest" (tag móvil)
+#     con:
+#       · Wall-E.exe                         (Windows, PyInstaller onefile)
+#       · wall-e_<version>_amd64.deb         (Debian/Ubuntu/Mint)
+#       · firmware.bin + firmware.bin.md5    (ESP32, para el portal OTA)
+#       · wall-e-<version>-win64.zip         (ZIP actual: app + firmware + LEEME)
+#       · wall-e-<version>-linux64.zip       (ZIP actual: app + firmware + LEEME)
+#       · SHA256SUMS.txt                     (integridad de todos los assets)
+#   - pull request: compila y sube los mismos artefactos al workflow, sin crear
+#     Release. Los PR de forks no reciben secrets y su token es de solo lectura,
+#     así que publicar desde un PR no sería fiable.
+#   - workflow_dispatch: compila; publica solo si se marca "publicar".
+#
+# PyInstaller NO cross-compila:
 #   - firmware: se compila UNA VEZ en Linux (el .bin del ESP32 es igual desde
-#     cualquier PC) con la clave de distribución (secrets de GitHub).
+#     cualquier PC) y se reparte al resto de jobs.
 #   - linux:   build en Ubuntu 22.04 para que el binario arranque en
-#              Debian/Ubuntu/Mint >= 22.04 (glibc 2.35+).
+#     Debian/Ubuntu/Mint >= 22.04 (glibc 2.35+).
 #   - windows: build en windows-latest.
-#   - release: publica los ZIPs + firmware en un GitHub Release al etiquetar.
 #
-# macOS queda fuera de momento: exigiría un runner macos (minutos dobles) y
-# además firma/ notarización de Apple para evitar avisos de Gatekeeper.
-#
-# Uso:
-#   git tag v1.0.0 && git push origin v1.0.0   # compila y publica el Release
-#   Actions > Release > Run workflow           # solo compilar, sin Release
-#
-# Requiere los secrets del repo: WIFI_AP_CLAVE y OTA_CLAVE (del equipo).
+# Secrets requeridos para publicar: WIFI_AP_CLAVE, OTA_USUARIO y OTA_CLAVE.
+# En PR se usan credenciales de CI ficticias: nunca se filtran las reales en
+# artefactos descargables.
 
-name: Release
+name: Distribución
 
 on:
   push:
-    tags: ['v*']
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
+    inputs:
+      publicar:
+        description: 'Publicar la Release latest con estos artefactos'
+        type: boolean
+        default: false
 
 concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: false
+  group: distribucion-${{ github.workflow }}-${{ github.ref }}
+  # En main los runs se serializan para que la release no quede a medias ni
+  # una compilación vieja pise a la nueva. En PR se cancela el run anterior.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: '3.11'
 
 jobs:
   firmware:
-    name: Firmware (una vez, para todas las plataformas)
+    name: Firmware ESP32 (BIN + MD5)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-pio-${{ hashFiles('platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-pio-
 
       - name: Install PlatformIO
         run: |
           python -m pip install --upgrade pip
           pip install platformio
 
-      - name: Comprobar que el tag coincide con PROYECTO_VERSION
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          tag="${GITHUB_REF_NAME#v}"
-          version=$(grep -oP 'PROYECTO_VERSION\s*=\s*"\K[^"]+' firmware/include/config.h)
-          echo "tag=$tag  PROYECTO_VERSION=$version"
-          if [ "$tag" != "$version" ]; then
-            echo "::error::El tag v$tag no coincide con PROYECTO_VERSION ($version) de config.h"
-            exit 1
-          fi
-
-      - name: Escribir la clave de distribución (secrets del repo)
+      - name: Escribir credenciales del firmware
         env:
           WIFI_AP_CLAVE: ${{ secrets.WIFI_AP_CLAVE }}
           OTA_USUARIO: ${{ secrets.OTA_USUARIO }}
           OTA_CLAVE: ${{ secrets.OTA_CLAVE }}
         run: |
-          if [ -z "$WIFI_AP_CLAVE" ] || [ -z "$OTA_CLAVE" ]; then
-            echo "::error::Faltan los secrets WIFI_AP_CLAVE y/o OTA_CLAVE (Settings > Secrets)."
-            exit 1
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "::notice::PR: usando credenciales de CI de prueba (no las de distribución)."
+            WIFI_AP_CLAVE="clave-ci-1234"
+            OTA_USUARIO="ci"
+            OTA_CLAVE="clave-ci-ota-1234"
+          else
+            if [ -z "$WIFI_AP_CLAVE" ] || [ -z "$OTA_CLAVE" ] || [ -z "$OTA_USUARIO" ]; then
+              echo "::error::Faltan los secrets WIFI_AP_CLAVE, OTA_USUARIO y/o OTA_CLAVE (Settings > Secrets)."
+              exit 1
+            fi
+            if [ "${#WIFI_AP_CLAVE}" -lt 8 ]; then
+              echo "::error::WIFI_AP_CLAVE debe tener al menos 8 caracteres (WPA2)."
+              exit 1
+            fi
+            if [ "${#OTA_CLAVE}" -lt 8 ]; then
+              echo "::error::OTA_CLAVE debe tener al menos 8 caracteres."
+              exit 1
+            fi
           fi
           cat > empaquetado/secrets.distribucion.h <<EOF
-          // Generado por CI en el build de release. No se versiona.
+          // Generado por CI en el build de distribución. No se versiona.
           #ifndef SECRETS_H
           #define SECRETS_H
 
           #define WIFI_AP_CLAVE "$WIFI_AP_CLAVE"
 
-          #define OTA_USUARIO   "${OTA_USUARIO:-walle}"
+          #define OTA_USUARIO   "$OTA_USUARIO"
           #define OTA_CLAVE     "$OTA_CLAVE"
 
           #endif // SECRETS_H
           EOF
           # El AP no debe quedar abierto en una distribución real.
-          grep -q 'WIFI_AP_CLAVE ""' empaquetado/secrets.distribucion.h && \
-            { echo "::error::WIFI_AP_CLAVE quedó vacía."; exit 1; } || true
+          if grep -qE 'WIFI_AP_CLAVE ""|OTA_CLAVE ""|OTA_USUARIO ""' empaquetado/secrets.distribucion.h; then
+            echo "::error::Una credencial quedó vacía en secrets.distribucion.h."
+            exit 1
+          fi
 
       - name: Compilar el firmware de distribución
         run: python scripts/empaquetar_distribucion.py --solo-firmware
+
+      - name: Verificar firmware BIN + MD5
+        run: |
+          test -s dist/firmware.bin
+          test -s dist/firmware.bin.md5
+          esperado=$(tr -d '\r\n' < dist/firmware.bin.md5)
+          real=$(md5sum dist/firmware.bin | cut -d' ' -f1)
+          echo "MD5 esperado: $esperado"
+          echo "MD5 real:     $real"
+          [ "$esperado" = "$real" ]
 
       - uses: actions/upload-artifact@v4
         with:
@@ -91,10 +139,12 @@ jobs:
           path: |
             dist/firmware.bin
             dist/firmware.bin.md5
+          if-no-files-found: error
 
   linux:
-    name: App Linux (Debian/Ubuntu/Mint)
+    name: Linux (.deb + ZIP)
     runs-on: ubuntu-22.04
+    timeout-minutes: 30
     needs: firmware
     steps:
       - uses: actions/checkout@v4
@@ -102,12 +152,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install system GUI libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-tk
+          sudo apt-get install -y python3-tk xvfb dpkg
 
       - name: Install dependencies
         run: |
@@ -120,19 +170,33 @@ jobs:
           path: dist
 
       - name: Pruebas
-        run: python -m pytest -v
+        run: xvfb-run -a python -m pytest -v
 
-      - name: Empaquetar
+      - name: Construir el paquete .deb
+        run: python scripts/empaquetar_distribucion.py --deb --firmware-bin dist/firmware.bin
+
+      - name: Construir el ZIP de Linux
         run: python scripts/empaquetar_distribucion.py --firmware-bin dist/firmware.bin
+
+      - name: Verificar el .deb
+        run: |
+          deb=$(ls dist/wall-e_*.deb)
+          echo "Paquete: $deb"
+          dpkg-deb --info "$deb"
+          dpkg-deb --contents "$deb" | head -40
 
       - uses: actions/upload-artifact@v4
         with:
-          name: wall-e-linux
-          path: dist/wall-e-*-linux64.zip
+          name: linux
+          path: |
+            dist/wall-e_*.deb
+            dist/wall-e-*-linux64.zip
+          if-no-files-found: error
 
   windows:
-    name: App Windows
+    name: Windows (.exe + ZIP)
     runs-on: windows-latest
+    timeout-minutes: 30
     needs: firmware
     steps:
       - uses: actions/checkout@v4
@@ -140,7 +204,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
         run: |
@@ -155,33 +219,98 @@ jobs:
       - name: Pruebas
         run: python -m pytest -v
 
-      - name: Empaquetar
+      - name: Construir Wall-E.exe
+        run: python scripts/empaquetar_distribucion.py --exe
+
+      - name: Construir el ZIP de Windows
         run: python scripts/empaquetar_distribucion.py --firmware-bin dist/firmware.bin
+
+      - name: Verificar el .exe
+        run: |
+          $exe = Get-Item dist/Wall-E.exe
+          Write-Host "Ejecutable: $($exe.FullName) ($([math]::Round($exe.Length / 1MB, 1)) MB)"
+          if ($exe.Length -lt 1MB) { throw "El .exe es demasiado pequeño" }
+          $firma = Get-AuthenticodeSignature $exe
+          Write-Host "Firma Authenticode: $($firma.Status) (sin certificado, es esperado)"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: wall-e-windows
-          path: dist/wall-e-*-win64.zip
+          name: windows
+          path: |
+            dist/Wall-E.exe
+            dist/wall-e-*-win64.zip
+          if-no-files-found: error
 
   release:
-    name: Publicar el GitHub Release
+    name: Publicar Release latest
     runs-on: ubuntu-latest
-    needs: [linux, windows]
-    if: startsWith(github.ref, 'refs/tags/')
+    timeout-minutes: 10
+    needs: [ firmware, linux, windows ]
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == 'refs/heads/main' &&
+       github.event.inputs.publicar == 'true')
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: actions/download-artifact@v4
         with:
           path: paquetes
           merge-multiple: true
 
-      - name: Crear el Release
+      - name: Generar SHA256SUMS.txt
+        run: |
+          cd paquetes
+          ls -l
+          sha256sum Wall-E.exe wall-e_*.deb wall-e-*.zip \
+            firmware.bin firmware.bin.md5 > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Mover el tag móvil latest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f latest "$GITHUB_SHA"
+          git push --force origin refs/tags/latest
+
+      - name: Crear o actualizar la Release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          ls -l paquetes/
-          gh release create "$GITHUB_REF_NAME" paquetes/* \
-            --title "WALL-E $GITHUB_REF_NAME" \
-            --generate-notes
+          version=$(grep -oP 'PROYECTO_VERSION\s*=\s*"\K[^"]+' firmware/include/config.h)
+          cat > notas.md <<EOF
+          Compilación automática de \`main\`.
+
+          - **Commit:** [\`${GITHUB_SHA:0:7}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})
+          - **Versión del proyecto:** \`${version}\`
+          - **Ejecución:** [#${GITHUB_RUN_NUMBER}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})
+
+          Descarga \`Wall-E.exe\` para Windows o \`wall-e_${version}_amd64.deb\` para
+          Debian/Ubuntu/Mint. El firmware (\`firmware.bin\` + \`firmware.bin.md5\`) se
+          sube al portal OTA. Verifica la integridad con \`SHA256SUMS.txt\`.
+          EOF
+
+          if gh release view latest >/dev/null 2>&1; then
+            # Borrar assets viejos para que no queden .exe/.deb de versiones
+            # anteriores en la release móvil.
+            gh release view latest --json assets --jq '.assets[].name' |
+              while read -r nombre; do
+                [ -n "$nombre" ] && gh release delete-asset latest "$nombre" --yes
+              done
+            gh release edit latest \
+              --title "WALL-E · última compilación de main" \
+              --notes-file notas.md \
+              --latest
+            gh release upload latest paquetes/* --clobber
+          else
+            gh release create latest paquetes/* \
+              --title "WALL-E · última compilación de main" \
+              --notes-file notas.md \
+              --latest
+          fi

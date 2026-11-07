@@ -29,6 +29,12 @@ private:
     // Mensaje entrante en construcción (hasta '\n').
     String mensajeEntrante;
 
+    // true si la línea en curso superó MAX_MENSAJE_ENTRANTE y se descarta.
+    bool _descartando = false;
+
+    // true si ya se avisó de una app con protocolo más nuevo.
+    bool _avisoProtocolo = false;
+
     int    puerto;         // puerto TCP del servidor
 
     // Modo actual del robot ("automatico"/"manual").

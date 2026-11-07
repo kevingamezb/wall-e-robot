@@ -6,23 +6,35 @@
 
 #include <Arduino.h>
 
-// Credenciales: se usa secrets.h si existe (ver secrets.example.h); si no,
-// los #ifndef siguientes aportan los valores por defecto.
-#if __has_include("secrets.h")
-    #include "secrets.h"
+// Credenciales: secrets.h es obligatorio y no se versiona (ver
+// secrets.example.h). Sin él la compilación falla a propósito: un AP abierto
+// o un portal OTA sin clave permitiría a cualquiera controlar el robot.
+#if !__has_include("secrets.h")
+    #error "Falta firmware/include/secrets.h: copia secrets.example.h y define WIFI_AP_CLAVE, OTA_USUARIO y OTA_CLAVE."
 #endif
-#ifndef WIFI_AP_CLAVE
-    #define WIFI_AP_CLAVE ""
-#endif
-#ifndef OTA_USUARIO
-    #define OTA_USUARIO "walle"
-#endif
-#ifndef OTA_CLAVE
-    #define OTA_CLAVE ""
-#endif
+
+#include "secrets.h"
+
+// WPA2 exige una clave de al menos 8 caracteres; se valida al compilar para
+// que nunca se distribuya un firmware con el AP abierto. sizeof incluye el
+// terminador nulo, de ahí el +1.
+static_assert(sizeof(WIFI_AP_CLAVE) >= 9,
+              "WIFI_AP_CLAVE debe tener al menos 8 caracteres (WPA2).");
+static_assert(sizeof(OTA_USUARIO) >= 2,
+              "OTA_USUARIO no puede estar vacío.");
+static_assert(sizeof(OTA_CLAVE) >= 9,
+              "OTA_CLAVE debe tener al menos 8 caracteres.");
 
 // Versión del firmware; se reporta en la telemetría y en el portal OTA.
 static const char* PROYECTO_VERSION = "1.0.0";
+
+// Versión del protocolo TCP+JSON. La app (app/comunicacion/conexion.py)
+// publica y valida el mismo número; subirlo solo cuando cambie el contrato.
+static const int PROTOCOLO_VERSION = 1;
+
+// Tamaño máximo de una línea JSON entrante. Si se supera sin '\n', se
+// descarta completa para no agotar la RAM del ESP32.
+static const int MAX_MENSAJE_ENTRANTE = 4096;
 
 // Hardware instalado: cada flag habilita la inicialización y el uso del
 // módulo en setup()/loop().
@@ -72,6 +84,10 @@ static const int     TIEMPO_MANUAL_TIMEOUT_MS = 2000;
 static const uint32_t ENVIO_ESTADO_MS      = 500;   // envío del estado al cliente
 static const uint32_t LECTURA_DISTANCIA_MS = 250;   // muestreo del HC-SR04
 static const uint32_t LECTURA_BATERIA_MS   = 1000;  // lectura del INA219
+
+// Antigüedad máxima de la última medición para que Auto pueda moverse. Si el
+// sensor deja de responder, los motores se detienen en vez de seguir a ciegas.
+static const uint32_t TIEMPO_MAX_LECTURA_MS = 750;
 
 // Estimación de batería: voltajes (V) entre los que se interpola el nivel
 // y capacidad (mAh) para estimar la autonomía.

@@ -3,6 +3,7 @@
 
 #include "auto.h"
 #include "config.h"
+#include "decision.h"
 #include "distancia.h"
 #include "motores.h"
 
@@ -12,14 +13,16 @@ Auto autoRobot;
 
 Auto::Auto()
     : _modoAutonomo(true)
-    , _navegacion("recto") {}
+    , _navegacion("alto") {}
 
 
 void Auto::iniciar() {
 
-    // Sin hardware propio que configurar: solo reinicia el estado.
+    // Sin hardware propio que configurar: solo reinicia el estado. Arranca
+    // detenido y no se moverá hasta tener una lectura fresca y válida.
     _modoAutonomo = true;
-    _navegacion   = "recto";
+    _navegacion   = "alto";
+    motores.detener();
 }
 
 
@@ -29,32 +32,46 @@ void Auto::actualizar() {
         return;   // en manual manda el operador
     }
 
-    if (!sensorDistancia.hayLecturaNueva()) {
-        return;   // el sensor aún no terminó un ciclo de medición
-    }
+    // La decisión es pura y se prueba en el entorno nativo. Sin lectura
+    // fresca, sin eco o con obstáculo cerca, la respuesta nunca es "avanzar
+    // a ciegas".
+    ManiobraDecision decision = decidirManiobra(
+        sensorDistancia.lecturaFresca(TIEMPO_MAX_LECTURA_MS),
+        sensorDistancia.distanciaCm(),
+        UMBRAL_OBSTACULO_CM);
 
-    if (hayObstaculo()) {
+    switch (decision) {
 
+    case ManiobraDecision::RECTO:
+        motores.mover("arriba");
+        break;
+
+    case ManiobraDecision::DERECHA:
         // Obstáculo: se desvía girando en el sitio hasta quedar libre.
         motores.mover("derecha");
-        _navegacion = "derecha";
+        break;
 
-    } else {
-
-        motores.mover("arriba");
-        _navegacion = "recto";
+    case ManiobraDecision::ALTO:
+    default:
+        motores.detener();
+        break;
     }
+
+    _navegacion = nombreManiobra(decision);
 }
 
 
 void Auto::modoAutonomo(bool activo) {
 
-    if (_modoAutonomo && !activo) {
-        // Salida de automático: el robot queda detenido.
-        motores.detener();
-        _navegacion = "recto";
+    if (activo == _modoAutonomo) {
+        return;
     }
 
+    // En CUALQUIER transición (manual -> automático o al revés) se detienen
+    // los motores: el primer movimiento debe ser una decisión explícita, no
+    // una orden heredada del modo anterior.
+    motores.detener();
+    _navegacion = "alto";
     _modoAutonomo = activo;
 }
 

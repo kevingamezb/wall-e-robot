@@ -96,10 +96,14 @@ class _BarraLista:
             self.canvas.coords(self._pista, *rectangulo_puntos(
                 margen, margen, ancho - margen, alto - margen, radio))
 
+        perilla = self._perilla
+        if perilla is None:
+            return
+
         visible = self._ultimo - self._primero
         util = max(1, (alto - 2 * margen))
         if visible >= 0.999:
-            self.canvas.itemconfigure(self._perilla, state="hidden")
+            self.canvas.itemconfigure(perilla, state="hidden")
             self._alto_perilla = 0
             self._y_perilla = 0
             return
@@ -109,8 +113,8 @@ class _BarraLista:
             self._primero / max(1e-9, 1.0 - visible))
         self._alto_perilla = alto_perilla
         self._y_perilla = y
-        self.canvas.itemconfigure(self._perilla, state="normal")
-        self.canvas.coords(self._perilla, *rectangulo_puntos(
+        self.canvas.itemconfigure(perilla, state="normal")
+        self.canvas.coords(perilla, *rectangulo_puntos(
             margen, y, ancho - margen, y + alto_perilla, radio))
 
     # Arrastre
@@ -171,7 +175,7 @@ class ModalControles:
             self.ventana.title("Configurar controles")
             self.ventana.configure(bg=Paleta.FONDO_APP)
             self.ventana.resizable(False, False)
-            self.ventana.transient(raiz) # Ignorar error de Pylance.
+            self.ventana.transient(raiz)  # type: ignore[arg-type]
             self.ventana.grab_set() # TODO: Investigar error [tkinter.TclError: grab failed: window not viewable]
         fondo = Paleta.FONDO_NEGRO if incrustado else Paleta.FONDO_APP
 

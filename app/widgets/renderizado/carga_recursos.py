@@ -7,6 +7,7 @@
 
 from pathlib import Path
 from PIL import Image, ImageTk, ImageOps
+from PIL.Image import Resampling as ImageResampling
 
 from ... import rutas
 from .recoloreo import Recoloreo
@@ -65,7 +66,7 @@ def cargar(nombre: str, color: str, alto: int, espejo: bool = False, master=None
 
     imagen = Recoloreo.tenir(imagen, color)
     ancho = max(1, round(alto * imagen.width / imagen.height))
-    imagen = imagen.resize((ancho, alto), Image.LANCZOS)
+    imagen = imagen.resize((ancho, alto), ImageResampling.LANCZOS)
     if espejo:
         imagen = ImageOps.mirror(imagen)
 
@@ -97,9 +98,9 @@ def cargar_ancho(nombre: str, ancho: int, rotar: int = 0, sustituciones=(),
         tolerancia = par[2] if len(par) > 2 else 70
         imagen = Recoloreo.sustituir(imagen, origen, destino, tolerancia)
     if rotar % 360:
-        imagen = imagen.rotate(-rotar, expand=True, resample=Image.BICUBIC)
+        imagen = imagen.rotate(-rotar, expand=True, resample=ImageResampling.BICUBIC)
     alto = max(1, round(ancho * imagen.height / imagen.width))
-    imagen = imagen.resize((max(1, ancho), alto), Image.LANCZOS)
+    imagen = imagen.resize((max(1, ancho), alto), ImageResampling.LANCZOS)
     if espejo:
         imagen = ImageOps.mirror(imagen)
 
@@ -115,7 +116,7 @@ def cargar_fondo(nombre: str, ancho: int, alto: int, master=None):
     if clave in cache:
         return cache[clave]
     with Image.open(ruta_asset(nombre)) as abierta:
-        imagen = abierta.convert("RGBA").resize((ancho, alto), Image.LANCZOS)
+        imagen = abierta.convert("RGBA").resize((ancho, alto), ImageResampling.LANCZOS)
     foto = ImageTk.PhotoImage(imagen, master=master)
     cache[clave] = foto
     return foto
@@ -160,9 +161,10 @@ if __name__ == "__main__":
         print("tinte conservando alfa (vía Recoloreo)")
         teñida = Recoloreo.tenir(muestra, Paleta.DORADO)
         assert teñida.size == (20, 10)
-        assert teñida.getpixel((2, 2)) == Recoloreo.a_rgb(Paleta.DORADO) + (255,), \
+        assert teñida.getpixel((2, 2)) == (*Recoloreo.a_rgb(Paleta.DORADO), 255), \
             "El píxel opaco toma el color pedido"
-        assert teñida.getpixel((15, 5))[3] == 0, "El fondo sigue transparente"
+        assert teñida.getchannel("A").getpixel((15, 5)) == 0, \
+            "El fondo sigue transparente"
         print("OK: colores del dibujo sí, fondo no\n")
 
         print("cargar() escala por alto conservando aspecto")

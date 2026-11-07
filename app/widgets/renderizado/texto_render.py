@@ -72,7 +72,9 @@ def imagen_texto(texto: str, px: int, color: str, contorno: str | None = None,
     izq, arr, der, aba = medidor.multiline_textbbox(
         (0, 0), texto, font=tipo, stroke_width=grosor,
         spacing=round(px * (interlineado - 1)), align=alinear)
-    lienzo = Image.new("RGBA", (der - izq + 2 * relleno, aba - arr + 2 * relleno),
+    lienzo = Image.new("RGBA",
+                       (int(der - izq + 2 * relleno),
+                        int(aba - arr + 2 * relleno)),
                        (0, 0, 0, 0))
     ImageDraw.Draw(lienzo).multiline_text(
         (relleno - izq, relleno - arr), texto, font=tipo, fill=color,

@@ -2,12 +2,16 @@
 # Kevin Gámez - 06/10/2026
 
 
-import tkinter as tk
 import types
 
 from .mapeo_teclado import (
     ACCIONES, DISCRETO, EJE, MODIFICADORAS, Accion, MapeoTeclado, accion_por_id,
 )
+
+# Clases Tk de campos donde el usuario escribe texto: mientras el foco está en
+# uno, el teclado no debe mover el robot. Se consulta por nombre (winfo_class)
+# para no importar tkinter en la capa lógica.
+CLASES_DE_TEXTO = {"Entry", "TEntry", "Text", "Spinbox", "TSpinbox"}
 
 INTERVALO_PASO_MS = 120 # Milisegundos entre pasos mientras se mantiene pulsada una tecla de eje.
 MOTOR_ACCIONES = {"arriba", "abajo", "izquierda", "derecha"} # Direcciones de motor
@@ -34,7 +38,7 @@ DESLIZADORES = {
 
 class ControlTeclado:
     """Traduce eventos de teclado de Tk a acciones del gamepad."""
-    def __init__(self, raiz: tk.Misc, mapeo: MapeoTeclado, gamepad):
+    def __init__(self, raiz, mapeo: MapeoTeclado, gamepad):
         self.raiz = raiz
         self.mapeo = mapeo
         self.gamepad = gamepad
@@ -49,8 +53,18 @@ class ControlTeclado:
         raiz.bind("<FocusOut>", lambda _e: self.limpiar_estado())
 
     # Entrada de teclado 
+    def _en_campo_de_texto(self, evento) -> bool:
+        """True si el evento ocurrió en un campo donde se escribe texto."""
+        widget = getattr(evento, "widget", None)
+        if widget is None:
+            return False
+        try:
+            return widget.winfo_class() in CLASES_DE_TEXTO
+        except Exception:
+            return False
+
     def _al_presionar(self, evento):
-        if self.suspendido or isinstance(getattr(evento, "widget", None), tk.Entry):
+        if self.suspendido or self._en_campo_de_texto(evento):
             return   # captura de tecla en curso, o se está escribiendo en un campo
         keysym = evento.keysym
         if keysym in MODIFICADORAS:
@@ -72,7 +86,7 @@ class ControlTeclado:
             self._pulsar_boton(accion_id)
 
     def _al_soltar(self, evento):
-        if self.suspendido or isinstance(getattr(evento, "widget", None), tk.Entry):
+        if self.suspendido or self._en_campo_de_texto(evento):
             return   # captura de tecla en curso, o se está escribiendo en un campo
         keysym = evento.keysym
         self._pulsadas.discard(keysym)
@@ -116,6 +130,7 @@ class ControlTeclado:
 if __name__ == "__main__":
     print("Prueba control_teclado.py\n")
 
+    import tkinter as tk
     import types
     from ...nucleo.estado import EstadoRobot
     from .gamepad import Gamepad

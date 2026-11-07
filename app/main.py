@@ -24,6 +24,10 @@ INTERVALO_CICLO_MS = 33
 # Puerto en el que escucha el ESP32 (firmware y socket deben coincidir).
 PUERTO = 8080
 
+# Reconexión automática: espera creciente entre intentos (1, 2, 4... s).
+RECONEXION_ESPERA_INICIAL_MS = 1000
+RECONEXION_ESPERA_MAX_MS     = 10000
+
 
 class Aplicacion:
     """Coordina estado, conexión y pantalla."""
@@ -45,6 +49,13 @@ class Aplicacion:
         self._conexion_pendiente = False
         self._intento_conexion = 0
         self._resultados_conexion: queue.Queue = queue.Queue()
+
+        # Última conexión válida: se usa para reintentar si el robot se cae.
+        self._ultima_ip: str | None = None
+        self._ultimo_puerto = PUERTO
+        self._reconectando = False
+        self._reintentos = 0
+        self._reconexion_id = None   # id de root.after() pendiente
 
         self.contenedor = tk.Frame(root, bg=Paleta.FONDO_APP)
         self.contenedor.pack(fill="both", expand=True)
@@ -81,13 +92,24 @@ class Aplicacion:
         El socket puede tardar varios segundos en responder (o agotar su
         tiempo de espera), así que se abre en un hilo aparte para que la
         ventana siga respondiendo. El resultado se recoge en ciclo().
+
+        Si el robot ya se había conectado antes, esta conexión pasa a ser la
+        dirección a la que se reintenta cuando el enlace se cae.
         """
         if self._conexion_pendiente:
             return   # ya hay un intento en curso
 
+        # Un intento manual reemplaza cualquier reintento automático en curso.
+        self._cancelar_reconexion()
+        self._ultima_ip = ip
+        self._ultimo_puerto = puerto
+        self._lanzar_intento(ip, puerto, reconectando=False)
+
+    def _lanzar_intento(self, ip: str, puerto: int, reconectando: bool):
+        """Lanza el hilo que abre el socket y deja el resultado en la cola."""
         self._conexion_pendiente = True
         self._intento_conexion += 1
-        self.pantalla.establecer_conectando(ip)
+        self.pantalla.establecer_conectando(ip, reconectando=reconectando)
 
         hilo = threading.Thread(
             target=self._abrir_conexion,
@@ -96,6 +118,55 @@ class Aplicacion:
             daemon=True,
         )
         hilo.start()
+
+    def _programar_reconexion(self):
+        """Agenda el siguiente intento automático con espera exponencial.
+
+        La espera arranca en RECONEXION_ESPERA_INICIAL_MS y se duplica en cada
+        fallo hasta RECONEXION_ESPERA_MAX_MS. El robot sigue navegando solo
+        mientras tanto; en manual sus motores ya se detuvieron por el timeout
+        del firmware, así que reintentar es seguro.
+        """
+        if self._ultima_ip is None:
+            return   # nunca hubo una conexión válida que recuperar
+
+        self._cancelar_temporizador_reconexion()
+        espera = min(
+            RECONEXION_ESPERA_INICIAL_MS * (2 ** min(self._reintentos, 4)),
+            RECONEXION_ESPERA_MAX_MS,
+        )
+        self._reintentos += 1
+        self._reconectando = True
+        self.pantalla.establecer_conectando(self._ultima_ip, reconectando=True)
+        self._reconexion_id = self.root.after(espera, self._reintentar)
+
+    def _reintentar(self):
+        """Callback del temporizador: vuelve a abrir el socket."""
+        self._reconexion_id = None
+
+        if not self._reconectando or self._conexion_pendiente:
+            return   # el usuario desconectó o ya hay un intento en curso
+
+        ip = self._ultima_ip
+        if ip is None:
+            return   # no hay una dirección válida que recuperar
+
+        self._lanzar_intento(ip, self._ultimo_puerto, reconectando=True)
+
+    def _cancelar_temporizador_reconexion(self):
+        """Cancela el root.after() pendiente, si lo hay."""
+        if self._reconexion_id is not None:
+            try:
+                self.root.after_cancel(self._reconexion_id)
+            except (AttributeError, tk.TclError):
+                pass   # ventana ya cerrada o root falsa en pruebas
+            self._reconexion_id = None
+
+    def _cancelar_reconexion(self):
+        """Detiene los reintentos y reinicia el backoff."""
+        self._cancelar_temporizador_reconexion()
+        self._reconectando = False
+        self._reintentos = 0
 
     def _abrir_conexion(self, intento: int, ip: str, puerto: int):
         """Hilo de trabajo: crea la Comunicacion y publica el resultado."""
@@ -129,8 +200,12 @@ class Aplicacion:
         if error is not None:
             self.pantalla.establecer_conexion(False, "SIN CONEXI\u00d3N")
             self.pantalla.mostrar_error(f"No se pudo conectar: {error}")
+            self._programar_reconexion()
             return
 
+        # Conexión lograda: se cancela cualquier reintento pendiente.
+        self._cancelar_reconexion()
+        self._ultima_ip = ip
         self._cerrar_conexion_actual()
         self.conexion = nueva
         self.pantalla.establecer_conexion(True, ip)
@@ -141,6 +216,9 @@ class Aplicacion:
         # _aplicar_resultado_conexion lo cerrará sin activarlo.
         self._intento_conexion += 1
         self._conexion_pendiente = False
+        # Un cierre explícito del usuario no debe reconectar solo.
+        self._ultima_ip = None
+        self._cancelar_reconexion()
         self._cerrar_conexion_actual()
         self.conexion = ConexionOffline()
         self.pantalla.establecer_conexion(False, "SIN CONEXI\u00d3N")
@@ -166,7 +244,8 @@ class Aplicacion:
         self.conexion.actualizar_estado(self.estado)
 
         # Si el robot se apagó/reinició en plena conexión, la red lo marca como
-        # "perdida": se degrada a sin-conexión y se avisa en el log.
+        # "perdida": se degrada a sin-conexión, se avisa en el log y se
+        # programa un reintento automático.
         if getattr(self.conexion, "perdida", False):
             self._cerrar_conexion_actual()
             self.conexion = ConexionOffline()
@@ -176,6 +255,7 @@ class Aplicacion:
                 "Se perdió la conexión con el robot",
                 NivelLog.ADVERTENCIA,
             )
+            self._programar_reconexion()
 
         self.pantalla.actualizar_latencia(getattr(self.conexion, "edad_ms", None))
         self.pantalla.dibujar()

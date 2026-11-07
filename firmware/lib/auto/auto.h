@@ -16,16 +16,17 @@ class Auto {
 
 public:
 
-    // Constructor: arranca en modo automático y navegación "recto".
+    // Constructor: arranca en modo automático, detenido y sin maniobra.
     Auto();
 
     // Reinicia el estado interno; no toca hardware.
     void iniciar();
 
     // Decide y aplica la maniobra del ciclo; debe llamarse en modo automático.
+    // Sin lectura fresca, sin eco o con obstáculo cerca, detiene los motores.
     void actualizar();
 
-    // Sincroniza el modo; al salir de automático detiene los motores.
+    // Sincroniza el modo; detiene los motores en cualquier transición.
     void modoAutonomo(bool activo);
 
     // true si hay lectura válida (no -1) y el obstáculo está dentro de

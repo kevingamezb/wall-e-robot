@@ -2,6 +2,7 @@
 // Kevin Gamez - 26/08/2026
 
 #include "comunicacion.h"
+#include "config.h"
 #include "servos.h"
 #include "motores.h"
 
@@ -61,6 +62,7 @@ void Comunicacion::escucharCliente() {
         if (cliente) {
             Serial.println("Cliente conectado.");
             mensajeEntrante = "";
+            _descartando    = false;
         }
     }
 
@@ -75,14 +77,32 @@ void Comunicacion::escucharCliente() {
 
         if (c == '\n') {
 
-            if (mensajeEntrante.length() > 0) {
+            if (mensajeEntrante.length() > 0 && !_descartando) {
                 procesarMensaje(mensajeEntrante);
+
+            } else if (_descartando) {
+                Serial.println("Comando descartado: supera el tamano maximo.");
             }
 
             mensajeEntrante = "";
+            _descartando    = false;
 
         } else if (c != '\r') {
             // Ignora el '\r' que puede venir de "\r\n".
+            if (_descartando) {
+                continue;   // ya se avisó; se ignora hasta el próximo '\n'
+            }
+
+            if ((int)mensajeEntrante.length() >= MAX_MENSAJE_ENTRANTE) {
+                // Línea sin fin: se tira entera para no crecer sin límite.
+                mensajeEntrante = "";
+                _descartando    = true;
+                enviarLog("PROTOCOLO",
+                          "Mensaje demasiado largo: descartado",
+                          "advertencia");
+                continue;
+            }
+
             mensajeEntrante += c;
         }
     }
@@ -116,6 +136,7 @@ void Comunicacion::enviarEstado(float bateria, const String& modo,
 
     StaticJsonDocument<1024> doc;
 
+    doc["protocolo"]           = PROTOCOLO_VERSION;
     doc["tipo"]               = "estado";
     doc["bateria"]            = bateria;
     doc["modo"]               = modo;
@@ -175,6 +196,7 @@ void Comunicacion::enviarLog(const String& origen, const String& mensaje,
 
     StaticJsonDocument<512> doc;
 
+    doc["protocolo"] = PROTOCOLO_VERSION;
     doc["tipo"]    = "log";
     doc["origen"]  = origen;
     doc["mensaje"] = mensaje;
@@ -287,6 +309,17 @@ void Comunicacion::procesarMensaje(const String& lineaJson) {
     // Toda orden válida cuenta como "presencia del operador" para el timeout
     // de seguridad de main.cpp.
     _ultimaOrdenMs = millis();
+
+    // La app puede hablar un protocolo más nuevo: se avisa una vez y se
+    // siguen aplicando los campos conocidos (compatibilidad hacia atrás).
+    int version = doc["protocolo"] | PROTOCOLO_VERSION;
+    if (version > PROTOCOLO_VERSION && !_avisoProtocolo) {
+        _avisoProtocolo = true;
+        enviarLog("PROTOCOLO",
+                  "La app usa el protocolo " + String(version) +
+                  "; el firmware soporta " + String(PROTOCOLO_VERSION),
+                  "advertencia");
+    }
 
     const char* tipo = doc["tipo"];
 

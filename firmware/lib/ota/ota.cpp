@@ -29,11 +29,9 @@ static volatile bool s_confirmado = false;
 static bool s_uploadAutorizado = false;
 static bool s_uploadOk         = false;
 
-// El portal queda abierto solo si no hay clave configurada.
+// El portal exige Basic Auth SIEMPRE: config.h valida al compilar que las
+// credenciales no estén vacías, así que no hay modo "abierto".
 static bool autenticado() {
-    if (OTA_CLAVE[0] == '\0') {
-        return true;
-    }
     return servidorWeb.authenticate(OTA_USUARIO, OTA_CLAVE);
 }
 
@@ -312,9 +310,7 @@ static void configurarWeb() {
 static void configurarArduinoOta() {
 
     ArduinoOTA.setHostname(WIFI_AP_SSID);
-    if (OTA_CLAVE[0] != '\0') {
-        ArduinoOTA.setPassword(OTA_CLAVE);
-    }
+    ArduinoOTA.setPassword(OTA_CLAVE);
 
     ArduinoOTA.onStart([]() {
         Serial.println("[OTA] ArduinoOTA: inicio de subida.");

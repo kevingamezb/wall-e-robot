@@ -211,8 +211,12 @@ class PantallaPrincipal:
                 c, self._mapeo, on_cambio=self._on_cambio_mapeo or (lambda: None),
                 incrustado=True, al_captura=self._al_captura, escala=e)
             px, py, px2, py2 = e.caja(Disenio.PANEL_CONTROLES)
+            # Asegurarse de que el window sea un Frame, no un Toplevel.
+            ventana = self.panel_controles.ventana
+            if not isinstance(ventana, tk.Frame):
+                raise TypeError("El argumento 'window' de create_window debe ser un Frame, no un Toplevel.")
             self._ventana_controles = c.create_window(
-                px, py, window=self.panel_controles.ventana, anchor="nw",
+                px, py, window=ventana, anchor="nw",
                 width=px2 - px, height=py2 - py, state="hidden")
 
     def mostrar_pagina(self, pagina: str):
@@ -374,16 +378,23 @@ class PantallaPrincipal:
         self._estado_conexion.poner(
             texto=textwrap.fill(mensaje, 24), color=Paleta.ROJO)
 
-    def establecer_conectando(self, etiqueta: str):
-        """Indica que se está abriendo la conexión; el botón permite cancelar."""
+    def establecer_conectando(self, etiqueta: str, reconectando: bool = False):
+        """
+        Indica que se está abriendo la conexión; el botón permite cancelar.
+
+        reconectando: es un reintento automático tras perder el enlace, no un
+        primer intento manual. Cambia solo el texto para que el usuario sepa
+        que la app lo está intentando sola.
+        """
         self._conexion_pendiente = True
         self._conexion_activa = False
         self.boton_modo.habilitado = False
         self.boton_conectar.texto = "Cancelar"
         for campo in (self.campo_ip, self.campo_port):
             campo.config(state="disabled")
+        accion = "Reconectando con" if reconectando else "Conectando a"
         self._estado_conexion.poner(
-            texto=textwrap.fill(f"Conectando a {etiqueta}...", 24),
+            texto=textwrap.fill(f"{accion} {etiqueta}...", 24),
             color=Paleta.DORADO)
 
     def establecer_conexion(self, activa: bool, etiqueta: str):

@@ -76,7 +76,9 @@ void setup() {
 
     // Red: el ESP32 crea su propia WiFi (modo AP).
     WiFi.mode(WIFI_AP);
-    WiFi.softAP(WIFI_AP_SSID, WIFI_AP_CLAVE);
+    if (!WiFi.softAP(WIFI_AP_SSID, WIFI_AP_CLAVE)) {
+        Serial.println("ERROR: no se pudo iniciar el AP WiFi.");
+    }
     Serial.print("AP iniciada: SSID='");
     Serial.print(WIFI_AP_SSID);
     Serial.print("' IP=");
@@ -196,10 +198,18 @@ void loop() {
         s_ultimaBateriaMs = ahoraMs;
     }
 
-    autoRobot.modoAutonomo(comunicacion.modo() == "automatico");
+    // Autonomía: solo si están los motores y el sensor de distancia. Si el
+    // operador pide automático sin sensor, el robot no avanza a ciegas.
+    const bool autonomiaDisponible = MODULOS.motores && MODULOS.distancia;
+    const bool pideAutonomo        = comunicacion.modo() == "automatico";
+    const bool enAutonomo          = autonomiaDisponible && pideAutonomo;
 
-    if (MODULOS.motores && MODULOS.distancia) {
+    autoRobot.modoAutonomo(enAutonomo);
+
+    if (enAutonomo) {
         autoRobot.actualizar();
+    } else if (pideAutonomo && MODULOS.motores) {
+        motores.detener();
     }
 
     // Rampa de los motores
@@ -222,9 +232,8 @@ void loop() {
 
         bool error = MODULOS.bateria && bateria.nivel() < 0.10f;
 
-        String navegacion = (comunicacion.modo() == "manual")
-                          ? String("recto")
-                          : autoRobot.navegacion();
+        String navegacion = enAutonomo ? autoRobot.navegacion()
+                                       : String("alto");
 
         leds.actualizar(advertencia, error, hayModuloInactivo());
 

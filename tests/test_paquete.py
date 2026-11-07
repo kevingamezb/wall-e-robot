@@ -15,6 +15,7 @@ Cubren dos cosas:
 import hashlib
 import importlib.util
 import re
+import sys
 import zipfile
 from pathlib import Path
 
@@ -141,6 +142,92 @@ def test_lineas_sha256sums_ordenadas_y_completas(empaquetador, tmp_path):
 def test_nombre_paquete(empaquetador):
     """El nombre del paquete usa la version."""
     assert empaquetador.nombre_paquete("1.0.0") == "wall-e-1.0.0"
+
+
+# ------------------------------------------- helpers para .exe y .deb
+
+def test_adjuntar_firmware_copia_bin_md5_y_version(empaquetador, tmp_path):
+    """adjuntar_firmware deja firmware.bin, .md5 y version.txt en el destino."""
+    origen = tmp_path / "compilado" / "firmware.bin"
+    origen.parent.mkdir()
+    datos = b"firmware de prueba"
+    origen.write_bytes(datos)
+    origen.with_name("firmware.bin.md5").write_text(
+        hashlib.md5(datos).hexdigest(), encoding="ascii")
+
+    destino = tmp_path / "paquete" / "firmware"
+    bin_final, md5_final = empaquetador.adjuntar_firmware(
+        destino, origen, tmp_path, "1.2.3")
+
+    assert bin_final.read_bytes() == datos
+    assert md5_final.read_text(encoding="ascii").strip() == \
+        hashlib.md5(datos).hexdigest()
+    assert (destino / "version.txt").read_text(encoding="utf-8") == "1.2.3\n"
+
+
+def test_leeme_deb_menciona_version_arquitectura_y_firmware(
+        empaquetador, tmp_path):
+    """El LEEME del .deb explica instalacion, firmware y configuracion."""
+    empaquetador.crear_leeme_deb(tmp_path, "1.0.0", "amd64")
+
+    texto = (tmp_path / "LEEME.md").read_text(encoding="utf-8")
+
+    assert "WALL-E 1.0.0" in texto
+    assert "amd64" in texto
+    assert "firmware.bin.md5" in texto
+    assert "~/.config/wall-e/controles.json" in texto
+
+
+def test_generar_icono_cuadrado(empaquetador, tmp_path):
+    """El icono del paquete se genera como PNG cuadrado."""
+    from PIL import Image
+
+    ruta = empaquetador.generar_icono_cuadrado(tmp_path / "wall-e.png", "png")
+
+    assert ruta is not None and ruta.is_file()
+    with Image.open(ruta) as imagen:
+        assert imagen.size == (256, 256)
+
+
+def test_exe_solo_se_construye_en_windows(empaquetador):
+    """En Linux/macOS construir_exe falla con un error claro."""
+    if sys.platform == "win32":
+        pytest.skip("En Windows --exe si construye el binario.")
+
+    with pytest.raises(RuntimeError, match="Windows"):
+        empaquetador.construir_exe()
+
+
+def test_deb_solo_se_construye_en_linux(empaquetador):
+    """En Windows/macOS construir_deb falla con un error claro."""
+    if sys.platform == "linux":
+        pytest.skip("En Linux --deb si construye el paquete.")
+
+    with pytest.raises(RuntimeError, match="Linux"):
+        empaquetador.construir_deb()
+
+
+def test_validar_secrets_distribucion(empaquetador, tmp_path):
+    """Las credenciales de distribución deben cumplir el mínimo del firmware."""
+    ruta = tmp_path / "secrets.h"
+    ruta.write_text(
+        '#define WIFI_AP_CLAVE "12345678"\n'
+        '#define OTA_USUARIO   "ci"\n'
+        '#define OTA_CLAVE     "12345678"\n',
+        encoding="utf-8",
+    )
+    empaquetador.validar_secrets_distribucion(ruta)   # no debe lanzar
+
+    ruta.write_text(
+        '#define WIFI_AP_CLAVE "corta"\n'
+        '#define OTA_USUARIO   "ci"\n'
+        '#define OTA_CLAVE     "12345678"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="WIFI_AP_CLAVE"):
+        empaquetador.validar_secrets_distribucion(ruta)
+
+
 
 
 # --------------------------------------------- integridad del firmware real

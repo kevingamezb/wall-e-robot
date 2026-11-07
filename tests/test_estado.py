@@ -19,8 +19,10 @@ def test_estado_valores_por_defecto():
     assert estado.conexion_activa is False
     assert estado.nivel_conexion == NivelConexion.NULA
     assert estado.distancia_obstaculo_cm is None
-    assert estado.navegacion == Maniobra.RECTO
+    assert estado.navegacion == Maniobra.ALTO
     assert isinstance(estado.posiciones_servos, PosicionServos)
+    assert estado.version_firmware == ""
+    assert estado.ota_pendiente is False
 
 
 def test_estado_arranca_sin_enlace():
