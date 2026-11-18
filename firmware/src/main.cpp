@@ -180,9 +180,12 @@ void loop() {
     }
 
     // Seguridad: en modo manual, si el operador deja de mandar comandos, se
-    // detienen los motores.
+    // detienen los motores. Hay que leer millis() aqui y no usar la instantanea
+    // de ahoraMs: escucharCliente() actualiza ultimaOrdenMs() despues, y con
+    // uint32_t la resta daria la vuelta (~4.294.967.295 ms) tras cada comando,
+    // disparando un falso aviso de "sin comando" y deteniendo los motores.
     if (MODULOS.motores && comunicacion.modo() == "manual" &&
-        (ahoraMs - comunicacion.ultimaOrdenMs()
+        (millis() - comunicacion.ultimaOrdenMs()
          > (unsigned long)TIEMPO_MANUAL_TIMEOUT_MS)) {
 
         motores.detener();
