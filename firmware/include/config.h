@@ -80,6 +80,9 @@ static const float   UMBRAL_OBSTACULO_CM  = 15.0;   // Distancia (cm) de "obstá
 // detienen los motores.
 static const int     TIEMPO_MANUAL_TIMEOUT_MS = 2000;
 
+// El firmware arranca en manual para no moverse sin supervisión.
+static const uint32_t TIEMPO_SIN_CONEXION_AUTOMATICO_MS = 600000;  // 10 min
+
 // Periodos (ms) de telemetría y sensores
 static const uint32_t ENVIO_ESTADO_MS      = 500;   // envío del estado al cliente
 static const uint32_t LECTURA_DISTANCIA_MS = 250;   // muestreo del HC-SR04

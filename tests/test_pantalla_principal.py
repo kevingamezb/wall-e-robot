@@ -18,6 +18,7 @@ def test_pantalla_se_construye_y_dibuja(raiz_tk):
     """La pantalla se construye y dibuja en conexión y en offline."""
     cambios_modo = []
     estado = EstadoRobot()
+    estado.modo = Modo.AUTOMATICO   # comprobamos primero la rama automática
     pantalla = PantallaPrincipal(
         raiz_tk, estado, Escala(0.25),
         on_conectar=lambda: None,

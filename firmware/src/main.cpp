@@ -169,6 +169,16 @@ void loop() {
     // Red
     comunicacion.escucharCliente();
 
+    // Si nadie se conecta durante 10 minutos, se devuelve el control al robot.
+    // El cambio a automático detiene los motores en Auto::modoAutonomo().
+    if (comunicacion.modo() == "manual" &&
+        comunicacion.sinConexionDurante(
+            (unsigned long)TIEMPO_SIN_CONEXION_AUTOMATICO_MS)) {
+
+        comunicacion.setModo("automatico");
+        Serial.println("[MODO] Sin conexion durante 10 min: modo automatico");
+    }
+
     // Seguridad: en modo manual, si el operador deja de mandar comandos, se
     // detienen los motores.
     if (MODULOS.motores && comunicacion.modo() == "manual" &&

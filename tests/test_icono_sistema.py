@@ -15,6 +15,8 @@ from app.widgets.logica.icono_sistema import IconoSistema, TipoIcono
 def entorno():
     """Estado nuevo con un icono por tipo, listos para consultar."""
     estado = EstadoRobot()
+    # El firmware arranca en manual; estos casos comprueban el icono apagado.
+    estado.modo = Modo.AUTOMATICO
     iconos = {tipo: IconoSistema(estado, tipo) for tipo in TipoIcono}
     return estado, iconos
 

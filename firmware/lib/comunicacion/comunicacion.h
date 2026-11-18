@@ -38,10 +38,13 @@ private:
     int    puerto;         // puerto TCP del servidor
 
     // Modo actual del robot ("automatico"/"manual").
-    String _modoActual = "automatico";
+    String _modoActual = "manual";
 
     // millis() de la última orden recibida.
     unsigned long _ultimaOrdenMs = 0;
+
+    // millis() del último cliente que se conectó (0 = ninguno desde el arranque).
+    unsigned long _ultimaConexionMs = 0;
 
     // true una vez que el servidor TCP quedó escuchando (self-test OTA).
     bool _escuchando = false;
@@ -97,6 +100,12 @@ public:
 
     // Modo actual del robot: "automatico" o "manual".
     const String& modo() const;
+
+    // Cambia el modo (ignora valores desconocidos).
+    void setModo(const String& modo);
+
+    // true si no hay cliente conectado y han pasado 'ms' desde la última conexión.
+    bool sinConexionDurante(unsigned long ms);
 
     // millis() de la última orden recibida (0 si aún no llegó ninguna).
     unsigned long ultimaOrdenMs() const;

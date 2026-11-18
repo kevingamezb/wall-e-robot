@@ -40,7 +40,9 @@ static bool anguloValidoParaServo(const char* servo, int angulo) {
 Comunicacion::Comunicacion(int puerto)
     : puerto(puerto)
     , servidor(puerto)
-    , mensajeEntrante("") {}
+    , mensajeEntrante("")
+    , _ultimaOrdenMs(0)
+    , _ultimaConexionMs(0) {}
 
 
 void Comunicacion::iniciarServidor() {
@@ -61,8 +63,9 @@ void Comunicacion::escucharCliente() {
 
         if (cliente) {
             Serial.println("Cliente conectado.");
-            mensajeEntrante = "";
-            _descartando    = false;
+            mensajeEntrante   = "";
+            _descartando      = false;
+            _ultimaConexionMs = millis();
         }
     }
 
@@ -260,7 +263,7 @@ void Comunicacion::aplicarComando(const JsonVariantConst& comando) {
             return;
         }
 
-        _modoActual = modo;
+        setModo(modo);
         Serial.print("Modo cambiado a '");
         Serial.print(modo);
         Serial.println("'.");
@@ -365,6 +368,20 @@ void Comunicacion::setInfoFirmware(const char* version, bool ota_pendiente) {
 
 const String& Comunicacion::modo() const {
     return _modoActual;
+}
+
+
+void Comunicacion::setModo(const String& modo) {
+    if (modo != "automatico" && modo != "manual") {
+        return;
+    }
+    _modoActual = modo;
+}
+
+
+bool Comunicacion::sinConexionDurante(unsigned long ms) {
+    // La resta sin signo tolera el desbordamiento de millis().
+    return !estaConectado() && (millis() - _ultimaConexionMs >= ms);
 }
 
 

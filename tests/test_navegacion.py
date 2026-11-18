@@ -13,8 +13,10 @@ from app.widgets.logica.navegacion import Navegacion, SIMBOLOS
 
 @pytest.fixture
 def nav():
-    """Panel de navegación sobre un estado nuevo."""
-    return Navegacion(EstadoRobot())
+    """Panel de navegación en automático (el estado nuevo arranca en manual)."""
+    estado = EstadoRobot()
+    estado.modo = Modo.AUTOMATICO
+    return Navegacion(estado)
 
 
 def test_estado_arranca_detenido():

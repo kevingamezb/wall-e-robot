@@ -36,9 +36,10 @@ actualización inalámbrica (OTA).
   aparte, con socket no bloqueante y refresco por eventos (`after`).
 * **🔌 Reconexión automática:** si el robot se apaga o se aleja, la app reintenta con espera
   creciente (1 → 10 s) sin bloquear la interfaz.
-* **🎮 Control manual explícito:** botón **MODO** (manual/automático) y tecla **M** para pedir
-  manual; el gamepad solo manda en manual. En manual, el firmware detiene los motores a los 2 s
-  sin órdenes.
+* **🎮 Control manual explícito:** el firmware arranca en manual, el botón **MODO** alterna
+  manual/automático y la tecla **M** reclama el control manual. El gamepad solo manda en manual
+  y los motores se detienen a los 2 s sin órdenes. Si nadie se conecta en 10 min, vuelve a
+  automático.
 * **📡 Telemetría en tiempo real:** WiFi/TCP con mensajes JSON de una línea (`\n`) y protocolo
   versionado.
 * **⚡ Actualizaciones inalámbricas:** OTA con validación MD5, autenticación obligatoria y guardia
@@ -208,6 +209,7 @@ wall-e-robot/
 * En **automático**, el robot se detiene si no hay eco o si la última medición
   tiene más de 750 ms. Si se cae la conexión con la app, **sigue navegando solo**.
 * En **manual**, si dejan de llegar órdenes durante 2 s, los motores se detienen.
+* Si nadie se conecta durante 10 min, el firmware vuelve solo a **automático**.
 * Cualquier cambio manual ↔ automático detiene los motores antes del siguiente
   movimiento.
 * Los mensajes entrantes están limitados a 4 KiB y el protocolo avisa si la app

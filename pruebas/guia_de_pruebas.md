@@ -110,11 +110,12 @@ python -m app.main
 - Sin conectar, el panel está apagado (gamepad deshabilitado, ojos en SIN_DATOS, Sol en
   **"sin datos"** con los 12 rayos grises, indicador **SIN CONEXIÓN**). Al conectar, los datos
   los envía el robot cada ~500 ms.
-- **MODO**: el botón muestra el modo actual del robot (`MODO: AUTOMÁTICO` / `MODO: MANUAL`) y al
-  pulsarlo pide el cambio (`{"tipo":"modo"}`). Sin conexión queda apagado (**MODO: --**). La tecla
-  **M** pide manual directamente, sin alternar.
+- **MODO**: el robot arranca en **manual**; el botón muestra el modo actual (`MODO: MANUAL` /
+  `MODO: AUTOMÁTICO`) y al pulsarlo pide el cambio (`{"tipo":"modo"}`). Sin conexión queda
+  apagado (**MODO: --**). La tecla **M** pide manual directamente, sin alternar.
 - El **gamepad solo manda en manual**: en automático se ve apagado y descarta los comandos, para
-  no pelear con la navegación autónoma. Conectar **no** pone al robot en manual por sí solo.
+  no pelear con la navegación autónoma. Conectar **no** cambia el modo por sí solo; si nadie se
+  conecta en 10 min, el firmware vuelve a automático.
 - **Reconexión automática:** si el enlace se cae (el ESP32 se reinicia o se aleja), la app pasa a
   **SIN CONEXIÓN**, lo anota en el Logger y reintenta sola con espera creciente (**1, 2, 4, 8 y
   luego cada 10 s**). El botón muestra **Cancelar** mientras reintenta; al pulsarlo se detiene el
@@ -615,10 +616,11 @@ no llenar el Logger de repeticiones.
 - [ ] La GUI conectada a `192.168.4.1` muestra el estado real (no neutro) de los módulos activos.
 
 **Seguridad física y autonomía (matriz §5.4):**
-- [ ] Al arrancar en automático sin lectura, el robot **no se mueve** hasta tener una medición válida.
+- [ ] Al arrancar, el robot queda en **manual** y detenido; si se pide automático sin lectura, **no se mueve** hasta tener una medición válida.
 - [ ] Con un obstáculo a ≤ 15 cm, gira a la derecha en el sitio; sin eco o con lectura vieja, se detiene.
 - [ ] Cambiar entre manual y automático detiene los motores antes del siguiente movimiento.
 - [ ] En manual, dejar de mandar comandos 2 s detiene las ruedas y registra `SEGURIDAD`.
+- [ ] Sin ninguna conexión durante 10 min, el monitor muestra `[MODO] Sin conexion durante 10 min: modo automatico` y la GUI lo refleja al reconectar.
 - [ ] En automático, cortar la WiFi de la PC **no** detiene la navegación autónoma.
 - [ ] Pedir automático sin sensor de distancia o sin motores deja el robot detenido.
 

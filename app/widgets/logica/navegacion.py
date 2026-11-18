@@ -75,6 +75,7 @@ if __name__ == "__main__":
     print("Prueba navegacion.py\n")
 
     estado = EstadoRobot()
+    estado.modo = Modo.AUTOMATICO   # el firmware arranca en manual
     nav = Navegacion(estado)
 
     print("Arranque sin datos: alto")

@@ -117,7 +117,7 @@ class EstadoRobot:
     local que mezcla líneas enviadas por el robot y generadas en la GUI.
     """
 
-    modo:                   Modo  = Modo.AUTOMATICO                                # Ojos y IconoGamepad
+    modo:                   Modo  = Modo.MANUAL                                    # Ojos y IconoGamepad (arranque del firmware)
     bateria:                float = 1.0                                            # SolCarga
     cargando:               bool  = False                                          # SolCarga
     tiempo_restante_min:    int   = 0                                              # SolCarga

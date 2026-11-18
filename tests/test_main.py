@@ -166,6 +166,17 @@ def test_atajo_m_pide_modo_manual(app, monkeypatch):
     assert app.conexion.mensajes == [{"tipo": "modo", "modo": "manual"}]
 
 
+def test_boton_modo_alterna_desde_el_arranque_manual(app, monkeypatch):
+    """Con el estado inicial manual, el botón MODO pide automático."""
+    monkeypatch.setattr(modulo_main, "Comunicacion", _ComunicacionFalsa)
+    app.conexion = _ComunicacionFalsa("1.2.3.4", 8080)
+
+    app._cambiar_modo()
+
+    assert app.estado.modo == Modo.MANUAL
+    assert app.conexion.mensajes == [{"tipo": "modo", "modo": "automatico"}]
+
+
 def test_error_al_conectar_se_muestra_sin_romper(app, hilos, monkeypatch):
     """Un fallo del socket deja la app offline y muestra el error."""
     class _ComunicacionCaida:

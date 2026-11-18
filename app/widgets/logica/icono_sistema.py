@@ -86,6 +86,8 @@ if __name__ == "__main__":
     print("Prueba icono_sistema.py\n")
 
     estado = EstadoRobot()
+    # El firmware arranca en manual; esta primera parte prueba el icono apagado.
+    estado.modo = Modo.AUTOMATICO
     iconos = {tipo: IconoSistema(estado, tipo) for tipo in TipoIcono}
 
     print("Estado inicial")
