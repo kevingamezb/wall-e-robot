@@ -13,6 +13,11 @@
  *  Abstrae el sensor de voltaje/corriente y deriva nivel de carga, consumo y
  *  autonomía. Si el INA219 no responde, queda inactiva y devuelve valores
  *  neutros para no generar falsas alertas.
+ *
+ *  El INA219 mide el bus en VIN- (lado carga); sumando la caída leída en el
+ *  shunt se obtiene la tensión en VIN+ (lado batería). El nivel se calcula con
+ *  esa tensión solo cuando la corriente es casi nula, para no confundir la
+ *  caída I*R del cableado/batería con una descarga real.
  */
 class Bateria {
 
@@ -42,9 +47,13 @@ public:
 private:
 
     Adafruit_INA219 _sensor;
-    bool   _activo;
-    float  _voltaje;
-    float  _corriente;
+    bool     _activo;
+    float    _voltajeBus;      // VIN- (lado carga): para consumoWatts()
+    float    _voltajeBateria;  // VIN+ (lado batería): para nivel()/autonomía
+    float    _corriente;       // corriente filtrada (A)
+    float    _nivel;           // nivel cacheado, se actualiza solo en reposo
+    bool     _nivelInicializado;
+    uint32_t _reposoDesdeMs;
 };
 
 // Instancia única global.

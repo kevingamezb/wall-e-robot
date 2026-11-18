@@ -86,7 +86,17 @@ static const uint32_t TIEMPO_SIN_CONEXION_AUTOMATICO_MS = 600000;  // 10 min
 // Periodos (ms) de telemetría y sensores
 static const uint32_t ENVIO_ESTADO_MS      = 500;   // envío del estado al cliente
 static const uint32_t LECTURA_DISTANCIA_MS = 250;   // muestreo del HC-SR04
-static const uint32_t LECTURA_BATERIA_MS   = 1000;  // lectura del INA219
+static const uint32_t LECTURA_BATERIA_MS   = 250;   // lectura del INA219
+
+// El PWM de los motores (1 kHz) mete transitorios en la lectura del INA219.
+// Muestreo más rápido + filtro EMA para quedarnos con la tendencia.
+static const float BATERIA_FILTRO_ALPHA = 0.5f;
+
+// El nivel de carga se calcula solo con la batería en reposo: con corriente
+// circulando, la resistencia interna de la batería y del cableado bajan la
+// tensión y parecería que se descarga (para luego "recuperarse" al parar).
+static const float   BATERIA_CORRIENTE_REPOSO_A = 0.05f;  // |I| menor que esto
+static const uint32_t BATERIA_REPOSO_ESTABLE_MS = 500;    // sostenido este tiempo
 
 // Antigüedad máxima de la última medición para que Auto pueda moverse. Si el
 // sensor deja de responder, los motores se detienen en vez de seguir a ciegas.

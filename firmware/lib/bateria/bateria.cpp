@@ -4,6 +4,8 @@
 #include "bateria.h"
 #include "config.h"
 
+#include <math.h>   // fabsf()
+
 
 Bateria bateria;
 
@@ -11,8 +13,12 @@ Bateria bateria;
 Bateria::Bateria()
     : _sensor()
     , _activo(false)
-    , _voltaje(0.0f)
-    , _corriente(0.0f) {}
+    , _voltajeBus(0.0f)
+    , _voltajeBateria(0.0f)
+    , _corriente(0.0f)
+    , _nivel(1.0f)
+    , _nivelInicializado(false)
+    , _reposoDesdeMs(0) {}
 
 
 void Bateria::iniciar() {
@@ -23,6 +29,13 @@ void Bateria::iniciar() {
     }
 
     _activo = true;
+
+    // Sembrar el filtro con la primera lectura real: si arrancara en 0, el
+    // primer cálculo del nivel saldría falsamente crítico.
+    _voltajeBus = _sensor.getBusVoltage_V();
+    _voltajeBateria = _voltajeBus + _sensor.getShuntVoltage_mV() / 1000.0f;
+    _corriente = _sensor.getCurrent_mA() / 1000.0f;
+
     Serial.println("BATERIA: INA219 listo.");
 }
 
@@ -38,8 +51,38 @@ void Bateria::actualizarLectura() {
         return;   // sensor inactivo: no tocar el I2C
     }
 
-    _voltaje = _sensor.getBusVoltage_V();
-    _corriente = _sensor.getCurrent_mA() / 1000.0f;
+    const float bus = _sensor.getBusVoltage_V();
+    // getBusVoltage_V() mide VIN- (lado carga). Sumar la caída medida en el
+    // shunt (VIN+ - VIN-) recupera la tensión en VIN+ (lado batería), sin
+    // depender del valor del shunt ni estimar resistencias del cableado.
+    const float bateria = bus + _sensor.getShuntVoltage_mV() / 1000.0f;
+    const float corriente = _sensor.getCurrent_mA() / 1000.0f;
+
+    // Filtro EMA: el PWM de 1 kHz de los motores ensucia ambas lecturas. Con
+    // LECTURA_BATERIA_MS = 250 este alpha da una respuesta de ~0,5 s.
+    _voltajeBus     += BATERIA_FILTRO_ALPHA * (bus - _voltajeBus);
+    _voltajeBateria += BATERIA_FILTRO_ALPHA * (bateria - _voltajeBateria);
+    _corriente      += BATERIA_FILTRO_ALPHA * (corriente - _corriente);
+
+    // Solo actualizamos el nivel con la batería en reposo. Con los motores en
+    // marcha, la caída I*R de batería y cableado hace que la tensión baje y
+    // vuelva a subir al parar: eso no es descarga, es sag de tensión.
+    if (fabsf(_corriente) < BATERIA_CORRIENTE_REPOSO_A) {
+        if (_reposoDesdeMs == 0) {
+            _reposoDesdeMs = millis();
+        }
+        if (!_nivelInicializado ||
+            millis() - _reposoDesdeMs >= BATERIA_REPOSO_ESTABLE_MS) {
+
+            _nivel = constrain(
+                (_voltajeBateria - BATERIA_VOLTAJE_MIN) /
+                (BATERIA_VOLTAJE_MAX - BATERIA_VOLTAJE_MIN),
+                0.0f, 1.0f);
+            _nivelInicializado = true;
+        }
+    } else {
+        _reposoDesdeMs = 0;
+    }
 }
 
 
@@ -49,11 +92,7 @@ float Bateria::nivel() const {
         return 1.0f;   // neutro: sin sensor no debe haber alerta
     }
 
-    // Interpolación lineal entre los voltajes mínimo y máximo de la batería.
-    float nivel = (_voltaje - BATERIA_VOLTAJE_MIN)
-                / (BATERIA_VOLTAJE_MAX - BATERIA_VOLTAJE_MIN);
-
-    return constrain(nivel, 0.0f, 1.0f);
+    return _nivel;
 }
 
 
@@ -63,13 +102,15 @@ float Bateria::corrienteA() const {
 
 
 float Bateria::consumoWatts() const {
-    return _activo ? _voltaje * _corriente : 0.0f;
+    // Potencia entregada a la carga: se usa la tensión en VIN- (lado carga).
+    return _activo ? _voltajeBus * _corriente : 0.0f;
 }
 
 
 bool Bateria::cargando() const {
     // Con el cargador, la corriente "entra" a la batería (signo negativo según
-    // el cableado del INA219).
+    // el cableado del INA219). El filtro evita falsos avisos al recargarse el
+    // condensador después de parar los motores.
     return _activo && _corriente < -0.1f;
 }
 
@@ -86,7 +127,7 @@ float Bateria::minutosRestantes() const {
     }
 
     // Energía restante ~ capacidad_mAh * nivel * voltaje (Wh).
-    float energiaWh = (BATERIA_CAPACIDAD_MAH / 1000.0f) * nivel() * _voltaje;
+    float energiaWh = (BATERIA_CAPACIDAD_MAH / 1000.0f) * nivel() * _voltajeBateria;
 
     return energiaWh / watts * 60.0f;
 }
