@@ -82,7 +82,13 @@ def leer_version(raiz: Path = RAIZ) -> str:
 def _version_numerica(version: str) -> tuple[int, int, int, int]:
     """Convierte '1.2.3' en (1, 2, 3, 0), como exige el recurso PE."""
     numeros = [int(n) for n in re.findall(r"\d+", version)[:4]]
-    return tuple((numeros + [0, 0, 0, 0])[:4])
+    numeros = (numeros + [0, 0, 0, 0])[:4]
+    return numeros[0], numeros[1], numeros[2], numeros[3]
+
+
+def _plataforma_es(nombre: str) -> bool:
+    """Evita que los analizadores marquen como muertas las ramas de otras plataformas."""
+    return sys.platform == nombre
 
 
 def generar_version_info_windows(destino: Path, version: str) -> Path:
@@ -273,7 +279,7 @@ def construir_firmware_distribucion(temporal: Path) -> Path:
     return binario
 
 
-def compilar_firmware_solo(salida: Path = None) -> Path:
+def compilar_firmware_solo(salida: Path | None = None) -> Path:
     """Compila SOLO el firmware de distribucion y deja .bin + .md5 en salida.
 
     Pensado para CI: el firmware del ESP32 no depende del PC, asi que se
@@ -332,7 +338,7 @@ def generar_icono_cuadrado(destino: Path, formato: str, lado: int = 256):
                     sizes=[(16, 16), (20, 20), (24, 24), (32, 32), (40, 40),
                            (48, 48), (64, 64), (128, 128), (256, 256)])
     else:
-        lienzo.resize((lado, lado), Image.LANCZOS).save(destino, format="PNG")
+        lienzo.resize((lado, lado), Image.Resampling.LANCZOS).save(destino, format="PNG")
     return destino
 
 
@@ -382,7 +388,7 @@ def construir_app(destino: Path, temporal: Path):
     _ejecutar_pyinstaller(destino, temporal, onefile=False)
 
 
-def construir_exe(salida: Path = None) -> Path:
+def construir_exe(salida: Path | None = None) -> Path:
     """Construye Wall-E.exe autocontenido (Windows, PyInstaller onefile)."""
     if sys.platform != "win32":
         raise RuntimeError(
@@ -489,7 +495,7 @@ License: GPL-3.0
     (destino / "copyright").write_text(contenido, encoding="utf-8")
 
 
-def construir_deb(firmware_bin=None, salida: Path = None) -> Path:
+def construir_deb(firmware_bin=None, salida: Path | None = None) -> Path:
     """Construye un .deb instalable (Linux) con la app + firmware OTA.
 
     Requiere dpkg-deb (viene con dpkg en Debian/Ubuntu/Mint). PyInstaller no
@@ -663,7 +669,7 @@ copiarlos; no acredita autoría ni autenticidad.
     (destino / "LEEME.md").write_text(contenido, encoding="utf-8")
 
 
-def empaquetar(firmware_bin=None, salida: Path = None):
+def empaquetar(firmware_bin=None, salida: Path | None = None):
     """Ensambla el paquete completo en un temporal y devuelve la ruta del ZIP."""
     salida = (Path(salida) if salida else RAIZ / "dist").resolve()
     version = leer_version()
