@@ -368,10 +368,11 @@ static const ModulosActivos MODULOS = { true, true, true, true, true };
 | **OLED** (flag `oled=1`) | Ninguna acción extra. | La pantalla 0.96" muestra BAT / DIS / MODO / CONECTADO. |
 | **LEDs** (siempre) | Ninguna acción extra. | Amarillo encendido cuando todo está normal; rojo cuando hay advertencia, error **o algún módulo desactivado** (config incompleta). El verde de encendido va directo al riel de 5 V. |
 
-> **IMPORTANTE — cables todavía sin confirmar:** los pines de `firmware/include/pines.h` y el
-> sentido A/B de las ruedas del TB6612FNG son **propuesta de arranque**. Antes de la primera prueba
-> de motores, verificar: qué rueda es A y cuál B (AIN1/AIN2 vs BIN1/BIN2) y que girar "arriba"
-> mueve el robot hacia adelante. Si sale al revés, se canjea A↔B en `lib/motores/motores.cpp`.
+> **IMPORTANTE — sentido de giro:** los pines de `firmware/include/pines.h` siguen siendo una
+> propuesta, pero `lib/motores/motores.cpp` usa `SENTIDO_MOTORES = -1` porque el cableado montado
+> invierte el sentido lógico del TB6612. Verificar en la primera prueba que "arriba" avanza y que
+> "izquierda"/"derecha" giran al lado correcto (esto también aplica al modo automático). Si el
+> cableado se corrige, cambiar esa constante a `+1` en lugar de editar los cuatro signos.
 
 ### 5.3 Cableado resumido (según `pines.h`)
 

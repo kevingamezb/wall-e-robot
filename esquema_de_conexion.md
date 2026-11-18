@@ -66,9 +66,11 @@ Sin servomotor: apuntado fijo hacia adelante.
 
 - `+(Motor B) - BO1(TB6612FNG)` · `-(Motor B) - BO2(TB6612FNG)`
 
-> **⚠️ pendiente de verificar:** qué rueda es canal A / canal B y si "arriba" (PWM
-> positivo en ambos) avanza hacia adelante. Si gira al revés, se cambia el cable
-> (+/−) de esa rueda, no el código.
+> **⚠️ pendiente de verificar:** qué rueda es canal A / canal B. El firmware usa
+> `SENTIDO_MOTORES = -1` en `lib/motores/motores.cpp` porque el cableado montado
+> invierte el sentido del TB6612: "arriba" aplica PWM negativo en ambas ruedas.
+> Confirmar que avanza hacia adelante y que los giros van al lado correcto; si se
+> corrige el cableado, cambiar esa constante a `+1`.
 
 ---
 

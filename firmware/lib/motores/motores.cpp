@@ -8,6 +8,10 @@
 // llega a 8,4 V: 178/255 ~ 70 %, para no sobrevoltarlos.
 static const int VELOCIDAD_GIRO = 178;
 
+// El cableado montado invierte el sentido lógico del TB6612: los signos van
+// al revés de la propuesta inicial. Si se corrige el cableado, cambiar a +1.
+static const int SENTIDO_MOTORES = -1;
+
 // Rampa anti-tirón: cada INTERVALO_RAMPA_MS la velocidad real avanza PASO_RAMPA
 // hacia su meta.
 static const int       PASO_RAMPA         = 15;
@@ -76,21 +80,21 @@ void Motores::mover(const String& direccion) {
     }
 
     if (direccion == "arriba") {
-        _metaA =  VELOCIDAD_GIRO;
-        _metaB =  VELOCIDAD_GIRO;
+        _metaA =  SENTIDO_MOTORES * VELOCIDAD_GIRO;
+        _metaB =  SENTIDO_MOTORES * VELOCIDAD_GIRO;
 
     } else if (direccion == "abajo") {
-        _metaA = -VELOCIDAD_GIRO;
-        _metaB = -VELOCIDAD_GIRO;
+        _metaA = -SENTIDO_MOTORES * VELOCIDAD_GIRO;
+        _metaB = -SENTIDO_MOTORES * VELOCIDAD_GIRO;
 
     } else if (direccion == "izquierda") {
         // Giro en el sitio: ruedas contrapuestas.
-        _metaA = -VELOCIDAD_GIRO;
-        _metaB =  VELOCIDAD_GIRO;
+        _metaA = -SENTIDO_MOTORES * VELOCIDAD_GIRO;
+        _metaB =  SENTIDO_MOTORES * VELOCIDAD_GIRO;
 
     } else if (direccion == "derecha") {
-        _metaA =  VELOCIDAD_GIRO;
-        _metaB = -VELOCIDAD_GIRO;
+        _metaA =  SENTIDO_MOTORES * VELOCIDAD_GIRO;
+        _metaB = -SENTIDO_MOTORES * VELOCIDAD_GIRO;
     }
 }
 
