@@ -11,6 +11,7 @@
     "hombro_izq_mas": "w",
     "hombro_izq_menos": "s",
     "izquierda": "Left",
+    "manual": "m",
     "reposo": "r"
   }
 }

@@ -25,7 +25,8 @@ class Accion:
     paso: int = 0 # para EJE, cuántos grados avanza por paso
 
 
-ACCIONES = (
+ACCIONES: tuple[Accion, ...] = (
+    Accion("manual"          , "Modo manual"       , DISCRETO),
     Accion("arriba"          , "Avanzar"           , DISCRETO),
     Accion("abajo"           , "Retroceder"        , DISCRETO),
     Accion("izquierda"       , "Girar izquierda"   , DISCRETO),
@@ -54,6 +55,7 @@ def _teclas_por_defecto() -> dict:
         "abajo"           : "Down",
         "izquierda"       : "Left",
         "derecha"         : "Right",
+        "manual"          : "m",
         "reposo"          : "r",
         "cuello_mas"      : "q",
         "cuello_menos"    : "a",
@@ -231,10 +233,10 @@ if __name__ == "__main__":
     assert nombre_tecla("F5") == "F5"
     print(f"OK: {nombre_tecla('Up')} / {nombre_tecla('space')} / {nombre_tecla('q')}\n")
 
-    # Acciones válidas: 11 en total
-    assert len(ACCIONES) == 11
+    # Acciones válidas: 12 en total
+    assert len(ACCIONES) == 12
     ejes = [a for a in ACCIONES if a.tipo == EJE]
     assert len(ejes) == 6 and all(a.paso > 0 for a in ejes)
-    print("OK: catálogo con 11 acciones, 6 de eje con paso\n")
+    print("OK: catálogo con 12 acciones, 6 de eje con paso\n")
 
     print("Pruebas OK")

@@ -79,8 +79,9 @@ class Aplicacion:
         # El gamepad dispara siempre hacia la conexión activa (real u offline).
         self.pantalla.conectar_gamepad(lambda cmd: self.conexion.enviar_mensaje(cmd))
 
-        self.control_teclado = ControlTeclado(self.root, self.mapeo,
-                                              self.pantalla.gamepad)
+        self.control_teclado = ControlTeclado(
+            self.root, self.mapeo, self.pantalla.gamepad,
+            on_modo_manual=self._pedir_modo_manual)
 
     def _suspender_teclado(self, activa: bool):
         """Suspende el control por teclado mientras se captura una tecla nueva."""
@@ -231,6 +232,12 @@ class Aplicacion:
         nuevo = (Modo.AUTOMATICO if self.estado.modo == Modo.MANUAL
                  else Modo.MANUAL)
         self.conexion.enviar_mensaje({"tipo": "modo", "modo": nuevo.value})
+
+    def _pedir_modo_manual(self):
+        """Atajo de teclado: reclama el control manual del robot."""
+        if not isinstance(self.conexion, Comunicacion):
+            return   # sin robot real no hay a quién pedirle el cambio
+        self.conexion.enviar_mensaje({"tipo": "modo", "modo": Modo.MANUAL.value})
 
     def _cerrar_conexion_actual(self):
         """Cierra el socket actual si lo hay."""

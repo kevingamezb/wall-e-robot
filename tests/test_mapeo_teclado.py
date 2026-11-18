@@ -24,8 +24,8 @@ def test_perfil_por_defecto_cubre_todas_las_acciones():
 
 
 def test_catalogo_de_acciones():
-    """Hay 11 acciones y 6 son de eje con paso positivo."""
-    assert len(ACCIONES) == 11
+    """Hay 12 acciones (incluido el atajo de modo manual) y 6 son de eje."""
+    assert len(ACCIONES) == 12
     ejes = [a for a in ACCIONES if a.tipo == EJE]
     assert len(ejes) == 6
     assert all(a.paso > 0 for a in ejes)

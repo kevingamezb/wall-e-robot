@@ -38,10 +38,11 @@ DESLIZADORES = {
 
 class ControlTeclado:
     """Traduce eventos de teclado de Tk a acciones del gamepad."""
-    def __init__(self, raiz, mapeo: MapeoTeclado, gamepad):
+    def __init__(self, raiz, mapeo: MapeoTeclado, gamepad, on_modo_manual=None):
         self.raiz = raiz
         self.mapeo = mapeo
         self.gamepad = gamepad
+        self.on_modo_manual = on_modo_manual
 
         self._pulsadas = set()
         self._temporizadores = {}
@@ -73,6 +74,15 @@ class ControlTeclado:
         if accion_id is None:
             return
         accion = accion_por_id(accion_id)
+
+        # "manual" no es un botón del gamepad: pide el cambio de modo (una vez,
+        # como cualquier acción discreta).
+        if accion_id == "manual":
+            if keysym not in self._pulsadas:
+                self._pulsadas.add(keysym)
+                if callable(self.on_modo_manual):
+                    self.on_modo_manual()
+            return
 
         if accion.tipo == EJE:
             self._pulsadas.add(keysym)
@@ -158,6 +168,16 @@ if __name__ == "__main__":
     control._al_soltar(_tecla("Up"))
     assert not gamepad.direccion_arriba.presionado, "Soltar apaga el botón"
     print(f"OK: {len(comandos)} emisiones de motor sueltas\n")
+
+    # 'm' pide modo manual sin tocar el gamepad (ni repetir el comando)
+    print("Tecla M -> modo manual")
+    pedidos = []
+    control.on_modo_manual = lambda: pedidos.append("manual")
+    control._al_presionar(_tecla("m"))
+    control._al_presionar(_tecla("m"))
+    assert pedidos == ["manual"], "M debe pedir manual una sola vez"
+    control._al_soltar(_tecla("m"))
+    print("OK: manual se pide una vez al pulsar M\n")
 
     # Discreta (reposo) -> UN disparo
     print("Discreta dispara una sola vez")

@@ -36,8 +36,9 @@ actualización inalámbrica (OTA).
   aparte, con socket no bloqueante y refresco por eventos (`after`).
 * **🔌 Reconexión automática:** si el robot se apaga o se aleja, la app reintenta con espera
   creciente (1 → 10 s) sin bloquear la interfaz.
-* **🎮 Control manual explícito:** botón **MODO** (manual/automático); el gamepad solo manda en
-  manual. En manual, el firmware detiene los motores a los 2 s sin órdenes.
+* **🎮 Control manual explícito:** botón **MODO** (manual/automático) y tecla **M** para pedir
+  manual; el gamepad solo manda en manual. En manual, el firmware detiene los motores a los 2 s
+  sin órdenes.
 * **📡 Telemetría en tiempo real:** WiFi/TCP con mensajes JSON de una línea (`\n`) y protocolo
   versionado.
 * **⚡ Actualizaciones inalámbricas:** OTA con validación MD5, autenticación obligatoria y guardia

@@ -111,7 +111,8 @@ python -m app.main
   **"sin datos"** con los 12 rayos grises, indicador **SIN CONEXIÓN**). Al conectar, los datos
   los envía el robot cada ~500 ms.
 - **MODO**: el botón muestra el modo actual del robot (`MODO: AUTOMÁTICO` / `MODO: MANUAL`) y al
-  pulsarlo pide el cambio (`{"tipo":"modo"}`). Sin conexión queda apagado (**MODO: --**).
+  pulsarlo pide el cambio (`{"tipo":"modo"}`). Sin conexión queda apagado (**MODO: --**). La tecla
+  **M** pide manual directamente, sin alternar.
 - El **gamepad solo manda en manual**: en automático se ve apagado y descarta los comandos, para
   no pelear con la navegación autónoma. Conectar **no** pone al robot en manual por sí solo.
 - **Reconexión automática:** si el enlace se cae (el ESP32 se reinicia o se aleja), la app pasa a
@@ -140,12 +141,13 @@ Comportamiento al usar el teclado en la pantalla principal:
 | Flechas (avanzar/retroceder/girar) | El comando motor se re-emite (no muere por el timeout de seguridad del firmware) |
 | Cuello / hombros (Q/A, W/S, E/D) | Avanza de a 5° cada ~120 ms; el rango lo clampa el deslizador |
 | Reposo | Dispara **una sola vez** (ignora el auto-repetido del teclado) |
+| `M` (Modo manual) | Pide el modo manual una sola vez (no se repite al mantener la tecla) |
 
 - El teclado funciona **mientras la ventana tiene foco** (como en un emulador);
   si el foco se va a otra ventana, el estado se limpia solo.
 - El perfil se guarda en `configuracion/controles.json`. Teclas por defecto:
-  flechas = movimiento; `Q/A` cuello; `W/S` hombro izquierdo; `E/D` hombro
-  derecho; `R` reposo.
+  flechas = movimiento; `M` modo manual; `Q/A` cuello; `W/S` hombro izquierdo;
+  `E/D` hombro derecho; `R` reposo.
 
 ### 3.3 Apariencia: "Holograma Axiom + Wall-E"
 

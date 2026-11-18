@@ -14,7 +14,7 @@ import queue
 import pytest
 
 from app.comunicacion.conexion import ConexionOffline
-from app.nucleo.estado import EstadoRobot
+from app.nucleo.estado import EstadoRobot, Modo
 from app import main as modulo_main
 from app.main import Aplicacion
 
@@ -61,16 +61,20 @@ class _RootFalsa:
 
 
 class _ComunicacionFalsa:
-    """Conexión falsa que solo recuerda si se cerró."""
+    """Conexión falsa que recuerda si se cerró y los comandos enviados."""
 
     def __init__(self, ip, puerto):
         self.ip = ip
         self.puerto = puerto
         self.cerrada = False
         self.perdida = False
+        self.mensajes = []
 
     def actualizar_estado(self, _estado):
         pass
+
+    def enviar_mensaje(self, comando):
+        self.mensajes.append(comando)
 
     def cerrar(self):
         self.cerrada = True
@@ -106,6 +110,7 @@ def app():
     """Aplicacion sin ventana, con pantalla, raíz y conexión falsas."""
     aplicacion = Aplicacion.__new__(Aplicacion)
     aplicacion.root = _RootFalsa()
+    aplicacion.estado = EstadoRobot()
     aplicacion.pantalla = _PantallaFalsa()
     aplicacion.conexion = ConexionOffline()
     aplicacion._conexion_pendiente = False
@@ -148,6 +153,17 @@ def test_conectar_abre_el_socket_en_un_hilo(app, hilos, monkeypatch):
     assert app.pantalla.conexion == (True, "1.2.3.4")
     assert app._conexion_pendiente is False
     assert app._ultima_ip == "1.2.3.4"
+
+
+def test_atajo_m_pide_modo_manual(app, monkeypatch):
+    """El atajo de teclado envía el modo manual aunque el gamepad esté apagado."""
+    monkeypatch.setattr(modulo_main, "Comunicacion", _ComunicacionFalsa)
+    app.conexion = _ComunicacionFalsa("1.2.3.4", 8080)
+    app.estado.modo = Modo.AUTOMATICO
+
+    app._pedir_modo_manual()
+
+    assert app.conexion.mensajes == [{"tipo": "modo", "modo": "manual"}]
 
 
 def test_error_al_conectar_se_muestra_sin_romper(app, hilos, monkeypatch):

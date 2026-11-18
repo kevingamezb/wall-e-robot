@@ -48,6 +48,20 @@ def test_flecha_emite_motor_y_auto_repite(control):
     assert not ctl.gamepad.direccion_arriba.presionado
 
 
+def test_tecla_m_pide_modo_manual(control):
+    """La acción 'manual' llama al callback una vez y no toca el gamepad."""
+    ctl, comandos = control
+    pedidos = []
+    ctl.on_modo_manual = lambda: pedidos.append(True)
+
+    ctl._al_presionar(_tecla("m"))
+    ctl._al_presionar(_tecla("m"))
+    ctl._al_soltar(_tecla("m"))
+
+    assert pedidos == [True]
+    assert comandos == []
+
+
 def test_discreta_dispara_una_sola_vez(control):
     """Una acción discreta (reposo) emite un único comando aunque se auto-repita la tecla."""
     ctl, comandos = control
