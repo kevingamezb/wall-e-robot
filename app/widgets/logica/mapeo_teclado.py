@@ -73,6 +73,13 @@ def accion_por_id(accion_id: str) -> Accion:
     raise KeyError(accion_id)
 
 
+def normalizar_keysym(keysym: str) -> str:
+    """Unifica las letras a minúsculas (Shift/Caps Lock cambian el keysym)."""
+    if len(keysym) == 1 and keysym.isalpha():
+        return keysym.lower()
+    return keysym
+
+
 def nombre_tecla(keysym: str) -> str:
     """Devuelve el nombre legible de la tecla para mostrar en la GUI."""
     especiales = {
@@ -135,20 +142,23 @@ class MapeoTeclado:
         return _teclas_por_defecto()[accion_id]
 
     def buscar_accion(self, keysym: str) -> str | None:
+        keysym = normalizar_keysym(keysym)
         for accion_id, tecla in self._mapa.items():
-            if tecla == keysym:
+            if normalizar_keysym(tecla) == keysym:
                 return accion_id
         return None
 
     def tecla_ocupada(self, keysym: str, excepto: str | None = None) -> str | None:
+        keysym = normalizar_keysym(keysym)
         for accion_id, tecla in self._mapa.items():
-            if tecla == keysym and accion_id != excepto:
+            if normalizar_keysym(tecla) == keysym and accion_id != excepto:
                 return accion_id
         return None
 
     def asignar(self, accion_id: str, keysym: str):
         """Asigna la tecla a la acción; si ya estaba en uso, libera la acción que la ocupaba."""
         accion_por_id(accion_id)
+        keysym = normalizar_keysym(keysym)
         ocupada = self.tecla_ocupada(keysym, excepto=accion_id)
         if ocupada is not None:
             self._mapa.pop(ocupada, None)

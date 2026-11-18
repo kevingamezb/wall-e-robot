@@ -46,7 +46,7 @@ def test_pestana_controles_incrusta_el_modal(raiz_tk):
     assert capturas[-1] is True
 
     modal._al_tecla(_tecla("U"))
-    assert mapeo.tecla_de("arriba") == "U"
+    assert mapeo.tecla_de("arriba") == "u"
     assert capturas[-1] is False
     assert cambios == [True]
 
@@ -63,6 +63,25 @@ def test_pestana_controles_incrusta_el_modal(raiz_tk):
 
     pantalla.dibujar()
     raiz_tk.update()
+
+
+def test_clic_en_el_borde_de_la_pestana_vuelve_a_conectar(raiz_tk):
+    """Toda la pestaña es clicable, no solo los píxeles del texto."""
+    e = Escala(0.25)
+    pantalla = PantallaPrincipal(
+        raiz_tk, EstadoRobot(), e, mapeo=MapeoTeclado(),
+    )
+    raiz_tk.update()
+    pantalla.mostrar_pagina("controles")
+    raiz_tk.update()
+    assert pantalla._pagina == "controles"
+
+    x1, y1, _, _ = e.caja(Disenio.TAB_CONECTAR)
+    pantalla.canvas.event_generate(
+        "<ButtonPress-1>", x=int(x1) + 1, y=int(y1) + 1)
+    raiz_tk.update()
+
+    assert pantalla._pagina == "conectar"
 
 
 def test_panel_cabe_bajo_las_pestanas_y_dentro_de_la_barra(raiz_tk):

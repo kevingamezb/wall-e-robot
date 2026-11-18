@@ -6,6 +6,7 @@ import types
 
 from .mapeo_teclado import (
     ACCIONES, DISCRETO, EJE, MODIFICADORAS, Accion, MapeoTeclado, accion_por_id,
+    normalizar_keysym,
 )
 
 # Clases Tk de campos donde el usuario escribe texto: mientras el foco está en
@@ -65,24 +66,26 @@ class ControlTeclado:
             return False
 
     def _al_presionar(self, evento):
-        if self.suspendido or self._en_campo_de_texto(evento):
-            return   # captura de tecla en curso, o se está escribiendo en un campo
-        keysym = evento.keysym
+        if self.suspendido:
+            return   # captura de tecla en curso
+        keysym = normalizar_keysym(evento.keysym)
         if keysym in MODIFICADORAS:
             return
         accion_id = self.mapeo.buscar_accion(keysym)
-        if accion_id is None:
-            return
-        accion = accion_por_id(accion_id)
 
-        # "manual" no es un botón del gamepad: pide el cambio de modo (una vez,
-        # como cualquier acción discreta).
+        # "manual" es un atajo global: va antes del guard de campos de texto
+        # para que siga funcionando si el foco está en IP/Puerto (Shift y Caps
+        # Lock también cambian el keysym, por eso se normaliza).
         if accion_id == "manual":
             if keysym not in self._pulsadas:
                 self._pulsadas.add(keysym)
                 if callable(self.on_modo_manual):
                     self.on_modo_manual()
             return
+
+        if self._en_campo_de_texto(evento) or accion_id is None:
+            return   # se está escribiendo en un campo, o tecla sin mapear
+        accion = accion_por_id(accion_id)
 
         if accion.tipo == EJE:
             self._pulsadas.add(keysym)
@@ -96,17 +99,18 @@ class ControlTeclado:
             self._pulsar_boton(accion_id)
 
     def _al_soltar(self, evento):
-        if self.suspendido or self._en_campo_de_texto(evento):
-            return   # captura de tecla en curso, o se está escribiendo en un campo
-        keysym = evento.keysym
+        keysym = normalizar_keysym(evento.keysym)
+        estaba_pulsada = keysym in self._pulsadas
         self._pulsadas.discard(keysym)
 
+        # Se limpia siempre, aunque el foco ya esté en otro widget: si no, un
+        # motor podría quedarse presionado al soltar la tecla fuera del lienzo.
         timer = self._temporizadores.pop(keysym, None)
         if timer is not None:
             self.raiz.after_cancel(timer)
 
         accion_id = self.mapeo.buscar_accion(keysym)
-        if accion_id is not None and accion_id in BOTONES:
+        if estaba_pulsada and accion_id in BOTONES:
             self._soltar_boton(accion_id)
 
     def _pulsar_boton(self, accion_id: str):

@@ -50,7 +50,8 @@ def test_captura_asigna_y_notifica(modal):
 
     instancia._al_tecla(_tecla("U"))
 
-    assert instancia.mapeo.tecla_de("arriba") == "U"
+    # Se guarda en minúsculas: Shift/Caps Lock no deben cambiar el atajo.
+    assert instancia.mapeo.tecla_de("arriba") == "u"
     assert len(cambios) == 1
     assert instancia._capturando is None
 

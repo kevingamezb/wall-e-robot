@@ -9,7 +9,7 @@ import tkinter as tk
 from ..nucleo.disenio import Disenio, Escala
 from ..nucleo.paleta import Paleta
 from ..widgets.logica.mapeo_teclado import (
-    ACCIONES, MODIFICADORAS, MapeoTeclado, nombre_tecla,
+    ACCIONES, MODIFICADORAS, MapeoTeclado, nombre_tecla, normalizar_keysym,
 )
 from ..widgets.renderizado.base_render import rectangulo_redondeado
 from ..widgets.renderizado.logger_widget_render import rectangulo_puntos
@@ -502,7 +502,7 @@ class ModalControles:
         """Captura la tecla presionada y la asigna a la acción en espera."""
         if self._capturando is None:
             return
-        keysym = evento.keysym
+        keysym = normalizar_keysym(evento.keysym)
 
         if keysym in ("Escape", "Cancel"):
             self._capturando = None

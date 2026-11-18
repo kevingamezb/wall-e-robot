@@ -156,7 +156,7 @@ def test_conectar_abre_el_socket_en_un_hilo(app, hilos, monkeypatch):
 
 
 def test_atajo_m_pide_modo_manual(app, monkeypatch):
-    """El atajo de teclado envía el modo manual aunque el gamepad esté apagado."""
+    """El atajo envía el modo manual y lo refleja enseguida en estado y log."""
     monkeypatch.setattr(modulo_main, "Comunicacion", _ComunicacionFalsa)
     app.conexion = _ComunicacionFalsa("1.2.3.4", 8080)
     app.estado.modo = Modo.AUTOMATICO
@@ -164,6 +164,9 @@ def test_atajo_m_pide_modo_manual(app, monkeypatch):
     app._pedir_modo_manual()
 
     assert app.conexion.mensajes == [{"tipo": "modo", "modo": "manual"}]
+    assert app.estado.modo == Modo.MANUAL
+    linea = app.estado.logger.obtener_lineas()[-1]
+    assert (linea.origen, linea.mensaje) == ("MODO", "Modo manual solicitado")
 
 
 def test_boton_modo_alterna_desde_el_arranque_manual(app, monkeypatch):

@@ -238,6 +238,10 @@ class Aplicacion:
         if not isinstance(self.conexion, Comunicacion):
             return   # sin robot real no hay a quién pedirle el cambio
         self.conexion.enviar_mensaje({"tipo": "modo", "modo": Modo.MANUAL.value})
+        # La telemetría confirmaría el cambio un instante después; se aplica ya
+        # para que el atajo se vea reflejado en la GUI de inmediato.
+        self.estado.modo = Modo.MANUAL
+        self.estado.logger.agregar_linea("MODO", "Modo manual solicitado")
 
     def _cerrar_conexion_actual(self):
         """Cierra el socket actual si lo hay."""

@@ -157,13 +157,19 @@ class PantallaPrincipal:
         self._tab_controles = Texto(c, e((kx + kx2) / 2), e((ky + ky2) / 2),
                                     "Controles", e.fuente(44), Paleta.TEXTO_LOG,
                                     ancla="center")
-        for pestana, nombre in ((self._tab_conectar, "conectar"),
-                                (self._tab_controles, "controles")):
-            c.tag_bind(pestana.id, "<ButtonPress-1>",
+        # El clic se enlaza a toda la pestaña, no solo a los píxeles del texto:
+        # así funciona también al pulsar el borde o el hueco entre letras.
+        self._areas_pestanas = []
+        for caja, nombre in ((Disenio.TAB_CONECTAR, "conectar"),
+                             (Disenio.TAB_CONTROLES, "controles")):
+            x1, y1, x2, y2 = e.caja(caja)
+            area = c.create_rectangle(x1, y1, x2, y2, fill="", outline="")
+            c.tag_bind(area, "<ButtonPress-1>",
                        lambda _ev, n=nombre: self.mostrar_pagina(n))
-            c.tag_bind(pestana.id, "<Enter>",
+            c.tag_bind(area, "<Enter>",
                        lambda _ev: c.configure(cursor="hand2"))
-            c.tag_bind(pestana.id, "<Leave>", lambda _ev: c.configure(cursor=""))
+            c.tag_bind(area, "<Leave>", lambda _ev: c.configure(cursor=""))
+            self._areas_pestanas.append(area)
 
         # Campos IP y puerto.
         familia = tkfont.nametofont("TkDefaultFont").actual("family")
@@ -240,6 +246,10 @@ class PantallaPrincipal:
             color=Paleta.DORADO if en_conexion else Paleta.TEXTO_LOG)
         self._tab_controles.poner(
             color=Paleta.TEXTO_LOG if en_conexion else Paleta.DORADO)
+
+        # Al cambiar de pestaña, el foco vuelve al lienzo: si se quedara en el
+        # campo IP/Port, la tecla M se interpretaría como texto y no como atajo.
+        self.canvas.focus_set()
 
     def _enlazar_clic(self, item, boton, al_hover=None):
         """Hace que un ítem del canvas se comporte como botón lógico."""

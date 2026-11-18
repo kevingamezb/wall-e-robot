@@ -62,6 +62,35 @@ def test_tecla_m_pide_modo_manual(control):
     assert comandos == []
 
 
+def test_tecla_m_mayuscula_pide_modo_manual(control):
+    """Shift/Caps Lock cambian el keysym: 'M' debe valer como 'm'."""
+    ctl, comandos = control
+    pedidos = []
+    ctl.on_modo_manual = lambda: pedidos.append(True)
+
+    ctl._al_presionar(_tecla("M"))
+    ctl._al_soltar(_tecla("M"))
+    ctl._al_presionar(_tecla("m"))
+    ctl._al_soltar(_tecla("m"))
+
+    assert pedidos == [True, True]   # soltar 'M' deja el atajo listo de nuevo
+    assert comandos == []
+
+
+def test_tecla_m_funciona_con_foco_en_campo_de_texto(control):
+    """El atajo M va antes del guard de Entry: funciona con foco en IP/Puerto."""
+    ctl, comandos = control
+    pedidos = []
+    ctl.on_modo_manual = lambda: pedidos.append(True)
+    campo = tk.Entry(ctl.raiz)
+
+    ctl._al_presionar(types.SimpleNamespace(keysym="M", widget=campo))
+    ctl._al_soltar(types.SimpleNamespace(keysym="m", widget=campo))
+
+    assert pedidos == [True]
+    assert comandos == []
+
+
 def test_discreta_dispara_una_sola_vez(control):
     """Una acción discreta (reposo) emite un único comando aunque se auto-repita la tecla."""
     ctl, comandos = control
