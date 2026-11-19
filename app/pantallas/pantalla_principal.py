@@ -76,7 +76,11 @@ class PantallaPrincipal:
         self._on_cambio_mapeo = on_cambio_mapeo
         self._al_captura = al_captura
         self._pagina = "conectar"
-        self._items_conexion = []   # ítems del formulario de conexión
+        # Objetos Texto e ids de canvas del formulario de conexión. Hay que
+        # conservar los Texto: si solo se guardara su id, la PhotoImage podría
+        # liberarse al vaciarse la caché y entonces itemconfig() fallaría con
+        # "image ... does not exist".
+        self._items_conexion = []
         self._conexion_activa = False
         self._conexion_pendiente = False
         self._tiempos = []          # instantes de los últimos dibujos (FPS)
@@ -133,9 +137,10 @@ class PantallaPrincipal:
         c.create_image(e(x1), e(y1), image=carga_recursos.cargar_ancho(
             "bombillitos", e(x2 - x1), master=c), anchor="nw")
         tx, ty, _, tb = Disenio.TITULO_PANEL
-        Texto(c, e(tx), e((ty + tb) / 2), "Panel de Control", e.fuente(92),
-              Paleta.TEXTO_LOG, ancla="w", contorno=Paleta.TINTA,
-              grosor=max(2, e(7)))
+        self._titulo_panel = Texto(
+            c, e(tx), e((ty + tb) / 2), "Panel de Control", e.fuente(92),
+            Paleta.TEXTO_LOG, ancla="w", contorno=Paleta.TINTA,
+            grosor=max(2, e(7)))
         mx, my, _, mb = Disenio.TELEMETRIA
         self._telemetria = Texto(c, e(mx), e((my + mb) / 2), "| -- FPS | -- ms |",
                                  e.fuente(30), Paleta.TEXTO_LOG, ancla="w")
@@ -178,9 +183,9 @@ class PantallaPrincipal:
             (Disenio.ETIQUETA_PORT, Disenio.CAMPO_PORT, "PORT:", "8080", "campo_port"),
         ):
             ex, ey, _, eb = caja_etiqueta
-            self._items_conexion.append(Texto(
-                c, e(ex), e(eb), etiqueta, e.fuente(88), Paleta.DORADO,
-                ancla="sw").id)
+            texto = Texto(c, e(ex), e(eb), etiqueta, e.fuente(88),
+                          Paleta.DORADO, ancla="sw")
+            self._items_conexion.append(texto)
             fx1, fy1, fx2, fy2 = e.caja(caja_campo)
             campo = tk.Entry(
                 c, font=(familia, -max(10, e(48))), bg=Paleta.TARJETA,
@@ -208,7 +213,7 @@ class PantallaPrincipal:
         sx, sy, _, _ = Disenio.ESTADO_CONEXION
         self._estado_conexion = Texto(c, e(sx), e(sy), "", e.fuente(46),
                                       Paleta.GRIS, ancla="nw")
-        self._items_conexion.append(self._estado_conexion.id)
+        self._items_conexion.append(self._estado_conexion)
 
         # Pestaña "Controles": el editor de teclas ocupa el lugar del formulario.
         self.panel_controles = None
@@ -227,6 +232,7 @@ class PantallaPrincipal:
 
     def mostrar_pagina(self, pagina: str):
         """Cambia el contenido de la barra lateral: 'conectar' o 'controles'."""
+        c = self.canvas
         if pagina == "controles" and self.panel_controles is None:
             return
         if pagina == "conectar" and self.panel_controles is not None:
@@ -234,10 +240,12 @@ class PantallaPrincipal:
             # siguiente tecla (p. ej. al escribir la IP) cambiaría el mapeo.
             self.panel_controles.cancelar_captura()
         self._pagina = pagina
-        c = self.canvas
         en_conexion = pagina == "conectar"
         for item in self._items_conexion:
-            c.itemconfig(item, state="normal" if en_conexion else "hidden")
+            if isinstance(item, Texto):
+                item.mostrar(en_conexion)
+            else:
+                c.itemconfig(item, state="normal" if en_conexion else "hidden")
         self.render_conectar.mostrar(en_conexion)
         if self.panel_controles is not None:
             c.itemconfig(self._ventana_controles,

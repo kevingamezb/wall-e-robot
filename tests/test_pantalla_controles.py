@@ -4,6 +4,7 @@
 """Integración de la pestaña "Controles" incrustada en la barra lateral."""
 
 
+import gc
 import types
 
 from app.nucleo.disenio import Disenio, Escala
@@ -13,6 +14,12 @@ from app.pantallas.modal_controles import (
 )
 from app.pantallas.pantalla_principal import PantallaPrincipal
 from app.widgets.logica.mapeo_teclado import MapeoTeclado
+from app.widgets.renderizado.texto_render import Texto
+
+
+def _id_item(item):
+    """Id de canvas de un Texto (o de un ítem guardado ya como id)."""
+    return item.id if isinstance(item, Texto) else item
 
 
 def _tecla(keysym):
@@ -38,7 +45,7 @@ def test_pestana_controles_incrusta_el_modal(raiz_tk):
     assert pantalla._pagina == "controles"
     assert pantalla.canvas.itemcget(
         pantalla._ventana_controles, "state") == "normal"
-    assert all(pantalla.canvas.itemcget(item, "state") == "hidden"
+    assert all(pantalla.canvas.itemcget(_id_item(item), "state") == "hidden"
                for item in pantalla._items_conexion)
 
     modal = pantalla.panel_controles
@@ -58,10 +65,38 @@ def test_pestana_controles_incrusta_el_modal(raiz_tk):
     assert capturas[-1] is False
     assert pantalla.canvas.itemcget(
         pantalla._ventana_controles, "state") == "hidden"
-    assert all(pantalla.canvas.itemcget(item, "state") == "normal"
+    assert all(pantalla.canvas.itemcget(_id_item(item), "state") == "normal"
                for item in pantalla._items_conexion)
 
     pantalla.dibujar()
+    raiz_tk.update()
+
+
+def test_vaciar_la_cache_no_rompe_las_etiquetas_de_conexion(raiz_tk):
+    """Las imágenes de la barra sobreviven al vaciado de la caché de textos."""
+    pantalla = PantallaPrincipal(
+        raiz_tk, EstadoRobot(), Escala(0.25), mapeo=MapeoTeclado())
+    raiz_tk.update()
+
+    # El fallo original: se guardaba solo el id del canvas, el objeto Texto se
+    # descartaba y al vaciarse la caché su PhotoImage desaparecía. Entonces
+    # itemconfig() lanzaba '_tkinter.TclError: image "pyimage..." does not exist'
+    # y la pestaña CONTROLES dejaba de responder.
+    assert any(isinstance(item, Texto) for item in pantalla._items_conexion)
+    cache = getattr(raiz_tk, "_cache_texto_quadrillion", None)
+    assert cache is not None
+    cache.clear()
+    gc.collect()
+
+    pantalla.mostrar_pagina("controles")
+    assert pantalla._pagina == "controles"
+    assert all(pantalla.canvas.itemcget(_id_item(item), "state") == "hidden"
+               for item in pantalla._items_conexion)
+
+    pantalla.mostrar_pagina("conectar")
+    assert pantalla._pagina == "conectar"
+    assert all(pantalla.canvas.itemcget(_id_item(item), "state") == "normal"
+               for item in pantalla._items_conexion)
     raiz_tk.update()
 
 
