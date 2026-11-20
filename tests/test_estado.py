@@ -15,7 +15,7 @@ def test_estado_valores_por_defecto():
     """El estado arranca en manual (como el firmware), batería llena y sin enlace."""
     estado = EstadoRobot()
     assert estado.modo == Modo.MANUAL
-    assert estado.bateria == 1.0
+    assert estado.bateria == -1.0
     assert estado.conexion_activa is False
     assert estado.nivel_conexion == NivelConexion.NULA
     assert estado.distancia_obstaculo_cm is None

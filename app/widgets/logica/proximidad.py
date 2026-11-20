@@ -3,10 +3,12 @@
 
 
 from ...nucleo.estado import EstadoRobot
+from ...nucleo.paleta import Paleta
 
 
 # Distancia (cm) que se mapea al borde exterior del medidor.
 RANGO_MAX_CM = 200
+AROS = 3
 
 
 class Proximidad:
@@ -30,6 +32,17 @@ class Proximidad:
             return 0.0
         distancia = max(0.0, float(self.estado.distancia_obstaculo_cm))
         return 1.0 - min(distancia, RANGO_MAX_CM) / RANGO_MAX_CM
+
+    @property
+    def arcos_encendidos(self) -> int:
+        if not self.hay_obstaculo:
+            return 0
+        return max(1, round(self.cercania * AROS))
+
+    @property
+    def color(self) -> str:
+        return (Paleta.DORADO, Paleta.DORADO, Paleta.NARANJA,
+                Paleta.ROJO)[self.arcos_encendidos]
 
     @property
     def etiqueta(self) -> str:

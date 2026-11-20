@@ -22,6 +22,7 @@ def sol():
 @pytest.mark.parametrize(
     "bateria, rayos, color, etiqueta",
     [
+        (-1.0, 8, Paleta.GRIS,   "sin datos"),
         (1.0, 8, Paleta.DORADO,  "8 / 8"),
         (0.5, 4, Paleta.NARANJA, "4 / 8"),
         (0.2, 2, Paleta.ROJO,    "2 / 8"),

@@ -5,15 +5,14 @@
 
 
 import math
-from ...nucleo.paleta import Paleta, color_por_umbral
+from ...nucleo.paleta import Paleta
 from ...nucleo.disenio import Disenio
 from ...nucleo.estado import Maniobra
+from ..logica.proximidad import AROS
 from .base_render import RenderizadorBase
 from .texto_render import Texto
 
 
-# Cantidad de arcos del medidor de proximidad.
-AROS = 3
 # Por encima de esta distancia (cm) la tarjeta muestra ">100 cm".
 DISTANCIA_LEJOS_CM = 100
 
@@ -132,36 +131,28 @@ class NavegacionRenderer(RenderizadorBase):
         if "aro_1" not in self._ids:
             self._construir()
 
-        cercania = self.proximidad.cercania
-        hay_obstaculo = self.proximidad.hay_obstaculo
+        encendidos = self.proximidad.arcos_encendidos
         texto_dist = self._texto_distancia(self.proximidad)
         maniobra = self.navegacion.maniobra
         manual = self.navegacion.en_manual
         descripcion = self.navegacion.descripcion
         color_nav = self.navegacion.color
-        color_obstaculo = color_por_umbral(cercania, invertido=True)
-        if color_obstaculo == Paleta.GRIS:
-            color_obstaculo = Paleta.DORADO
-
-        if not self._hay_cambio("estado", (cercania, hay_obstaculo, texto_dist,
+        if not self._hay_cambio("estado", (encendidos, texto_dist,
                                            maniobra, manual, descripcion, color_nav)):
             return
         c = self.canvas
+        color_obstaculo = self.proximidad.color
 
         # Arcos: se encienden del exterior hacia el centro al acercarse un objeto.
-        encendidos = round(cercania * AROS)
-        if hay_obstaculo:
-            encendidos = max(1, encendidos)
         for i in range(1, AROS + 1):
             color = color_obstaculo if i <= encendidos else Paleta.FONDO_WIDGET
             c.itemconfig(self._ids[f"aro_{i}"], outline=color)
             for lado in "ab":
                 c.itemconfig(self._ids[f"punta_{i}{lado}"], fill=color)
 
-        c.itemconfig(self._ids["robot"],
-                     fill=color_obstaculo if hay_obstaculo else Paleta.DORADO)
+        c.itemconfig(self._ids["robot"], fill=color_obstaculo)
         self._textos["dist_v"].poner(
             texto=texto_dist,
-            color=color_obstaculo if hay_obstaculo and cercania > 0.4 else Paleta.TINTA)
+            color=color_obstaculo if encendidos >= 2 else Paleta.TINTA)
         self._textos["mov_d"].poner(texto=descripcion, color=color_nav)
         self._poner_glifo(maniobra, manual, color_nav)

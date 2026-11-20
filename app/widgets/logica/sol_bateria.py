@@ -18,8 +18,8 @@ class SolBateria:
 
     @property
     def sin_datos(self) -> bool:
-        """Sin conexión no hay lectura de batería: el sol queda gris e inerte."""
-        return not self.estado.conexion_activa
+        """El sol queda gris cuando no hay una lectura de batería."""
+        return not self.estado.conexion_activa or self.estado.bateria < 0
 
     @property
     def rayos_encendidos(self) -> int:
