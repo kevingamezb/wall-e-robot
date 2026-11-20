@@ -113,7 +113,7 @@ def test_clic_en_el_borde_de_la_pestana_vuelve_a_conectar(raiz_tk):
 
     x1, y1, _, _ = e.caja(Disenio.TAB_CONECTAR)
     pantalla.canvas.event_generate(
-        "<ButtonPress-1>", x=int(x1) + 1, y=int(y1) + 1)
+        "<ButtonPress-1>", x=x1 + 1, y=y1 - int(pantalla.canvas.canvasy(0)) + 1)
     raiz_tk.update()
 
     assert pantalla._pagina == "conectar"
@@ -177,3 +177,21 @@ def test_barra_y_rueda_desplazan_la_lista(raiz_tk):
     assert modal.lienzo_filas.yview()[0] > 0.9, "Arrastrar baja la lista"
 
     modal.ventana.destroy()
+
+
+def test_perilla_respeta_el_recorrido_visible(raiz_tk, monkeypatch):
+    modal = ModalControles(raiz_tk, MapeoTeclado(), incrustado=True)
+    barra = modal.barra_filas
+    movimientos = []
+    barra.al_mover = movimientos.append
+    monkeypatch.setattr(barra, "_medidas", lambda: (10, 204, 2))
+    barra.set(0.125, 0.875)
+
+    agarre = barra._y_perilla + 5
+    barra._al_presionar(types.SimpleNamespace(y=agarre))
+    assert movimientos == []
+    barra._al_arrastrar(types.SimpleNamespace(y=agarre + 12.5))
+    assert movimientos == [0.1875]
+
+    _, limpiar = modal._filas["manual"]
+    assert limpiar._texto_plano == "X"

@@ -26,7 +26,7 @@ class Accion:
 
 
 ACCIONES: tuple[Accion, ...] = (
-    Accion("manual"          , "Modo manual"       , DISCRETO),
+    Accion("manual"          , "Cambiar modo"      , DISCRETO),
     Accion("arriba"          , "Avanzar"           , DISCRETO),
     Accion("abajo"           , "Retroceder"        , DISCRETO),
     Accion("izquierda"       , "Girar izquierda"   , DISCRETO),

@@ -9,9 +9,11 @@ botón de modo sigue al robot y que el gamepad solo manda en manual.
 """
 
 
-from app.nucleo.disenio import Escala
+from app.nucleo.disenio import Escala, RECORTE_SUPERIOR
 from app.nucleo.estado import EstadoRobot, Modo
+from app.nucleo.paleta import Paleta
 from app.pantallas.pantalla_principal import PantallaPrincipal
+from app.widgets.renderizado import texto_render
 
 
 def test_pantalla_se_construye_y_dibuja(raiz_tk):
@@ -57,3 +59,37 @@ def test_pantalla_se_construye_y_dibuja(raiz_tk):
     assert pantalla.boton_modo.habilitado is False
     assert pantalla.boton_modo.texto == "MODO: --"
     assert pantalla.gamepad.habilitado is False
+
+
+def test_recorte_superior_y_navegacion_con_dos_arcos(raiz_tk):
+    escala = Escala(0.40)
+    estado = EstadoRobot()
+    estado.distancia_obstaculo_cm = 34
+    pantalla = PantallaPrincipal(raiz_tk, estado, escala)
+    pantalla.dibujar()
+    raiz_tk.update_idletasks()
+
+    canvas = pantalla.canvas
+    assert canvas.canvasy(0) == escala(RECORTE_SUPERIOR)
+    assert canvas.winfo_reqheight() == escala.alto_panel
+    radar = pantalla.render_navegacion
+    colores = [
+        canvas.itemcget(radar._ids[f"aro_{i}"], "outline") for i in (1, 2, 3)
+    ]
+    assert colores == [Paleta.NARANJA, Paleta.NARANJA, Paleta.FONDO_WIDGET]
+    assert pantalla.t_navegacion._color_pastilla == Paleta.NARANJA
+
+
+def test_cache_texto_conserva_las_entradas_recientes(raiz_tk, monkeypatch):
+    monkeypatch.setattr(texto_render, "_MAX_CACHE", 2)
+
+    def foto(texto):
+        return texto_render.foto_texto(texto, 14, Paleta.TINTA, master=raiz_tk)
+
+    reciente = foto("reciente")
+    antigua = foto("antigua")
+    assert foto("reciente") is reciente
+    foto("nueva")
+
+    assert foto("reciente") is reciente
+    assert foto("antigua") is not antigua

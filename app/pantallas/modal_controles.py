@@ -108,9 +108,9 @@ class _BarraLista:
             self._y_perilla = 0
             return
 
-        alto_perilla = max(self.e(45), util * max(0.0, visible))
-        y = margen + (util - alto_perilla) * (
-            self._primero / max(1e-9, 1.0 - visible))
+        alto_perilla = min(util, max(self.e(45), util * max(0.0, visible)))
+        posicion = max(0.0, min(1.0, self._primero / (1.0 - visible)))
+        y = margen + (util - alto_perilla) * posicion
         self._alto_perilla = alto_perilla
         self._y_perilla = y
         self.canvas.itemconfigure(perilla, state="normal")
@@ -125,7 +125,8 @@ class _BarraLista:
         dentro = self._y_perilla <= evento.y <= self._y_perilla + self._alto_perilla
         self._agarre = (evento.y - self._y_perilla if dentro
                         else self._alto_perilla / 2)
-        self._mover(evento.y)
+        if not dentro:
+            self._mover(evento.y)
 
     def _al_arrastrar(self, evento):
         """Mueve la perilla mientras se arrastra."""
@@ -141,7 +142,8 @@ class _BarraLista:
         _ancho, alto, margen = self._medidas()
         recorrido = max(1, (alto - 2 * margen) - self._alto_perilla)
         fraccion = (y - self._agarre - margen) / recorrido
-        self.al_mover(max(0.0, min(1.0, fraccion)))
+        maximo = max(0.0, 1.0 - (self._ultimo - self._primero))
+        self.al_mover(max(0.0, min(1.0, fraccion)) * maximo)
 
 
 class ModalControles:
@@ -191,12 +193,16 @@ class ModalControles:
                           self._fuente(34), Paleta.TEXTO_TENUE,
                           ancho_px=self._ancho_texto())
 
+        espacio_estado = tk.Frame(self.ventana, bg=fondo,
+                                  height=self._px(90))
+        espacio_estado.pack(fill="x", padx=self._px(Paleta.UNIDAD),
+                            pady=(self._px(4), 0))
+        espacio_estado.pack_propagate(False)
         self.lbl_estado = tk.Label(
-            self.ventana, text="", bg=fondo,
+            espacio_estado, text="", bg=fondo,
             fg=Paleta.DORADO, font=(Paleta.FUENTE_TEXTO, 8), anchor="w",
         )
-        self.lbl_estado.pack(fill="x", padx=self._px(Paleta.UNIDAD),
-                             pady=(self._px(4), 0))
+        self.lbl_estado.pack(fill="x")
         self._poner_estado("", Paleta.DORADO)
 
         # Lista desplazable: las filas mantienen su tamaño táctil sin ocultar
@@ -422,9 +428,8 @@ class ModalControles:
             return
         boton.config(bg=Paleta.ROJO if activo else Paleta.FONDO_NEGRO,
                      activebackground=Paleta.ROJO)
-        self._poner_texto(boton, "\u2715", self._fuente(50),
-                          Paleta.TEXTO_LOG if activo else Paleta.TEXTO_TENUE,
-                          respaldo=True)
+        self._poner_texto(boton, "X", self._fuente(50),
+                          Paleta.TEXTO_LOG if activo else Paleta.TEXTO_TENUE)
 
     # Desplazamiento
     def _actualizar_region_filas(self, _evento=None):
@@ -578,9 +583,8 @@ class ModalControles:
                 highlightbackground=COLOR_BORDE if habilitado else Paleta.HUD_LINE,
                 cursor="hand2" if habilitado else "arrow",
             )
-            self._poner_texto(btn_limpiar, "\u2715", self._fuente(50),
-                              Paleta.TEXTO_TENUE if habilitado else Paleta.GRIS,
-                              respaldo=True)
+            self._poner_texto(btn_limpiar, "X", self._fuente(50),
+                              Paleta.TEXTO_TENUE if habilitado else Paleta.GRIS)
 
 
 # Cajón de Pruebas

@@ -1,6 +1,7 @@
 # wall-e-robot/app/widgets/renderizado/texto_render.py
 # Kevin Gámez - 29/10/2026
 
+from collections import OrderedDict
 from PIL import Image, ImageDraw, ImageFont, ImageTk
 
 from ... import rutas
@@ -17,7 +18,7 @@ RUTAS_RESPALDO = (
 )
 _FUENTES = {}
 _FUENTES_RESPALDO = {}
-_CACHE = {}
+_CACHE = OrderedDict()
 _MAX_CACHE = 600
 
 
@@ -101,17 +102,19 @@ def foto_texto(texto, px, color, contorno=None, grosor=0, alinear="left",
         raiz = master.winfo_toplevel()
         cache = getattr(raiz, "_cache_texto_quadrillion", None)
         if cache is None:
-            cache = {}
+            cache = OrderedDict()
             raiz._cache_texto_quadrillion = cache
     else:
         cache = _CACHE
     clave = (texto, px, color, contorno, grosor, alinear, tipo)
     if clave not in cache:
-        if len(cache) >= _MAX_CACHE:
-            cache.clear()
         cache[clave] = ImageTk.PhotoImage(
             imagen_texto(texto, px, color, contorno, grosor, alinear=alinear,
                          tipo=tipo), master=master)
+        if len(cache) > _MAX_CACHE:
+            cache.popitem(last=False)
+    else:
+        cache.move_to_end(clave)
     return cache[clave]
 
 
