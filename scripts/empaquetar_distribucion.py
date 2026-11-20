@@ -37,6 +37,7 @@
 
 import argparse
 import hashlib
+import os
 import re
 import shutil
 import subprocess
@@ -271,7 +272,14 @@ def construir_firmware_distribucion(temporal: Path) -> Path:
         )
 
     print("[firmware] Compilando en temporal (clave de distribucion)...")
-    subprocess.run([pio, "run"], cwd=str(trabajo), check=True)
+    entorno = os.environ.copy()
+    libdeps = RAIZ / ".pio" / "libdeps"
+    if libdeps.is_dir():
+        # El arbol temporal no tiene .pio propio: sin esto, el Library Manager
+        # intenta descargar otra vez las librerias que el build de desarrollo
+        # ya tiene instaladas y falla cuando no hay red.
+        entorno["PLATFORMIO_LIBDEPS_DIR"] = str(libdeps)
+    subprocess.run([pio, "run"], cwd=str(trabajo), check=True, env=entorno)
 
     binario = trabajo / ".pio" / "build" / "esp32dev" / "firmware.bin"
     if not binario.is_file():

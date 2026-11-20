@@ -230,11 +230,10 @@ def test_generar_version_info_windows(empaquetador, tmp_path):
     assert "StringStruct('FileVersion', '1.2.3')" in texto
 
 
-def test_exe_solo_se_construye_en_windows(empaquetador):
+@pytest.mark.parametrize("plataforma", ["linux", "darwin"])
+def test_exe_solo_se_construye_en_windows(empaquetador, monkeypatch, plataforma):
     """En Linux/macOS construir_exe falla con un error claro."""
-    if sys.platform == "win32":
-        pytest.skip("En Windows --exe si construye el binario.")
-
+    monkeypatch.setattr(empaquetador.sys, "platform", plataforma)
     with pytest.raises(RuntimeError, match="Windows"):
         empaquetador.construir_exe()
 
