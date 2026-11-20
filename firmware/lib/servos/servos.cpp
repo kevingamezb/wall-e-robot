@@ -82,7 +82,7 @@ void Servos::escribirServo(int indice, int angulo) {
         return;   // sin servo físico no hay a quién escribir
     }
 
-    int pos = constrain(SERVO_CENTRO + angulo, SERVO_GRAU_MIN, SERVO_GRAU_MAX);
+    int pos = constrain(SERVO_CENTRO - angulo, SERVO_GRAU_MIN, SERVO_GRAU_MAX);
     _servos[indice].write(pos);
 }
 

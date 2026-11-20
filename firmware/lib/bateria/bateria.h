@@ -35,7 +35,7 @@ public:
     void actualizarLectura();
 
     // Nivel de carga normalizado; 1.0 si el módulo está apagado.
-    float nivel() const;        // 0.0-1.0
+    float nivel() const;        // 0.0-1.0, o -1 si no hay lectura válida
     float corrienteA() const;   // corriente del bus (A)
     float consumoWatts() const; // V * A
     bool  cargando() const;     // heurística por el sentido de la corriente

@@ -16,7 +16,7 @@ Bateria::Bateria()
     , _voltajeBus(0.0f)
     , _voltajeBateria(0.0f)
     , _corriente(0.0f)
-    , _nivel(1.0f)
+    , _nivel(-1.0f)
     , _nivelInicializado(false)
     , _reposoDesdeMs(0) {}
 
@@ -64,24 +64,25 @@ void Bateria::actualizarLectura() {
     _voltajeBateria += BATERIA_FILTRO_ALPHA * (bateria - _voltajeBateria);
     _corriente      += BATERIA_FILTRO_ALPHA * (corriente - _corriente);
 
-    // Solo actualizamos el nivel con la batería en reposo. Con los motores en
+    // Después de la primera estimación esperamos al reposo. Con los motores en
     // marcha, la caída I*R de batería y cableado hace que la tensión baje y
     // vuelva a subir al parar: eso no es descarga, es sag de tensión.
+    const uint32_t ahora = millis();
     if (fabsf(_corriente) < BATERIA_CORRIENTE_REPOSO_A) {
         if (_reposoDesdeMs == 0) {
-            _reposoDesdeMs = millis();
-        }
-        if (!_nivelInicializado ||
-            millis() - _reposoDesdeMs >= BATERIA_REPOSO_ESTABLE_MS) {
-
-            _nivel = constrain(
-                (_voltajeBateria - BATERIA_VOLTAJE_MIN) /
-                (BATERIA_VOLTAJE_MAX - BATERIA_VOLTAJE_MIN),
-                0.0f, 1.0f);
-            _nivelInicializado = true;
+            _reposoDesdeMs = ahora;
         }
     } else {
         _reposoDesdeMs = 0;
+    }
+    const bool reposoEstable = _reposoDesdeMs != 0 &&
+                              ahora - _reposoDesdeMs >= BATERIA_REPOSO_ESTABLE_MS;
+    if ((!_nivelInicializado || reposoEstable) &&
+        isfinite(bateria) && bateria > 0.0f && isfinite(_voltajeBateria)) {
+        _nivel = constrain(
+            (_voltajeBateria - BATERIA_VOLTAJE_MIN) /
+            (BATERIA_VOLTAJE_MAX - BATERIA_VOLTAJE_MIN), 0.0f, 1.0f);
+        _nivelInicializado = true;
     }
 }
 
@@ -89,7 +90,7 @@ void Bateria::actualizarLectura() {
 float Bateria::nivel() const {
 
     if (!_activo) {
-        return 1.0f;   // neutro: sin sensor no debe haber alerta
+        return -1.0f;   // sin lectura
     }
 
     return _nivel;
@@ -117,7 +118,7 @@ bool Bateria::cargando() const {
 
 float Bateria::minutosRestantes() const {
 
-    if (!_activo) {
+    if (!_nivelInicializado) {
         return -1.0f;
     }
 

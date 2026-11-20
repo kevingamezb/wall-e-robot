@@ -9,6 +9,7 @@
 #include <ArduinoOTA.h>
 #include <esp_ota_ops.h>
 #include <esp_task_wdt.h>
+#include <esp_random.h>
 
 #include "config.h"
 #include "comunicacion.h"
@@ -29,12 +30,61 @@ static volatile bool s_confirmado = false;
 static bool s_uploadAutorizado = false;
 static bool s_uploadOk         = false;
 
-// El portal exige Basic Auth SIEMPRE: config.h valida al compilar que las
-// credenciales no estén vacías, así que no hay modo "abierto".
-static bool autenticado() {
-    return servidorWeb.authenticate(OTA_USUARIO, OTA_CLAVE);
+static String codigoAcceso;
+static String sesionWeb;
+static uint32_t emitidoAccesoMs = 0;
+static uint32_t emitidaSesionMs = 0;
+static const uint32_t VIGENCIA_ACCESO_MS = 30000;
+static const uint32_t VIGENCIA_SESION_MS = 600000;
+
+static String nuevoToken() {
+    char token[33];
+    snprintf(token, sizeof(token), "%08lx%08lx%08lx%08lx",
+             (unsigned long)esp_random(), (unsigned long)esp_random(),
+             (unsigned long)esp_random(), (unsigned long)esp_random());
+    return String(token);
 }
 
+static bool autenticado() {
+    if (servidorWeb.authenticate(OTA_USUARIO, OTA_CLAVE)) {
+        return true;
+    }
+    if (sesionWeb.isEmpty() || millis() - emitidaSesionMs >= VIGENCIA_SESION_MS) {
+        return false;
+    }
+    String cookies = String("; ") + servidorWeb.header("Cookie") + ";";
+    cookies.replace("; ", ";");
+    return cookies.indexOf(String(";walle_ota=") + sesionWeb + ";") >= 0;
+}
+
+// La aplicación intercambia Basic Auth por un código de un solo uso.
+static void emitirAcceso() {
+    if (!servidorWeb.authenticate(OTA_USUARIO, OTA_CLAVE)) {
+        servidorWeb.requestAuthentication();
+        return;
+    }
+    codigoAcceso = nuevoToken();
+    emitidoAccesoMs = millis();
+    servidorWeb.sendHeader("Cache-Control", "no-store");
+    servidorWeb.send(200, "text/plain", codigoAcceso);
+}
+
+static void canjearAcceso() {
+    servidorWeb.sendHeader("Cache-Control", "no-store");
+    servidorWeb.sendHeader("Referrer-Policy", "no-referrer");
+    if (codigoAcceso.isEmpty() || millis() - emitidoAccesoMs >= VIGENCIA_ACCESO_MS ||
+        servidorWeb.arg("codigo") != codigoAcceso) {
+        servidorWeb.send(403, "text/plain", "Acceso OTA vencido o no válido.");
+        return;
+    }
+    codigoAcceso = "";
+    sesionWeb = nuevoToken();
+    emitidaSesionMs = millis();
+    servidorWeb.sendHeader("Set-Cookie", String("walle_ota=") + sesionWeb +
+                           "; Path=/; Max-Age=600; HttpOnly; SameSite=Strict");
+    servidorWeb.sendHeader("Location", "/");
+    servidorWeb.send(303);
+}
 
 // --------------------------------------------------------------- self-test
 bool Ota::selfTestInicial(String& motivo) {
@@ -192,7 +242,7 @@ static String paginaResultado(bool ok, const String& mensaje) {
 }
 
 
-// GET /: sirve el formulario del portal (tras Basic Auth).
+// GET /: sirve el formulario del portal tras autenticar al navegador.
 static void manejarRaiz() {
 
     if (!autenticado()) {
@@ -203,7 +253,7 @@ static void manejarRaiz() {
 }
 
 
-// POST /update: recibe el cuerpo de la subida. Basic Auth antes de tocar la
+// POST /update: autentica al navegador antes de tocar la
 // flash; el MD5 opcional (32 hex) se aplica a la imagen si se envió.
 static void manejarUpload() {
 
@@ -216,7 +266,7 @@ static void manejarUpload() {
         s_uploadAutorizado = false;
         s_uploadOk         = false;
 
-        // Basic Auth ANTES de tocar la flash: si falla, se descarta el cuerpo.
+        // Si falla la autenticación, se descarta el cuerpo.
         if (!autenticado()) {
             Serial.println("[OTA-WEB] Subida RECHAZADA: sin autenticacion.");
             return;
@@ -295,6 +345,10 @@ static void manejarUpdate() {
 // Rutas del portal: formulario en /, subida en /update, 404 para el resto.
 static void configurarWeb() {
 
+    const char* cabeceras[] = {"Cookie"};
+    servidorWeb.collectHeaders(cabeceras, 1);
+    servidorWeb.on("/acceso", HTTP_POST, emitirAcceso);
+    servidorWeb.on("/acceso", HTTP_GET, canjearAcceso);
     servidorWeb.on("/",            HTTP_GET,  manejarRaiz);
     servidorWeb.on("/update",      HTTP_POST, manejarUpdate, manejarUpload);
     servidorWeb.onNotFound([]() {
@@ -302,6 +356,12 @@ static void configurarWeb() {
     });
 
     servidorWeb.begin();
+    // WebServer::handleClient() hace delay(1) cuando no hay cliente. Como se
+    // llama en cada loop(), eso deja el bucle a ~1 ms y el HC-SR04 (que mide
+    // los bordes del eco sondeando el pin una vez por vuelta) cuantiza la
+    // distancia en pasos de ~17 cm. En el ESP32 no hace falta ese retardo:
+    // FreeRTOS ya se encarga de los demás tasks.
+    servidorWeb.enableDelay(false);
     Serial.println("[OTA-WEB] Portal listo en http://192.168.4.1/");
 }
 

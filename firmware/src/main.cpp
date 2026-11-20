@@ -243,7 +243,8 @@ void loop() {
         bool advertencia = MODULOS.distancia
                          && sensorDistancia.obstaculoCercano(UMBRAL_OBSTACULO_CM);
 
-        bool error = MODULOS.bateria && bateria.nivel() < 0.10f;
+        const float nivelBateria = bateria.nivel();
+        bool error = MODULOS.bateria && nivelBateria >= 0.0f && nivelBateria < 0.10f;
 
         String navegacion = enAutonomo ? autoRobot.navegacion()
                                        : String("alto");
@@ -257,7 +258,7 @@ void loop() {
         comunicacion.setInfoFirmware(PROYECTO_VERSION, ota.pendiente());
 
         comunicacion.enviarEstado(
-            bateria.nivel(),
+            nivelBateria,
             comunicacion.modo(),
             advertencia,
             error,
@@ -272,7 +273,7 @@ void loop() {
 
         // La pantalla no hace nada si el módulo está apagado.
         if (MODULOS.oled) {
-            oled.mostrar(bateria.nivel(), distancia,
+            oled.mostrar(nivelBateria, distancia,
                          comunicacion.modo(), comunicacion.estaConectado());
         }
 

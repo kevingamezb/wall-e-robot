@@ -49,7 +49,13 @@ void PantallaOled::mostrar(float bateria, float distanciaCm,
 
     // bateria llega normalizada 0.0-1.0; se muestra como porcentaje entero.
     _pantalla.setCursor(0, 0);
-    _pantalla.print("BAT "); _pantalla.print(bateria * 100, 0); _pantalla.println("%");
+    _pantalla.print("BAT ");
+    if (bateria < 0.0f) {
+        _pantalla.println("--%");
+    } else {
+        _pantalla.print(bateria * 100, 0);
+        _pantalla.println("%");
+    }
 
     // distanciaCm = -1 indica sin lectura (se muestra el centinela tal cual).
     _pantalla.setCursor(0, 10);

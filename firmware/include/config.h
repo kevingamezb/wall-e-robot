@@ -74,7 +74,7 @@ static const uint32_t OTA_AUTOCONFIRMA_MS = 15000;
 // Puerto HTTP del portal web OTA.
 static const int      PUERTO_OTA_WEB      = 80;
 
-static const float   UMBRAL_OBSTACULO_CM  = 15.0;   // Distancia (cm) de "obstáculo cercano" (alerta)
+static const float   UMBRAL_OBSTACULO_CM  = 25.0;   // Distancia (cm) de "obstáculo cercano" (alerta)
 
 // Sin órdenes del operador en modo manual durante este tiempo (ms), se
 // detienen los motores.
