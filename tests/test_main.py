@@ -10,6 +10,7 @@ resultados y la cancelación sin abrir sockets reales.
 
 
 import queue
+from unittest.mock import Mock
 
 import pytest
 
@@ -17,6 +18,21 @@ from app.comunicacion.conexion import ConexionOffline
 from app.nucleo.estado import EstadoRobot, Modo
 from app import main as modulo_main
 from app.main import Aplicacion
+
+
+@pytest.mark.parametrize("salida, esperado", [
+    ("    SSID : WALL-E:5G\r\n    BSSID : 00:00:00:00:00:00\r\n", "WALL-E:5G"),
+    ("    Estado : desconectado\r\n", None),
+])
+def test_nombre_red_wifi_en_windows(monkeypatch, salida, esperado):
+    consulta = Mock(return_value=Mock(stdout=salida))
+    monkeypatch.setattr(modulo_main.sys, "platform", "win32")
+    monkeypatch.setattr(modulo_main.subprocess, "CREATE_NO_WINDOW", 0x08000000,
+                        raising=False)
+    monkeypatch.setattr(modulo_main.subprocess, "run", consulta)
+
+    assert modulo_main.nombre_red_wifi() == esperado
+    assert consulta.call_args.args[0] == ["netsh", "wlan", "show", "interfaces"]
 
 
 class _PantallaFalsa:
@@ -116,6 +132,7 @@ def app():
     aplicacion._conexion_pendiente = False
     aplicacion._intento_conexion = 0
     aplicacion._resultados_conexion = queue.Queue()
+    aplicacion._resultados_ota = queue.Queue()
     aplicacion._ultima_ip = None
     aplicacion._ultimo_puerto = modulo_main.PUERTO
     aplicacion._reconectando = False
@@ -155,18 +172,25 @@ def test_conectar_abre_el_socket_en_un_hilo(app, hilos, monkeypatch):
     assert app._ultima_ip == "1.2.3.4"
 
 
-def test_atajo_m_pide_modo_manual(app, monkeypatch):
-    """El atajo envía el modo manual y lo refleja enseguida en estado y log."""
+def test_atajo_m_alterna_modo(raiz_tk, monkeypatch):
+    """El atajo comparte el cambio de modo y espera la telemetría."""
+    from types import SimpleNamespace
+
     monkeypatch.setattr(modulo_main, "Comunicacion", _ComunicacionFalsa)
+    app = Aplicacion(raiz_tk, modulo_main.escala_para_pantalla(1280, 720))
     app.conexion = _ComunicacionFalsa("1.2.3.4", 8080)
-    app.estado.modo = Modo.AUTOMATICO
-
-    app._pedir_modo_manual()
-
-    assert app.conexion.mensajes == [{"tipo": "modo", "modo": "manual"}]
+    evento = SimpleNamespace(keysym="m", widget=raiz_tk)
+    app.control_teclado._al_presionar(evento)
     assert app.estado.modo == Modo.MANUAL
-    linea = app.estado.logger.obtener_lineas()[-1]
-    assert (linea.origen, linea.mensaje) == ("MODO", "Modo manual solicitado")
+
+    app.control_teclado._al_soltar(evento)
+    app.estado.modo = Modo.AUTOMATICO
+    app.control_teclado._al_presionar(evento)
+    assert app.estado.modo == Modo.AUTOMATICO
+    assert app.conexion.mensajes == [
+        {"tipo": "modo", "modo": "automatico"},
+        {"tipo": "modo", "modo": "manual"},
+    ]
 
 
 def test_boton_modo_alterna_desde_el_arranque_manual(app, monkeypatch):
@@ -178,6 +202,26 @@ def test_boton_modo_alterna_desde_el_arranque_manual(app, monkeypatch):
 
     assert app.estado.modo == Modo.MANUAL
     assert app.conexion.mensajes == [{"tipo": "modo", "modo": "automatico"}]
+
+
+def test_portal_ota_envia_basic_auth_y_abre_con_codigo(app, monkeypatch):
+    codigo = "a" * 32
+    conexion = Mock()
+    conexion.getresponse.return_value.status = 200
+    conexion.getresponse.return_value.read.return_value = codigo.encode("ascii")
+    constructor = Mock(return_value=conexion)
+    abrir = Mock(return_value=True)
+    monkeypatch.setattr(modulo_main.http.client, "HTTPConnection", constructor)
+    monkeypatch.setattr(modulo_main.webbrowser, "open", abrir)
+
+    app._autenticar_ota(("usuario", "clave"))
+    app._procesar_acceso_ota()
+
+    constructor.assert_called_once_with("192.168.4.1", timeout=4)
+    conexion.request.assert_called_once_with(
+        "POST", "/acceso", headers={"Authorization": "Basic dXN1YXJpbzpjbGF2ZQ=="})
+    conexion.close.assert_called_once()
+    abrir.assert_called_once_with(f"http://192.168.4.1/acceso?codigo={codigo}")
 
 
 def test_error_al_conectar_se_muestra_sin_romper(app, hilos, monkeypatch):

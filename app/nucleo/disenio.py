@@ -6,6 +6,7 @@ import os
 
 ANCHO_BASE = 3840
 ALTO_BASE = 2160
+RECORTE_SUPERIOR = 190  # El marco del fondo empieza en y=195.
 
 # Factor de escala permitido (1.0 = tamaño del diseño, 3840 x 2160 px).
 ESCALA_MIN = 0.25
@@ -38,6 +39,10 @@ class Escala:
     def alto(self) -> int:
         return self(ALTO_BASE)
 
+    @property
+    def alto_panel(self) -> int:
+        return self.alto - self(RECORTE_SUPERIOR)
+
 
 def escala_para_pantalla(ancho_pantalla: int, alto_pantalla: int) -> Escala:
     """Elige la mayor escala que cabe en la pantalla (con margen para la barra
@@ -49,7 +54,7 @@ def escala_para_pantalla(ancho_pantalla: int, alto_pantalla: int) -> Escala:
         except ValueError:
             pass
     factor = min(ancho_pantalla * 0.97 / ANCHO_BASE,
-                 (alto_pantalla - 110) / ALTO_BASE)
+                 (alto_pantalla - 110) / (ALTO_BASE - RECORTE_SUPERIOR))
     return Escala(max(ESCALA_MIN, min(ESCALA_MAX, factor)))
 
 
@@ -74,6 +79,8 @@ class Disenio:
     # Barra lateral: conexión
     TAB_CONECTAR    = (129, 419, 296, 466)
     TAB_CONTROLES   = (584, 419, 760, 466)
+    ETIQUETA_WIFI   = (133, 553)
+    CAMPO_WIFI      = (107, 623, 857, 698)
     ETIQUETA_IP     = (133, 733, 247, 828)
     CAMPO_IP        = (107, 825, 857, 900)
     ETIQUETA_PORT   = (133, 973, 390, 1068)

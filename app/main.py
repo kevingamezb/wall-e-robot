@@ -6,9 +6,16 @@
 #   python -m app.main   (o, equivalentemente,  python -m app)
 
 
+import base64
+import http.client
 import queue
+import re
+import subprocess
+import sys
 import threading
 import tkinter as tk
+from tkinter import messagebox, simpledialog
+import webbrowser
 from .rutas import directorio_recursos
 from .nucleo.paleta import Paleta
 from .nucleo.disenio import escala_para_pantalla
@@ -24,6 +31,48 @@ INTERVALO_CICLO_MS = 33
 
 # Puerto en el que escucha el ESP32 (firmware y socket deben coincidir).
 PUERTO = 8080
+HOST_OTA = "192.168.4.1"
+
+
+def nombre_red_wifi() -> str | None:
+    """Consulta el SSID activo de este equipo sin iniciar un escaneo."""
+    if sys.platform == "win32":
+        comando = ["netsh", "wlan", "show", "interfaces"]
+        opciones = {"encoding": "oem", "creationflags": subprocess.CREATE_NO_WINDOW}
+        patron = r"^[ \t]*SSID[ \t]*:[ \t]*(.+)$"
+    elif sys.platform == "linux":
+        comando = ["nmcli", "-t", "--escape", "no", "-f", "IN-USE,SSID",
+                   "device", "wifi", "list", "--rescan", "no"]
+        opciones = {"encoding": "utf-8"}
+        patron = r"^\*:(.+)$"
+    else:
+        return None
+    try:
+        resultado = subprocess.run(comando, capture_output=True, check=True,
+                                   timeout=3, errors="replace", **opciones)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    red = re.search(patron, resultado.stdout, re.MULTILINE)
+    return red.group(1).strip() if red else None
+
+
+def solicitar_codigo_ota(usuario: str, clave: str) -> str:
+    credenciales = base64.b64encode(f"{usuario}:{clave}".encode()).decode("ascii")
+    conexion = http.client.HTTPConnection(HOST_OTA, timeout=4)
+    try:
+        conexion.request("POST", "/acceso",
+                         headers={"Authorization": f"Basic {credenciales}"})
+        respuesta = conexion.getresponse()
+        if respuesta.status == 401:
+            raise PermissionError("El Portal OTA rechazó las credenciales.")
+        if respuesta.status == 404:
+            raise ValueError("El robot necesita el firmware con acceso OTA desde la app.")
+        codigo = respuesta.read(33)
+        if respuesta.status != 200 or not re.fullmatch(rb"[0-9a-f]{32}", codigo):
+            raise ValueError("El Portal OTA devolvió una respuesta inesperada.")
+        return codigo.decode("ascii")
+    finally:
+        conexion.close()
 
 # Reconexión automática: espera creciente entre intentos (1, 2, 4... s).
 RECONEXION_ESPERA_INICIAL_MS = 1000
@@ -50,6 +99,9 @@ class Aplicacion:
         self._conexion_pendiente = False
         self._intento_conexion = 0
         self._resultados_conexion: queue.Queue = queue.Queue()
+        self._resultados_ota: queue.Queue = queue.Queue()
+        self._ota_pendiente = False
+        self._credenciales_ota = None
 
         # Última conexión válida: se usa para reintentar si el robot se cae.
         self._ultima_ip: str | None = None
@@ -75,17 +127,62 @@ class Aplicacion:
             on_cambio_mapeo=self.mapeo.guardar,
             # Mientras se captura una tecla nueva, el teclado no mueve al robot.
             al_captura=self._suspender_teclado,
+            on_ota=self._abrir_portal_ota,
         )
         # El gamepad dispara siempre hacia la conexión activa (real u offline).
         self.pantalla.conectar_gamepad(lambda cmd: self.conexion.enviar_mensaje(cmd))
 
         self.control_teclado = ControlTeclado(
             self.root, self.mapeo, self.pantalla.gamepad,
-            on_modo_manual=self._pedir_modo_manual)
+            on_modo_manual=self._cambiar_modo)
 
     def _suspender_teclado(self, activa: bool):
         """Suspende el control por teclado mientras se captura una tecla nueva."""
         self.control_teclado.suspendido = activa
+
+    def _abrir_portal_ota(self):
+        if self._ota_pendiente:
+            return
+        self._ota_pendiente = True
+        credenciales = self._credenciales_ota
+        if credenciales is None:
+            suspendido = self.control_teclado.suspendido
+            self.control_teclado.suspendido = True
+            try:
+                usuario = simpledialog.askstring("Portal OTA", "Usuario OTA", parent=self.root)
+                clave = (simpledialog.askstring("Portal OTA", "Contraseña OTA", show="*",
+                                                parent=self.root) if usuario else None)
+            finally:
+                self.control_teclado.suspendido = suspendido
+            if not clave:
+                self._ota_pendiente = False
+                return
+            credenciales = (usuario, clave)
+        threading.Thread(target=self._autenticar_ota, args=(credenciales,),
+                         name="acceso-ota", daemon=True).start()
+
+    def _autenticar_ota(self, credenciales):
+        try:
+            codigo = solicitar_codigo_ota(*credenciales)
+        except (PermissionError, ValueError) as error:
+            self._resultados_ota.put((None, str(error)))
+        except (OSError, http.client.HTTPException):
+            self._resultados_ota.put((None, "No se pudo contactar con el Portal OTA."))
+        else:
+            self._resultados_ota.put((credenciales, codigo))
+
+    def _procesar_acceso_ota(self):
+        try:
+            credenciales, resultado = self._resultados_ota.get_nowait()
+        except queue.Empty:
+            return
+        self._ota_pendiente = False
+        self._credenciales_ota = credenciales
+        if credenciales is None:
+            messagebox.showerror("Portal OTA", resultado, parent=self.root)
+        elif not webbrowser.open(f"http://{HOST_OTA}/acceso?codigo={resultado}"):
+            messagebox.showerror("Portal OTA", "No se pudo abrir el navegador.",
+                                 parent=self.root)
 
     # Conexión con el robot
     def _conectar(self, ip: str, puerto: int = PUERTO):
@@ -210,6 +307,7 @@ class Aplicacion:
         self._ultima_ip = ip
         self._cerrar_conexion_actual()
         self.conexion = nueva
+        self.estado.bateria = -1.0
         self.pantalla.establecer_conexion(True, ip)
 
     def _desconectar(self):
@@ -233,16 +331,6 @@ class Aplicacion:
                  else Modo.MANUAL)
         self.conexion.enviar_mensaje({"tipo": "modo", "modo": nuevo.value})
 
-    def _pedir_modo_manual(self):
-        """Atajo de teclado: reclama el control manual del robot."""
-        if not isinstance(self.conexion, Comunicacion):
-            return   # sin robot real no hay a quién pedirle el cambio
-        self.conexion.enviar_mensaje({"tipo": "modo", "modo": Modo.MANUAL.value})
-        # La telemetría confirmaría el cambio un instante después; se aplica ya
-        # para que el atajo se vea reflejado en la GUI de inmediato.
-        self.estado.modo = Modo.MANUAL
-        self.estado.logger.agregar_linea("MODO", "Modo manual solicitado")
-
     def _cerrar_conexion_actual(self):
         """Cierra el socket actual si lo hay."""
         cerrar = getattr(self.conexion, "cerrar", None)
@@ -253,6 +341,7 @@ class Aplicacion:
     def ciclo(self):
         """Un paso de la aplicación: leer al robot y redibujar la pantalla."""
         self._procesar_resultados_conexion()
+        self._procesar_acceso_ota()
         self.conexion.actualizar_estado(self.estado)
 
         # Si el robot se apagó/reinició en plena conexión, la red lo marca como
@@ -269,14 +358,32 @@ class Aplicacion:
             )
             self._programar_reconexion()
 
-        self.pantalla.actualizar_latencia(getattr(self.conexion, "edad_ms", None))
+        self.pantalla.actualizar_latencia(
+            getattr(self.conexion, "edad_ms", None))
         self.pantalla.dibujar()
         self.root.after(INTERVALO_CICLO_MS, self.ciclo)
 
     def iniciar(self):
         """Arranca el bucle y abre la ventana (la IP se escribe en la barra lateral)."""
+        self._consultar_red_wifi()
         self.ciclo()
         self.root.mainloop()
+
+    def _consultar_red_wifi(self):
+        resultado = queue.Queue()
+        threading.Thread(target=lambda: resultado.put(nombre_red_wifi()),
+                         name="red-wifi", daemon=True).start()
+
+        def aplicar():
+            try:
+                red = resultado.get_nowait()
+            except queue.Empty:
+                self.root.after(100, aplicar)
+                return
+            self.pantalla.actualizar_red_wifi(red)
+            self.root.after(5000, self._consultar_red_wifi)
+
+        self.root.after(100, aplicar)
 
 
 def _aplicar_icono(ventana: tk.Tk):
@@ -298,7 +405,7 @@ def main():
     _aplicar_icono(ventana)
     escala = escala_para_pantalla(ventana.winfo_screenwidth(),
                                   ventana.winfo_screenheight())
-    ventana.geometry(f"{escala.ancho}x{escala.alto}")
+    ventana.geometry(f"{escala.ancho}x{escala.alto_panel}")
     ventana.resizable(False, False)   # el diseño escala a la pantalla al abrir
     app = Aplicacion(ventana, escala)
     app.iniciar()

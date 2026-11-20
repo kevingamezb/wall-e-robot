@@ -9,7 +9,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 
 from ..nucleo.paleta import Paleta
-from ..nucleo.disenio import Disenio
+from ..nucleo.disenio import Disenio, RECORTE_SUPERIOR
 from ..nucleo.estado import EstadoRobot, Modo
 from ..widgets.logica.boton import Boton
 from ..widgets.logica.ojos import Ojos
@@ -31,7 +31,7 @@ from ..widgets.renderizado.gamepad_render import GamepadRenderer
 from ..widgets.renderizado.base_render import rectangulo_redondeado
 from ..widgets.renderizado.recoloreo import Recoloreo
 from ..widgets.renderizado.tarjeta import Tarjeta, pantalla_oscura, linea_vertical
-from ..widgets.renderizado.texto_render import Texto
+from ..widgets.renderizado.texto_render import Texto, foto_texto
 from ..widgets.renderizado import carga_recursos
 from .modal_controles import ModalControles
 
@@ -53,7 +53,7 @@ class PantallaPrincipal:
     """Pantalla única de la aplicación: barra lateral de conexión + panel de control."""
     def __init__(self, parent, estado: EstadoRobot, escala,
                  on_conectar=None, on_desconectar=None, on_modo=None,
-                 mapeo=None, on_cambio_mapeo=None, al_captura=None):
+                 mapeo=None, on_cambio_mapeo=None, al_captura=None, on_ota=None):
         """
         parent         : el frame contenedor (en main.py).
         estado         : el estado compartido con todo el programa.
@@ -71,6 +71,7 @@ class PantallaPrincipal:
         self.campo_ip: tk.Entry
         self.campo_port: tk.Entry
         self._on_conectar = on_conectar
+        self._on_ota = on_ota
         self._on_desconectar = on_desconectar
         self._mapeo = mapeo
         self._on_cambio_mapeo = on_cambio_mapeo
@@ -86,9 +87,11 @@ class PantallaPrincipal:
         self._tiempos = []          # instantes de los últimos dibujos (FPS)
         self._latencia_ms = None
 
-        self.canvas = tk.Canvas(parent, width=e.ancho, height=e.alto,
-                                bg=Paleta.FONDO_APP, highlightthickness=0)
+        self.canvas = tk.Canvas(parent, width=e.ancho, height=e.alto_panel,
+                                bg=Paleta.FONDO_APP, highlightthickness=0,
+                                scrollregion=(0, e(RECORTE_SUPERIOR), e.ancho, e.alto))
         self.canvas.pack()
+        self.canvas.yview_moveto(0)
         self.frame = self.canvas   # compatibilidad con el diseño anterior
 
         # Widgets lógicos
@@ -178,6 +181,18 @@ class PantallaPrincipal:
 
         # Campos IP y puerto.
         familia = tkfont.nametofont("TkDefaultFont").actual("family")
+        x, y = Disenio.ETIQUETA_WIFI
+        self._items_conexion.append(Texto(
+            c, e(x), e(y), "Wi-Fi", e.fuente(62), Paleta.DORADO))
+        x1, y1, x2, y2 = e.caja(Disenio.CAMPO_WIFI)
+        self._red_wifi = tk.StringVar(master=c, value="Red no disponible")
+        red = tk.Entry(c, textvariable=self._red_wifi, state="readonly",
+                       readonlybackground=Paleta.FONDO_WIDGET, fg=Paleta.TEXTO_LOG,
+                       relief="flat", bd=0, takefocus=False,
+                       font=(Paleta.FUENTE_TEXTO, -e.fuente(43)))
+        self._items_conexion.append(c.create_window(
+            x1, y1, window=red, anchor="nw", width=x2 - x1, height=y2 - y1))
+
         for caja_etiqueta, caja_campo, etiqueta, valor, nombre in (
             (Disenio.ETIQUETA_IP, Disenio.CAMPO_IP, "IP:", "192.168.4.1", "campo_ip"),
             (Disenio.ETIQUETA_PORT, Disenio.CAMPO_PORT, "PORT:", "8080", "campo_port"),
@@ -214,6 +229,17 @@ class PantallaPrincipal:
         self._estado_conexion = Texto(c, e(sx), e(sy), "", e.fuente(46),
                                       Paleta.GRIS, ancla="nw")
         self._items_conexion.append(self._estado_conexion)
+
+        if self._on_ota is not None:
+            ota = tk.Button(c, text="OTA", command=self._on_ota,
+                            bg=Paleta.FONDO_WIDGET, fg=Paleta.DORADO,
+                            activebackground=Paleta.DORADO, activeforeground=Paleta.TINTA,
+                            relief="flat", cursor="hand2")
+            ota._imagen_ota = foto_texto("OTA", e.fuente(62), Paleta.DORADO, master=c)
+            ota.configure(image=ota._imagen_ota, activebackground=Paleta.FONDO_CANVAS)
+            self._items_conexion.append(c.create_window(
+                bx1, e(1940), window=ota, anchor="nw",
+                width=bx2 - bx1, height=e(116)))
 
         # Pestaña "Controles": el editor de teclas ocupa el lugar del formulario.
         self.panel_controles = None
@@ -433,6 +459,9 @@ class PantallaPrincipal:
             texto=textwrap.fill(etiqueta, 24),
             color=Paleta.DORADO if activa else Paleta.GRIS)
 
+    def actualizar_red_wifi(self, nombre):
+        self._red_wifi.set(nombre or "Red no disponible")
+
     def actualizar_latencia(self, milisegundos):
         """Dato de latencia (ms) para la cabecera; None si no hay."""
         self._latencia_ms = milisegundos
@@ -484,7 +513,7 @@ class PantallaPrincipal:
                                 contorno=self._oscuro(color_consumo, 0.7))
         color_sol = self.sol.color
         pct = (f"{int(round(max(0.0, min(1.0, estado.bateria)) * 100))} %"
-               if estado.conexion_activa else "-- %")
+               if not self.sol.sin_datos else "-- %")
         self._lbl_sol.poner(texto=self.sol.etiqueta,
                             color=self._oscuro(color_sol, 0.33),
                             contorno=self._oscuro(color_sol, 0.7))
@@ -507,9 +536,7 @@ class PantallaPrincipal:
                                else Paleta.DORADO)
         self.t_bateria.alertar(color_sol if color_sol != Paleta.GRIS
                                else Paleta.DORADO)
-        cerca = self.proximidad.cercania
-        self.t_navegacion.alertar(Paleta.ROJO if cerca > 0.7 else
-                                  Paleta.NARANJA if cerca > 0.4 else Paleta.DORADO)
+        self.t_navegacion.alertar(self.proximidad.color)
         self.t_control.alertar(Paleta.DORADO if self.gamepad.habilitado
                                else Paleta.GRIS)
         self.render_conectar.dibujar()
@@ -526,7 +553,7 @@ if __name__ == "__main__":
 
     raiz = tk.Tk()
     escala = Escala(0.3)
-    raiz.geometry(f"{escala.ancho}x{escala.alto}")
+    raiz.geometry(f"{escala.ancho}x{escala.alto_panel}")
     raiz.configure(bg=Paleta.FONDO_APP)
 
     estado = EstadoRobot()

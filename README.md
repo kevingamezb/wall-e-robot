@@ -37,7 +37,7 @@ actualización inalámbrica (OTA).
 * **🔌 Reconexión automática:** si el robot se apaga o se aleja, la app reintenta con espera
   creciente (1 → 10 s) sin bloquear la interfaz.
 * **🎮 Control manual explícito:** el firmware arranca en manual, el botón **MODO** alterna
-  manual/automático y la tecla **M** reclama el control manual. El gamepad solo manda en manual
+  manual/automático, igual que la tecla **M**. El gamepad solo manda en manual
   y los motores se detienen a los 2 s sin órdenes. Si nadie se conecta en 10 min, vuelve a
   automático.
 * **📡 Telemetría en tiempo real:** WiFi/TCP con mensajes JSON de una línea (`\n`) y protocolo
@@ -114,7 +114,15 @@ python -m app.main
 ```
 
 La app arranca **sin conexión**. En la barra lateral escribe la IP del robot
-(`192.168.4.1` por defecto) y pulsa **CONECTAR**. Para el desarrollo y las pruebas:
+(`192.168.4.1` por defecto) y pulsa **CONECTAR**.
+
+Con el firmware actualizado, **Abrir Portal OTA** en la pestaña **Conectar**
+abre el portal en el navegador con una sesión de 10 minutos. La app solicita
+el usuario y la contraseña OTA en el primer acceso y los conserva en memoria
+hasta que se cierra o falla la autenticación. Usa el botón mientras estás
+conectado al punto de acceso Wi-Fi del robot.
+
+Para el desarrollo y las pruebas:
 
 ```bash
 python -m pip install -r requirements-dev.txt
