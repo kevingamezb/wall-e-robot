@@ -65,9 +65,11 @@ if __name__ == "__main__":
 
     estado = EstadoRobot()
     estado.conexion_activa = True   # con robot hay lectura de batería
+    sol = SolBateria(estado)
 
     print("Batería llena (1.0)")
-    sol = SolBateria(estado)
+    estado.bateria = 1.0
+    estado.cargando = False
     assert sol.rayos_encendidos == 8
     assert sol.color == Paleta.DORADO
     assert sol.etiqueta == "8 / 8"
