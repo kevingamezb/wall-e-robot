@@ -1,6 +1,3 @@
-// wall-e-robot/firmware/lib/servos/servos.h
-// Kevin Gámez - 13/09/2026
-
 #ifndef SERVOS_H
 #define SERVOS_H
 
@@ -20,17 +17,17 @@ public:
     static const int CANTIDAD        = 3;   // servos que reporta la app TODO(calibrar): ajustar contra app.
     static const int CANTIDAD_FISICA = 3;   // servos realmente cableados
 
-    // Arranca con todos los ángulos en cero (reposo).
     Servos();
 
-    // Configura los servos cableados y los lleva a su posición guardada.
     void iniciar();
 
     // Mueve un servo por nombre (como llega en {"tipo":"servo"}); ignora
     // nombres desconocidos.
     void moverServo(const char* nombre, int angulo);
 
-    // Copia los últimos ángulos comandados al arreglo destino.
+    // Pose temporal. Un nombre nulo devuelve el servo a su último ángulo manual.
+    void aplicarGesto(const char* nombre, int angulo = 0);
+
     void angulosUsuario(int destino[CANTIDAD]) const;
 
 private:
@@ -49,9 +46,10 @@ private:
     Servo _servos[CANTIDAD_FISICA];
     bool  _listo;
     int   _angulos[CANTIDAD];
+    int   _servoGesto = -1;
+    int   _anguloGesto = 0;
 };
 
-// Instancia única global.
 extern Servos servos;
 
-#endif // SERVOS_H
+#endif

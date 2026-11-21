@@ -1,5 +1,3 @@
-# wall-e-robot/app/comunicacion/conexion.py
-# Kevin Gámez - 26/08/2026
 """
 Capa de comunicación con el robot.
 
@@ -31,23 +29,17 @@ import time
 from typing import cast
 
 
-# Umbrales de frescura para el nivel de señal.
 SEGUNDOS_SENAL_ALTA  = 0.8
 SEGUNDOS_SENAL_MEDIA = 2.0
 
-# Versión del protocolo que habla esta app. El firmware publica la suya en
-# cada mensaje; si es más nueva, la app avisa pero sigue leyendo los campos
-# que conoce (compatibilidad hacia atrás).
+# Si el firmware anuncia una versión más nueva, se avisa y se leen los campos conocidos.
 PROTOCOLO_VERSION = 1
 
-# Límites de memoria para no dejar crecer los buffers sin control si el otro
-# extremo envía basura o deja de leer.
+# Acota la memoria si el par envía líneas interminables o deja de leer.
 MAX_BUFFER_ENTRADA = 64 * 1024
 MAX_BUFFER_SALIDA  = 64 * 1024
 TAMANO_LECTURA     = 4096
 
-# Tiempo máximo para abrir el socket (el hilo de conexión no se queda colgado
-# esperando a un ESP32 apagado).
 TIMEOUT_CONEXION_S = 3.0
 
 
@@ -84,13 +76,11 @@ class Comunicacion(Conexion):
     def __init__(self, ip: str, puerto: int = 8080):
         self.conexion = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        # connect() con timeout para que un robot apagado no deje el hilo de
-        # conexión bloqueado durante el timeout largo del sistema operativo.
+        # Acota la espera del hilo de conexión cuando el ESP32 no responde.
         try:
             self.conexion.settimeout(TIMEOUT_CONEXION_S)
             self.conexion.connect((ip, puerto))
-            # No bloqueante: recv() lanza BlockingIOError de inmediato si no
-            # hay datos, en vez de congelar la GUI esperándolos.
+            # La GUI consulta este socket sin esperar a que llegue tráfico.
             self.conexion.setblocking(False)
         except OSError:
             try:
@@ -100,10 +90,10 @@ class Comunicacion(Conexion):
             raise
 
         self._buffer_entrada  = bytearray()  # bytes recibidos sin '\n'
-        self._buffer_salida   = bytearray()  # bytes pendientes de enviar
-        self._perdida         = False        # True si la conexión se rompió
-        self._ultima_recepcion = None        # time() del último estado recibido
-        self._aviso_version   = False        # ya se avisó de un protocolo nuevo
+        self._buffer_salida   = bytearray()
+        self._perdida         = False
+        self._ultima_recepcion = None
+        self._aviso_version   = False
 
     @property
     def perdida(self) -> bool:
@@ -125,15 +115,12 @@ class Comunicacion(Conexion):
             estado.nivel_conexion = NivelConexion.NULA
             return
 
-        # Primero se intenta terminar de enviar lo que quedó pendiente del
-        # ciclo anterior (envío parcial o backpressure).
         self._enviar_pendiente()
         if self.perdida:
             estado.nivel_conexion = NivelConexion.NULA
             return
 
-        # Se drena el socket completo, no solo un paquete: el ESP32 puede
-        # mandar estado + log juntos y no conviene dejar backlog.
+        # Un ciclo puede recibir varios mensajes, por ejemplo telemetría y logs juntos.
         self._leer_socket()
         if self.perdida:
             estado.nivel_conexion = NivelConexion.NULA
@@ -141,7 +128,6 @@ class Comunicacion(Conexion):
 
         self._procesar_buffer(estado)
 
-        # El nivel de señal sale de qué tan fresca es la última lectura.
         segundos = None
         ultima_recepcion = getattr(self, "_ultima_recepcion", None)
         if ultima_recepcion is not None:
@@ -175,15 +161,13 @@ class Comunicacion(Conexion):
 
                 entrada.extend(datos)
 
-                # Si no llega un '\n', el buffer no debe crecer sin límite.
                 if len(entrada) > MAX_BUFFER_ENTRADA:
                     self._marcar_perdida()
                     return
 
         except BlockingIOError:
-            pass   # no hay más datos por ahora
+            pass
         except OSError:
-            # El ESP32 se reinició/apagó o se cortó la conexión.
             self._marcar_perdida()
 
     def _procesar_buffer(self, estado: EstadoRobot):
@@ -201,15 +185,14 @@ class Comunicacion(Conexion):
             del entrada[:corte + 1]
 
             if not linea.strip():
-                continue   # línea vacía
+                continue
 
-            # Decodificar por línea (no por paquete) resuelve los caracteres
-            # UTF-8 que quedan partidos entre dos recv().
+            # Decodificar la línea completa preserva el UTF-8 partido entre lecturas.
             try:
                 texto = linea.decode("utf-8", errors="replace")
                 mensaje = json.loads(texto)
             except (json.JSONDecodeError, RecursionError, UnicodeError):
-                continue   # línea corrupta
+                continue
 
             self._procesar_mensaje(mensaje, estado)
 
@@ -224,7 +207,6 @@ class Comunicacion(Conexion):
                 enviados = self.conexion.send(salida)
 
                 if not enviados:
-                    # send() devolvió 0: el otro extremo ya no acepta datos.
                     self._marcar_perdida()
                     return
 
@@ -238,7 +220,7 @@ class Comunicacion(Conexion):
         """Interpreta UN mensaje JSON ya deserializado y lo escribe en EstadoRobot."""
 
         if not isinstance(mensaje, dict) or "tipo" not in mensaje:
-            return   # basura o versión vieja
+            return
 
         version = mensaje.get("protocolo")
         if (type(version) is int and version > PROTOCOLO_VERSION
@@ -280,7 +262,7 @@ class Comunicacion(Conexion):
             try:
                 estado.modo = Modo(mensaje["modo"])
             except ValueError:
-                pass   # modo desconocido
+                pass
 
         if (mensaje.get("distancia_cm") is not None
                 and isinstance(mensaje.get("distancia_cm"), (int, float))):
@@ -290,7 +272,9 @@ class Comunicacion(Conexion):
             try:
                 estado.navegacion = Maniobra(mensaje["navegacion"])
             except ValueError:
-                pass   # maniobra desconocida
+                pass
+
+        estado.auto_bloqueado = mensaje.get("auto_bloqueado") is True
 
         if isinstance(mensaje.get("consumo_watts"), (int, float)):
             estado.consumo_watts = float(mensaje["consumo_watts"])
@@ -333,8 +317,7 @@ class Comunicacion(Conexion):
         if self.perdida:
             return
 
-        # Todo comando sale versionado; el firmware ignora los campos que no
-        # conoce, así que añadirlo es compatible con versiones anteriores.
+        # Los firmwares anteriores ignoran el campo de versión.
         comando = dict(comando)
         comando.setdefault("protocolo", PROTOCOLO_VERSION)
 
@@ -350,8 +333,6 @@ class Comunicacion(Conexion):
             self._buffer_salida = salida
 
         if len(salida) + len(datos) > MAX_BUFFER_SALIDA:
-            # El robot dejó de leer y la cola creció demasiado: se corta la
-            # conexión para que la GUI degrade a offline y no se coma la RAM.
             self._marcar_perdida()
             return
 
@@ -385,9 +366,6 @@ class ConexionOffline(Conexion):
 
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.comunicacion.conexion
-
 if __name__ == "__main__":
     print("Prueba conexion.py\n")
 
@@ -398,7 +376,6 @@ if __name__ == "__main__":
     assert nivel_por_frescura(5.0) == NivelConexion.BAJA, "Viejo -> baja"
     print("OK: nula/alta/media/baja\n")
 
-    # ConexionOffline: no produce datos y descarta comandos
     print("ConexionOffline")
     estado = EstadoRobot()
     estado.conexion_activa = True    # parte de "conectado" para probar el apagado
@@ -406,7 +383,7 @@ if __name__ == "__main__":
     offline.actualizar_estado(estado)
     assert estado.conexion_activa is False, "Offline debe apagar conexion_activa"
     assert estado.nivel_conexion == NivelConexion.NULA, "Offline no tiene señal"
-    offline.enviar_mensaje({"tipo": "motor", "direccion": "arriba"})  # no lanza
+    offline.enviar_mensaje({"tipo": "motor", "direccion": "arriba"})
     print("OK: conexion_activa=False, nivel NULA y los comandos se descartan")
 
     # Parseo del protocolo real sin abrir sockets: se instancia con __new__ y
@@ -415,7 +392,6 @@ if __name__ == "__main__":
     estado_proto = EstadoRobot()
     proto = Comunicacion.__new__(Comunicacion)
 
-    # Tal como lo mandaría el ESP32
     proto._procesar_mensaje({
         "protocolo": 1,
         "tipo": "estado",
@@ -472,23 +448,19 @@ if __name__ == "__main__":
     assert estado_proto.modulo_inactivo is True
     print("OK: null/ausencia no pisan valores previos")
 
-    # Maniobra desconocida
     proto._procesar_mensaje({"tipo": "estado", "navegacion": "teletransporte"},
                             estado_proto)
     assert estado_proto.navegacion == Maniobra.ALTO
     print("OK: maniobra desconocida se ignora")
 
-    # Modo desconocido
     proto._procesar_mensaje({"tipo": "estado", "modo": "turbo"}, estado_proto)
     assert estado_proto.modo == Modo.MANUAL
     print("OK: modo desconocido se ignora")
 
-    # Mensaje sin tipo / basura
     proto._procesar_mensaje({"hola": "mundo"}, estado_proto)
     proto._procesar_mensaje(["no soy", "dict"], estado_proto)
     print("OK: mensajes sin 'tipo' se descartan")
 
-    # Log llegado por la red
     proto._procesar_mensaje({
         "tipo": "log",
         "origen": "DISTANCIA",
@@ -500,7 +472,6 @@ if __name__ == "__main__":
     assert ultimas[-1].origen == "DISTANCIA"
     print("OK: log de red se integra al logger")
 
-    # Comunicacion.cerrar() existe
     assert callable(getattr(Comunicacion, "cerrar", None)), "Comunicacion debe tener cerrar()"
     print("OK: Comunicacion.cerrar() existe")
 
@@ -550,7 +521,6 @@ if __name__ == "__main__":
     assert not unico.perdida
     print("OK: un único paquete se aplica")
 
-    # 2) Cierre limpio (b'') -> perdida=True, sin excepción.
     cerrado = _con(_SocketGuion([b""]))
     cerrado.actualizar_estado(EstadoRobot())
     assert cerrado.perdida, "recv b'' debe marcar perdida=True"
@@ -575,7 +545,6 @@ if __name__ == "__main__":
     assert estado_log.logger.obtener_lineas()[-1].mensaje == "caña"
     print("OK: UTF-8 partido entre paquetes se reconstruye")
 
-    # 5) Envío parcial: send() acepta pocos bytes por llamada.
     parcial = _con(_SocketGuion(limite_send=4))
     parcial.enviar_mensaje({"tipo": "motor", "direccion": "arriba"})
     esperado = json.dumps({"tipo": "motor", "direccion": "arriba",
@@ -604,14 +573,12 @@ if __name__ == "__main__":
     assert bytes(getattr(lleno.conexion, "enviado", bytearray())).endswith(b"\n")
     print("OK: backpressure se reintenta sin marcar pérdida")
 
-    # 7) Conexión caída (recv lanza) -> perdida=True, sin excepción.
     caido = _con(_SocketGuion(
         error_recv=ConnectionResetError("el robot se reinició")))
     caido.actualizar_estado(EstadoRobot())
     assert caido.perdida, "recv caído debe marcar perdida=True"
     print("OK: recv caído marca perdida=True sin lanzar")
 
-    # 8) Enviar a un socket muerto marca perdida=True, sin excepción.
     send_caido = _con(_SocketGuion(error_send=OSError("socket cerrado")))
     send_caido.enviar_mensaje({"tipo": "motor", "direccion": "arriba"})
     assert send_caido.perdida, "send caído debe marcar perdida=True"

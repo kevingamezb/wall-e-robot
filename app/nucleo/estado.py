@@ -1,7 +1,3 @@
-# wall-e-robot/app/nucleo/estado.py
-# Kevin Gámez - 26/08/2026
-
-
 # No es común (creo) encontrar mensajes del desarrollador en el código fuente, pero hoy es un día especial...
 # Llevo trabajando en este proyecto (universitario) para manejar un robot, este fue el primer archivo que escribí
 # "el corazón" de la máquina diría yo, hoy 6 de noviembre puedo decir que valió la pena, estoy agradecido con el
@@ -125,6 +121,7 @@ class EstadoRobot:
     max_consumo_watts:      float = 15.0                                           # BarraConsumo
     distancia_obstaculo_cm: float | None = None                                    # SensorDistancia y Ojos (None = sin lectura)
     navegacion:             Maniobra = Maniobra.ALTO                               # PanelNavegacion (decisión del ESP32)
+    auto_bloqueado:         bool = False
     conexion_activa:        bool  = False                                          # IconoEstadoConexión
     nivel_conexion:         NivelConexion = NivelConexion.NULA                     # IconoEstadoConexión (fuerza de señal)
     hay_advertencia:        bool  = False                                          # IconoAdvertencia
@@ -134,14 +131,9 @@ class EstadoRobot:
     version_firmware:       str   = ""                                             # Telemetría (versión del ESP32)
     ota_pendiente:          bool  = False                                          # Telemetría (actualización OTA)
     logger:                 Logger         = field(default_factory=Logger)         # Logger
-    # Para colorear una línea, el render debe usar entrada.nivel.value (texto
-    # legible); el Enum crudo no le sirve al widget.
 
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.nucleo.estado
-
 if __name__ == '__main__':
     print("Prueba estado.py\n")
 

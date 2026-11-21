@@ -1,6 +1,3 @@
-// wall-e-robot/firmware/lib/comunicacion/comunicacion.h
-// Kevin Gamez - 26/08/2026
-
 #ifndef COMUNICACION_H
 #define COMUNICACION_H
 
@@ -22,9 +19,8 @@ class Comunicacion {
 
 private:
 
-    // Red
-    WiFiServer servidor;   // servidor TCP (el ESP32 escucha)
-    WiFiClient cliente;    // cliente activo (telemetría y comandos)
+    WiFiServer servidor;
+    WiFiClient cliente;
 
     // Mensaje entrante en construcción (hasta '\n').
     String mensajeEntrante;
@@ -32,15 +28,12 @@ private:
     // true si la línea en curso superó MAX_MENSAJE_ENTRANTE y se descarta.
     bool _descartando = false;
 
-    // true si ya se avisó de una app con protocolo más nuevo.
     bool _avisoProtocolo = false;
 
-    int    puerto;         // puerto TCP del servidor
+    int    puerto;
 
-    // Modo actual del robot ("automatico"/"manual").
     String _modoActual = "manual";
 
-    // millis() de la última orden recibida.
     unsigned long _ultimaOrdenMs = 0;
 
     // millis() del último cliente que se conectó (0 = ninguno desde el arranque).
@@ -49,11 +42,9 @@ private:
     // true una vez que el servidor TCP quedó escuchando (self-test OTA).
     bool _escuchando = false;
 
-    // Info publicada en cada "estado" (la fija main.cpp).
     String _versionFirmware = "0.0.0";
     bool   _otaPendiente    = false;
 
-    // Interpreta un JSON completo y ejecuta las acciones.
     void procesarMensaje(const String& mensaje);
 
     // Ejecuta un comando ("servo", "modo" o "motor").
@@ -79,6 +70,7 @@ public:
     void enviarEstado(float bateria, const String& modo,
                       bool hay_advertencia, bool hay_error,
                       float distancia_cm, const String& navegacion,
+                      bool auto_bloqueado,
                       float consumo_watts,
                       bool conexion_activa, bool cargando,
                       bool modulo_inactivo,
@@ -114,4 +106,4 @@ public:
 // Instancia global (definida en firmware/src/main.cpp).
 extern Comunicacion comunicacion;
 
-#endif // COMUNICACION_H
+#endif

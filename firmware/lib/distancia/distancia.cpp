@@ -1,6 +1,3 @@
-// wall-e-robot/firmware/lib/distancia/distancia.cpp
-// Kevin Gámez - 13/09/2026
-
 #include "distancia.h"
 #include "config.h"
 #include "pines.h"
@@ -35,7 +32,7 @@ void SensorDistancia::iniciar() {
     pinMode(_pinTrig, OUTPUT);
     pinMode(_pinEcho, INPUT);
 
-    digitalWrite(_pinTrig, LOW);   // en reposo, nunca arrancar un pulso
+    digitalWrite(_pinTrig, LOW);
 
     _sensorListo = true;
 }
@@ -56,15 +53,15 @@ void SensorDistancia::actualizar() {
 
     case FASE_ESPERANDO: {
 
-        // Arranca un ciclo solo después del intervalo de muestreo.
         uint32_t ahoraMs = millis();
         if ((ahoraMs - _ultimaLecturaMs) < LECTURA_DISTANCIA_MS) {
             break;
         }
 
         digitalWrite(_pinTrig, HIGH);
+        _inicioPulsoMs = ahoraMs;
         _microsInicio = micros();
-        _lecturaNueva = false;   // nuevo ciclo: se descarta la marca anterior
+        _lecturaNueva = false;
         _fase = FASE_PULSO_ENVIADO;
         break;
     }
@@ -74,7 +71,7 @@ void SensorDistancia::actualizar() {
         if ((uint32_t)(micros() - _microsInicio) >= DURACION_TRIG_US) {
 
             digitalWrite(_pinTrig, LOW);
-            _microsInicio = micros();     // base del timeout del eco
+            _microsInicio = micros();
             _fase = FASE_ESPERANDO_ECO;
         }
         break;
@@ -83,7 +80,7 @@ void SensorDistancia::actualizar() {
     case FASE_ESPERANDO_ECO: {
 
         if (digitalRead(_pinEcho) == HIGH) {
-            _microsEco = micros();        // llegó el borde ascendente
+            _microsEco = micros();
             _fase = FASE_MIDIENDO_ECO;
 
         } else if ((uint32_t)(micros() - _microsInicio) >= TIMEOUT_SIN_ECO_US) {
@@ -101,12 +98,10 @@ void SensorDistancia::actualizar() {
             uint32_t duracion = (uint32_t)(micros() - _microsEco);
             float cm = (float)duracion * VELOCIDAD_SONIDO_CM_POR_US / 2.0f;
 
-            // Descarta valores absurdos.
             finalizarLectura(cm > MAX_DISTANCIA_CM ? -1.0f : cm);
 
         } else if ((uint32_t)(micros() - _microsEco) >= TIMEOUT_ECO_US) {
-            // El ECO se quedó en HIGH (sensor colgado o eco falso): no dejar
-            // la máquina de estados bloqueada y reportar "sin lectura".
+            // Si ECHO queda en HIGH, vence el plazo y la medición termina sin lectura.
             finalizarLectura(-1.0f);
         }
         break;
@@ -121,6 +116,7 @@ void SensorDistancia::finalizarLectura(float distanciaCm) {
     _lecturaNueva   = true;
     _algunaLectura  = true;
     _ultimaLecturaMs = millis();   // base del intervalo y de la frescura
+    _inicioUltimaLecturaMs = _inicioPulsoMs;
     _fase           = FASE_ESPERANDO;
 }
 
@@ -131,7 +127,6 @@ bool SensorDistancia::hayLecturaNueva() const {
 
 
 float SensorDistancia::distanciaCm() const {
-    // -1 se propaga hasta main.cpp, que decide mandar null en el JSON.
     return _distanciaCm;
 }
 
@@ -144,7 +139,7 @@ bool SensorDistancia::obstaculoCercano(float umbralCm) const {
 bool SensorDistancia::lecturaFresca(uint32_t maxMs) const {
 
     if (!_algunaLectura) {
-        return false;   // todavía no terminó ni una medición
+        return false;
     }
 
     return (uint32_t)(millis() - _ultimaLecturaMs) <= maxMs;

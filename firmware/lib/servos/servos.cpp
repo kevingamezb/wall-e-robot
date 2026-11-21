@@ -1,6 +1,3 @@
-// wall-e-robot/firmware/lib/servos/servos.cpp
-// Kevin Gámez - 13/09/2026
-
 #include "servos.h"
 #include "config.h"
 #include "pines.h"
@@ -19,7 +16,6 @@ static const ParServo MAPA_SERVOS[] = {
 
 static const int CANTIDAD_NOMBRES = sizeof(MAPA_SERVOS) / sizeof(MAPA_SERVOS[0]);
 
-// Pines de los servos reales (índices 0, 1 y 2).
 static const uint8_t PINES_SERVO[Servos::CANTIDAD_FISICA] = {
     PIN_SERVO_CUELLO, PIN_SERVO_BRAZO_IZQ, PIN_SERVO_BRAZO_DER,
 };
@@ -38,7 +34,7 @@ Servos::Servos()
     : _listo(false) {
 
     for (int i = 0; i < CANTIDAD; i++) {
-        _angulos[i] = 0;   // arranca en reposo
+        _angulos[i] = 0;
     }
 }
 
@@ -67,7 +63,7 @@ int Servos::indiceDe(const char* nombre) const {
             return MAPA_SERVOS[i].indice;
         }
     }
-    return -1;   // nombre desconocido
+    return -1;
 }
 
 
@@ -79,7 +75,7 @@ bool Servos::habilitado(int indice) const {
 void Servos::escribirServo(int indice, int angulo) {
 
     if (!_listo || indice < 0 || indice >= CANTIDAD_FISICA) {
-        return;   // sin servo físico no hay a quién escribir
+        return;
     }
 
     int pos = constrain(SERVO_CENTRO - angulo, SERVO_GRAU_MIN, SERVO_GRAU_MAX);
@@ -91,12 +87,28 @@ void Servos::moverServo(const char* nombre, int angulo) {
 
     int indice = indiceDe(nombre);
     if (indice < 0) {
-        return;   // servo desconocido, no hay a quién mover
+        return;
     }
 
-    _angulos[indice] = angulo;                 // se guarda siempre...
+    _angulos[indice] = angulo;
+    if (indice != _servoGesto && habilitado(indice)) {
+        escribirServo(indice, angulo);
+    }
+}
+
+
+void Servos::aplicarGesto(const char* nombre, int angulo) {
+    const int indice = nombre ? indiceDe(nombre) : -1;
+    if (indice == _servoGesto && (indice == -1 || angulo == _anguloGesto)) {
+        return;
+    }
+    if (indice != _servoGesto && habilitado(_servoGesto)) {
+        escribirServo(_servoGesto, _angulos[_servoGesto]);
+    }
+    _servoGesto = indice;
+    _anguloGesto = angulo;
     if (habilitado(indice)) {
-        escribirServo(indice, angulo);         // ...y se mueve solo si está activo
+        escribirServo(indice, angulo);
     }
 }
 

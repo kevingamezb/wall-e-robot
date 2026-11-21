@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_ojos.py
-# Kevin Gámez - 16/10/2026
-
 """Pruebas de app.widgets.logica.ojos: prioridad de las expresiones."""
 
 
@@ -49,3 +46,30 @@ def test_obstaculo_justo_en_el_umbral_no_activa():
 def test_descripcion_es_el_valor_de_la_expresion():
     """descripcion expone el texto legible de la expresión."""
     assert _ojos().descripcion == "normal"
+
+
+def test_duda_se_dibuja_al_recibir_bloqueo_del_robot(raiz_tk):
+    from tkinter import Canvas
+
+    from app.comunicacion.conexion import Comunicacion
+    from app.widgets.renderizado.ojos_render import OjosRenderer
+
+    ojos = _ojos(distancia=20.0)
+    conexion = Comunicacion.__new__(Comunicacion)
+    canvas = Canvas(raiz_tk)
+    render = OjosRenderer(ojos, canvas)
+
+    for bloqueado in (True, False, True):
+        mensaje = {"auto_bloqueado": True} if bloqueado else {}
+        conexion._aplicar_estado(mensaje, ojos.estado)
+        render.dibujar()
+        if bloqueado:
+            assert ojos.expresion == ExpresionOjos.DUDA
+            izquierda = render._ids["caja_izq"]
+            derecha = render._ids["caja_der"]
+            assert canvas.itemcget(derecha, "state") == "normal"
+            _, y1, _, y2 = canvas.coords(izquierda)
+            _, y3, _, y4 = canvas.coords(derecha)
+            assert y2 - y1 > y4 - y3
+        else:
+            assert ojos.expresion == ExpresionOjos.NORMAL

@@ -1,6 +1,3 @@
-// wall-e-robot/firmware/lib/comunicacion/comunicacion.cpp
-// Kevin Gamez - 26/08/2026
-
 #include "comunicacion.h"
 #include "config.h"
 #include "servos.h"
@@ -14,7 +11,6 @@ struct LimiteServo {
     int maximo;
 };
 
-// Límites aplicados a todo comando {"tipo":"servo"} recibido de la GUI.
 static const LimiteServo LIMITES[] = {
     { "cuello",            -70,  70 },
     { "hombro_izquierdo",  -50,  50 },
@@ -23,7 +19,6 @@ static const LimiteServo LIMITES[] = {
 
 static const int CANTIDAD_SERVOS = sizeof(LIMITES) / sizeof(LIMITES[0]);
 
-// True si el servo existe y el ángulo está dentro de su rango seguro.
 static bool anguloValidoParaServo(const char* servo, int angulo) {
 
     for (int i = 0; i < CANTIDAD_SERVOS; i++) {
@@ -56,7 +51,6 @@ void Comunicacion::iniciarServidor() {
 
 void Comunicacion::escucharCliente() {
 
-    // Acepta una conexión si no hay cliente activo.
     if (!cliente || !cliente.connected()) {
 
         cliente = servidor.available();
@@ -73,7 +67,6 @@ void Comunicacion::escucharCliente() {
         return;
     }
 
-    // Acumula bytes hasta el '\n' que cierra cada mensaje.
     while (cliente.available() > 0) {
 
         char c = cliente.read();
@@ -91,7 +84,6 @@ void Comunicacion::escucharCliente() {
             _descartando    = false;
 
         } else if (c != '\r') {
-            // Ignora el '\r' que puede venir de "\r\n".
             if (_descartando) {
                 continue;   // ya se avisó; se ignora hasta el próximo '\n'
             }
@@ -123,10 +115,10 @@ void Comunicacion::enviarMensaje(const String& mensaje) {
 }
 
 
-// La app Python (conexion.py) parsea este formato de forma tolerante.
 void Comunicacion::enviarEstado(float bateria, const String& modo,
                                 bool hay_advertencia, bool hay_error,
                                 float distancia_cm, const String& navegacion,
+                                bool auto_bloqueado,
                                 float consumo_watts,
                                 bool conexion_activa, bool cargando,
                                 bool modulo_inactivo,
@@ -154,6 +146,7 @@ void Comunicacion::enviarEstado(float bateria, const String& modo,
     }
 
     doc["navegacion"]         = navegacion;
+    doc["auto_bloqueado"]     = auto_bloqueado;
     doc["consumo_watts"]      = consumo_watts;
     doc["conexion_activa"]    = conexion_activa;
     doc["cargando"]           = cargando;
@@ -189,7 +182,6 @@ void Comunicacion::enviarEstado(float bateria, const String& modo,
 }
 
 
-// Nivel típico: "info", "advertencia" o "error".
 void Comunicacion::enviarLog(const String& origen, const String& mensaje,
                              const String& nivel) {
 
@@ -211,7 +203,6 @@ void Comunicacion::enviarLog(const String& origen, const String& mensaje,
 }
 
 
-// Valida nombre y ángulo (LIMITES[]) y delega el movimiento a la librería de servos.
 void Comunicacion::aplicarComando(const JsonVariantConst& comando) {
 
     const char* tipo = comando["tipo"];
@@ -277,8 +268,6 @@ void Comunicacion::aplicarComando(const JsonVariantConst& comando) {
             return;
         }
 
-        // mover() ignora direcciones no mapeadas y no hace nada si el módulo
-        // está deshabilitado.
         motores.mover(direccion);
 
         Serial.print("Motor -> ");
@@ -287,16 +276,12 @@ void Comunicacion::aplicarComando(const JsonVariantConst& comando) {
     } else {
         Serial.print("Tipo desconocido: ");
         Serial.println(tipo);
-        // Avisa también a la app para que un comando no reconocido no sea un
-        // fallo silencioso del protocolo.
         enviarLog("COMANDO",
                   "Comando no reconocido: " + String(tipo), "advertencia");
     }
 }
 
 
-// Aplica un mensaje completo. Si "tipo" es "multi", recorre "comandos"; si no,
-// aplica el mensaje tal cual.
 void Comunicacion::procesarMensaje(const String& lineaJson) {
 
     StaticJsonDocument<4096> doc;
@@ -309,12 +294,10 @@ void Comunicacion::procesarMensaje(const String& lineaJson) {
         return;
     }
 
-    // Toda orden válida cuenta como "presencia del operador" para el timeout
-    // de seguridad de main.cpp.
+    // Las órdenes válidas reinician el plazo de seguridad del modo manual.
     _ultimaOrdenMs = millis();
 
-    // La app puede hablar un protocolo más nuevo: se avisa una vez y se
-    // siguen aplicando los campos conocidos (compatibilidad hacia atrás).
+    // Ante una versión nueva, avisa una vez y sigue aplicando los campos conocidos.
     int version = doc["protocolo"] | PROTOCOLO_VERSION;
     if (version > PROTOCOLO_VERSION && !_avisoProtocolo) {
         _avisoProtocolo = true;

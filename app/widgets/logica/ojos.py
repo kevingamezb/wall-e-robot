@@ -1,7 +1,3 @@
-# wall-e-robot/app/widgets/logica/ojos.py
-# Kevin Gámez - 13/09/2026
-
-
 from enum import Enum
 from ...nucleo.estado import EstadoRobot, Modo
 from ...nucleo.paleta import Paleta
@@ -12,6 +8,7 @@ class ExpresionOjos(Enum):
     NORMAL = "normal"
     MANUAL = "manual"
     OBSTACULO = "obstaculo"
+    DUDA = "duda"
     SIN_DATOS = "sin_datos"
     ERROR = "error"
 
@@ -26,7 +23,7 @@ class Ojos:
 
     @property
     def expresion(self) -> ExpresionOjos:
-        """Prioridad: sin conexión > error > manual > obstáculo > normal."""
+        """Prioridad: sin conexión > error > manual > duda > obstáculo > normal."""
         if not self.estado.conexion_activa:
             return ExpresionOjos.SIN_DATOS
 
@@ -35,6 +32,9 @@ class Ojos:
 
         if self.estado.modo == Modo.MANUAL:
             return ExpresionOjos.MANUAL
+
+        if self.estado.auto_bloqueado:
+            return ExpresionOjos.DUDA
 
         if (self.estado.distancia_obstaculo_cm is not None
                 and self.estado.distancia_obstaculo_cm < UMBRAL_OBSTACULO_CM):
@@ -48,6 +48,7 @@ class Ojos:
             ExpresionOjos.NORMAL:    Paleta.DORADO,
             ExpresionOjos.MANUAL:    Paleta.NARANJA,
             ExpresionOjos.OBSTACULO: Paleta.ROJO,
+            ExpresionOjos.DUDA:      Paleta.NARANJA,
             ExpresionOjos.SIN_DATOS: Paleta.GRIS,
             ExpresionOjos.ERROR:     Paleta.ROJO,
         }
@@ -58,9 +59,6 @@ class Ojos:
         return self.expresion.value
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.widgets.logica.ojos
-
 if __name__ == "__main__":
     print("Prueba ojos.py\n")
 

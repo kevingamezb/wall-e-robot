@@ -1,11 +1,8 @@
-// wall-e-robot/firmware/lib/auto/auto.cpp
-// Kevin Gámez - 15/10/2026
-
 #include "auto.h"
 #include "config.h"
-#include "decision.h"
 #include "distancia.h"
 #include "motores.h"
+#include "servos.h"
 
 
 Auto autoRobot;
@@ -18,10 +15,10 @@ Auto::Auto()
 
 void Auto::iniciar() {
 
-    // Sin hardware propio que configurar: solo reinicia el estado. Arranca
-    // detenido y no se moverá hasta tener una lectura fresca y válida.
     _modoAutonomo = true;
     _navegacion   = "alto";
+    _decision.reiniciar();
+    _bloqueado = false;
     motores.detener();
 }
 
@@ -29,35 +26,32 @@ void Auto::iniciar() {
 void Auto::actualizar() {
 
     if (!_modoAutonomo) {
-        return;   // en manual manda el operador
+        return;
     }
 
-    // La decisión es pura y se prueba en el entorno nativo. Sin lectura
-    // fresca, sin eco o con obstáculo cerca, la respuesta nunca es "avanzar
-    // a ciegas".
-    ManiobraDecision decision = decidirManiobra(
+    const auto decision = _decision.actualizar(
+        millis(), motores.detenidos(),
         sensorDistancia.lecturaFresca(TIEMPO_MAX_LECTURA_MS),
         sensorDistancia.distanciaCm(),
+        sensorDistancia.inicioUltimaLecturaMs(),
         UMBRAL_OBSTACULO_CM);
 
-    switch (decision) {
-
-    case ManiobraDecision::RECTO:
-        motores.mover("arriba");
-        break;
-
-    case ManiobraDecision::DERECHA:
-        // Obstáculo: se desvía girando en el sitio hasta quedar libre.
-        motores.mover("derecha");
-        break;
-
-    case ManiobraDecision::ALTO:
-    default:
+    _navegacion = nombreManiobra(decision.maniobra);
+    _bloqueado = decision.bloqueado;
+    if (decision.maniobra == ManiobraDecision::ALTO) {
         motores.detener();
-        break;
+    } else {
+        motores.mover(decision.maniobra == ManiobraDecision::RECTO ? "arriba" : _navegacion);
     }
 
-    _navegacion = nombreManiobra(decision);
+    if (MODULOS.servos) {
+        switch (decision.gesto) {
+            case GestoAuto::CUELLO_DERECHA:   servos.aplicarGesto("cuello", 18); break;
+            case GestoAuto::CUELLO_IZQUIERDA: servos.aplicarGesto("cuello", -18); break;
+            case GestoAuto::SALUDO:           servos.aplicarGesto("hombro_izquierdo", 25); break;
+            case GestoAuto::NINGUNO:          servos.aplicarGesto(nullptr); break;
+        }
+    }
 }
 
 
@@ -67,17 +61,17 @@ void Auto::modoAutonomo(bool activo) {
         return;
     }
 
-    // En CUALQUIER transición (manual -> automático o al revés) se detienen
-    // los motores: el primer movimiento debe ser una decisión explícita, no
-    // una orden heredada del modo anterior.
+    // Detiene los motores al cambiar de modo para descartar la orden anterior.
     motores.detener();
+    servos.aplicarGesto(nullptr);
+    _decision.reiniciar();
+    _bloqueado = false;
     _navegacion = "alto";
     _modoAutonomo = activo;
 }
 
 
 bool Auto::hayObstaculo() const {
-    // obstaculoCercano() ya descarta las lecturas sin eco (distancia -1).
     return sensorDistancia.obstaculoCercano(UMBRAL_OBSTACULO_CM);
 }
 

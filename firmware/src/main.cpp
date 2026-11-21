@@ -1,6 +1,3 @@
-// wall-e-robot/firmware/src/main.cpp
-// Kevin Gámez - 13/09/2026
-
 #include <Arduino.h>
 #include <Wire.h>
 #include <WiFi.h>
@@ -20,19 +17,14 @@
 #include "ota.h"
 
 
-// El núcleo ejecutaría la verificación de la imagen nueva ANTES de setup(),
-// confirmando sin comprobar nada. Devolver true deja el rollback ARMADO
-// (PENDING_VERIFY) y delega la decisión en el self-test de firmware/lib/ota:
-// si el arranque falla o no confirma a tiempo, la guardia revierte sola.
+// Impide la confirmación de Arduino antes de que el self-test valide el arranque.
 extern "C" bool verifyRollbackLater() {
     return true;
 }
 
 
-// Servidor TCP de telemetría y mando (puerto en config.h).
 Comunicacion comunicacion(PUERTO_SERVIDOR);
 
-// Marcas de tiempo del loop no bloqueante.
 static uint32_t s_ultimaEnvioMs   = 0;
 static uint32_t s_ultimaBateriaMs = 0;
 
@@ -43,12 +35,9 @@ static bool s_errorAnterior       = false;
 // Evita repetir el aviso del timeout de seguridad en cada vuelta.
 static bool s_timeoutAvisado = false;
 
-// El self-test de arranque corre una sola vez, en la primera vuelta del loop.
 static bool s_otaConfirmado = false;
 
 
-// Inicialización única. Orden: serial, watchdog, guardia de rollback, I2C,
-// timers PWM, LEDs, WiFi (AP), servidor, módulos según MODULOS y, al final, OTA.
 void setup() {
 
     Serial.begin(115200);
@@ -58,11 +47,9 @@ void setup() {
     esp_task_wdt_init(10, true);
     esp_task_wdt_add(nullptr);
 
-    // La guardia de rollback se arranca ANTES que sensores y WiFi: si la versión
-    // nueva no confirma a tiempo, revierte aunque setup() se quede a medias.
+    // Arma la guardia temprano para cubrir bloqueos en setup().
     ota.iniciarGuardiaRollback();
 
-    // I2C compartido por el INA219 y el OLED.
     Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
 
     // Los timers LEDC se reservan una sola vez porque los comparten ESP32Servo
@@ -74,7 +61,6 @@ void setup() {
 
     leds.iniciar();
 
-    // Red: el ESP32 crea su propia WiFi (modo AP).
     WiFi.mode(WIFI_AP);
     if (!WiFi.softAP(WIFI_AP_SSID, WIFI_AP_CLAVE)) {
         Serial.println("ERROR: no se pudo iniciar el AP WiFi.");
@@ -86,7 +72,6 @@ void setup() {
 
     comunicacion.iniciarServidor();
 
-    // Cada módulo se inicializa solo si su flag está activo (ver config.h).
     if (MODULOS.servos) {
         servos.iniciar();
         Serial.println("MODULO servos   = activo");
@@ -137,18 +122,13 @@ void setup() {
 }
 
 
-// Bucle principal, no bloqueante: todo se programa con marcas de millis()
-// (sin delay) para que la telemetría, el portal OTA y la guardia sigan
-// respondiendo.
+// Evita esperas en el loop para atender la red y medir el eco del HC-SR04.
 void loop() {
 
     uint32_t ahoraMs = millis();
 
-    esp_task_wdt_reset();   // evita que el watchdog reinicie el ESP32 si el loop tarda mucho
+    esp_task_wdt_reset();
 
-    // Self-test de arranque: si esta es una versión nueva pendiente y todo
-    // quedó inicializado (AP, servidor, módulos) y el loop ya corre, se
-    // confirma y se desarma el rollback. Si no, la guardia revierte sola.
     if (!s_otaConfirmado) {
         s_otaConfirmado = true;
         if (ota.pendiente()) {
@@ -163,14 +143,11 @@ void loop() {
         }
     }
 
-    // Portal web OTA y ArduinoOTA.
     ota.procesar();
 
-    // Red
     comunicacion.escucharCliente();
 
     // Si nadie se conecta durante 10 minutos, se devuelve el control al robot.
-    // El cambio a automático detiene los motores en Auto::modoAutonomo().
     if (comunicacion.modo() == "manual" &&
         comunicacion.sinConexionDurante(
             (unsigned long)TIEMPO_SIN_CONEXION_AUTOMATICO_MS)) {
@@ -179,11 +156,7 @@ void loop() {
         Serial.println("[MODO] Sin conexion durante 10 min: modo automatico");
     }
 
-    // Seguridad: en modo manual, si el operador deja de mandar comandos, se
-    // detienen los motores. Hay que leer millis() aqui y no usar la instantanea
-    // de ahoraMs: escucharCliente() actualiza ultimaOrdenMs() despues, y con
-    // uint32_t la resta daria la vuelta (~4.294.967.295 ms) tras cada comando,
-    // disparando un falso aviso de "sin comando" y deteniendo los motores.
+    // Lee millis() después de escucharCliente() para evitar que la resta sin signo desborde.
     if (MODULOS.motores && comunicacion.modo() == "manual" &&
         (millis() - comunicacion.ultimaOrdenMs()
          > (unsigned long)TIEMPO_MANUAL_TIMEOUT_MS)) {
@@ -200,7 +173,6 @@ void loop() {
         s_timeoutAvisado = false;
     }
 
-    // Sensores periódicos
     if (MODULOS.distancia) {
         sensorDistancia.actualizar();
     }
@@ -211,8 +183,7 @@ void loop() {
         s_ultimaBateriaMs = ahoraMs;
     }
 
-    // Autonomía: solo si están los motores y el sensor de distancia. Si el
-    // operador pide automático sin sensor, el robot no avanza a ciegas.
+    // Sin sensor activo, el modo automático mantiene los motores detenidos.
     const bool autonomiaDisponible = MODULOS.motores && MODULOS.distancia;
     const bool pideAutonomo        = comunicacion.modo() == "automatico";
     const bool enAutonomo          = autonomiaDisponible && pideAutonomo;
@@ -225,21 +196,17 @@ void loop() {
         motores.detener();
     }
 
-    // Rampa de los motores
     if (MODULOS.motores) {
         motores.actualizar();
     }
 
-    // Telemetría
     if (ahoraMs - s_ultimaEnvioMs >= ENVIO_ESTADO_MS) {
 
         s_ultimaEnvioMs = ahoraMs;
 
-        // Distancia -1 = sin lectura; Comunicacion la manda como null.
         float distancia = MODULOS.distancia ? sensorDistancia.distanciaCm()
                                             : -1.0f;
 
-        // Criterio de alertas.
         bool advertencia = MODULOS.distancia
                          && sensorDistancia.obstaculoCercano(UMBRAL_OBSTACULO_CM);
 
@@ -251,7 +218,6 @@ void loop() {
 
         leds.actualizar(advertencia, error, hayModuloInactivo());
 
-        // Se reportan siempre los últimos ángulos pedidos por la app.
         int angulos[Servos::CANTIDAD];
         servos.angulosUsuario(angulos);
 
@@ -264,6 +230,7 @@ void loop() {
             error,
             distancia,
             navegacion,
+            enAutonomo && autoRobot.bloqueado(),
             bateria.consumoWatts(),
             comunicacion.estaConectado(),
             bateria.cargando(),
@@ -271,13 +238,11 @@ void loop() {
             bateria.minutosRestantes(),
             angulos, Servos::CANTIDAD);
 
-        // La pantalla no hace nada si el módulo está apagado.
         if (MODULOS.oled) {
             oled.mostrar(nivelBateria, distancia,
                          comunicacion.modo(), comunicacion.estaConectado());
         }
 
-        // Logs con cooldown
         if (advertencia && !s_advertenciaAnterior) {
             comunicacion.enviarLog(
                 "DISTANCIA",

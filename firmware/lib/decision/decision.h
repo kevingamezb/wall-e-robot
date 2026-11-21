@@ -1,11 +1,4 @@
-// wall-e-robot/firmware/lib/decision/decision.h
-// Kevin Gámez - 03/11/2026
-//
-// Decisión pura de navegación autónoma.
-//
-// No depende de Arduino ni del hardware, así que se puede probar con
-// PlatformIO en el entorno nativo (pio test -e native). Auto solo traduce el
-// resultado a comandos de motor.
+// Sin dependencias de Arduino o del hardware. Se prueba con pio test -e native.
 
 #ifndef DECISION_H
 #define DECISION_H
@@ -14,18 +7,37 @@
 
 enum class ManiobraDecision : uint8_t {
     ALTO,       // sin lectura, lectura vieja o sin eco: no moverse
-    RECTO,      // camino libre
-    DERECHA,    // obstáculo dentro del umbral: girar
+    RECTO,
+    DERECHA,
+    IZQUIERDA,
 };
 
-// Decide la maniobra a partir de la frescura y la distancia.
-//   lecturaFresca: la última medición terminó dentro del plazo permitido.
-//   distanciaCm:   última distancia; negativa = sin eco.
-//   umbralCm:      distancia mínima libre.
-ManiobraDecision decidirManiobra(bool lecturaFresca, float distanciaCm,
-                                 float umbralCm);
+enum class GestoAuto : uint8_t { NINGUNO, CUELLO_DERECHA, CUELLO_IZQUIERDA, SALUDO };
 
-// Nombre estable para telemetría: "alto" | "recto" | "derecha".
+struct DecisionAuto {
+    ManiobraDecision maniobra;
+    GestoAuto gesto;
+    bool bloqueado;
+};
+
+class NavegacionAuto {
+public:
+    void reiniciar();
+    DecisionAuto actualizar(uint32_t ahora, bool motoresDetenidos,
+                            bool lecturaFresca, float distanciaCm,
+                            uint32_t inicioLectura, float umbralCm);
+
+private:
+    enum class Fase { FRENAR, MEDIR, AVANZAR, PAUSA, GESTO_CUELLO, GIRO, SALUDO, BLOQUEADO };
+
+    Fase _fase = Fase::FRENAR;
+    uint32_t _desde = 0;
+    unsigned _intentos = 0;
+    bool _primeroDerecha = true;
+    bool _giroDerecha = true;
+};
+
+// Nombres estables para la telemetría.
 const char* nombreManiobra(ManiobraDecision maniobra);
 
-#endif // DECISION_H
+#endif

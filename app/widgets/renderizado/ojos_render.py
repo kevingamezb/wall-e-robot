@@ -1,7 +1,3 @@
-# wall-e-robot/app/widgets/renderizado/ojos_render.py
-# Kevin Gámez - 13/09/2026
-
-
 from ...nucleo.paleta import Paleta
 from ...widgets.logica.ojos import ExpresionOjos
 from .base_render import RenderizadorBase, rectangulo_redondeado
@@ -10,16 +6,13 @@ from . import carga_recursos
 
 
 # Geometría base de los ojos (fallback procedural).
-OJO_ANCHO = 44
 OJO_ALTO_ABIERTO = 30
 OJO_ALTO_OBSTACULO = 12
 PUPILA_ABIERTA = 9
 PUPILA_OBSTACULO = 6
 
-# Alto con que se dibujan las imágenes de los ojos.
 ALTO_OJO_IMAGEN = 40
 
-# PNG de cada expresión.
 RECURSOS = {
     ExpresionOjos.NORMAL:    "ojo_normal",
     ExpresionOjos.MANUAL:    "ojo_manual",
@@ -49,11 +42,11 @@ class OjosRenderer(RenderizadorBase):
         """Ancho total del bloque de ojos en px (los PNG son cuadrados)."""
         return 2 * self.alto_imagen
 
-    # Geometría
     def _coords_caja(self, cx, alto, y_superior):
         """Devuelve (x1, y1, x2, y2) para la caja de un ojo centrada en cx."""
-        return (cx - OJO_ANCHO / 2, y_superior,
-                cx + OJO_ANCHO / 2, y_superior + alto)
+        semiancho = self.alto_imagen * 0.45
+        return (cx - semiancho, y_superior,
+                cx + semiancho, y_superior + alto)
 
     def _coords_pupila(self, cx, cy, tamano):
         """Devuelve (x1, y1, x2, y2) para la pupila centrada en (cx, cy)."""
@@ -65,10 +58,10 @@ class OjosRenderer(RenderizadorBase):
         ancho = self.ancho_bloque / 2
         return self.x + ancho / 2, self.x + ancho + ancho / 2
 
-    # Selección de modo (imágenes vs. procedural)
     def _usa_imagenes(self, expresion):
         """True si el PNG de esta expresión está exportado."""
-        return carga_recursos.existe(RECURSOS[expresion])
+        recurso = RECURSOS.get(expresion)
+        return recurso is not None and carga_recursos.existe(recurso)
 
     def dibujar(self):
         """Dibuja o actualiza los dos ojos según la expresión lógica."""
@@ -77,6 +70,7 @@ class OjosRenderer(RenderizadorBase):
         cx_izq, cx_der = self._centros()
 
         if self._usa_imagenes(expresion):
+            self._hay_cambio("estado", (expresion, color))
             self._dibujar_imagenes(expresion, color, cx_izq, cx_der)
         else:
             self._dibujar_procedural(expresion, color, cx_izq, cx_der)
@@ -91,7 +85,6 @@ class OjosRenderer(RenderizadorBase):
         if nombre in self._ids:
             self.canvas.itemconfig(self._ids[nombre], state="normal")
 
-    # Modo imágenes
     def _dibujar_imagenes(self, expresion, color, cx_izq, cx_der):
         """Dibuja el PNG del ojo (derecho espejado) y oculta lo procedural."""
         for nombre in ("caja_izq", "caja_der", "pupila_izq", "pupila_der"):
@@ -120,14 +113,12 @@ class OjosRenderer(RenderizadorBase):
         self.canvas.itemconfig(ojo_izq, image=izquierda, state="normal")
         self.canvas.itemconfig(ojo_der, image=derecha, state="normal")
 
-    # Modo procedural (fallback)
     def _dibujar_procedural(self, expresion, color, cx_izq, cx_der):
         """Dibuja el fallback procedural a mano con el Canvas."""
         if "img_izq" in self._ids:
             self._ocultar("img_izq")
             self._ocultar("img_der")
 
-        # Alto de la caja según la expresión.
         alto = OJO_ALTO_ABIERTO if expresion != ExpresionOjos.OBSTACULO else OJO_ALTO_OBSTACULO
 
         # Desplazamiento horizontal de la pupila: en MANUAL mira hacia adentro
@@ -136,7 +127,6 @@ class OjosRenderer(RenderizadorBase):
         if expresion == ExpresionOjos.MANUAL:
             desplazamiento = 6
 
-        # Tamaño de la pupila y si se muestra o no.
         if expresion == ExpresionOjos.SIN_DATOS:
             tamano = 0          # no se dibuja pupila
             ver_pupila = False
@@ -147,7 +137,6 @@ class OjosRenderer(RenderizadorBase):
             tamano = PUPILA_ABIERTA
             ver_pupila = True
 
-        # Primera vez: crear las cajas y pupilas con su geometría base.
         for lado, cx in (("izq", cx_izq), ("der", cx_der)):
             self._primera_vez(
                 f"caja_{lado}",
@@ -164,22 +153,26 @@ class OjosRenderer(RenderizadorBase):
                 ),
             )
 
-        # La silueta solo cambia con la expresión (y su color): repintar solo
-        # entonces, en vez de recalcular coords en cada ciclo.
+        # Recalcula la silueta solo al cambiar la expresión o su color.
         if not self._hay_cambio("estado", (expresion, color)):
             return
 
+        escala = self.alto_imagen / ALTO_OJO_IMAGEN
         for lado, cx in (("izq", cx_izq), ("der", cx_der)):
-            # Caja del ojo: rectángulo sin relleno con borde de color.
             caja = self._ids[f"caja_{lado}"]
-            self.canvas.coords(caja, *self._coords_caja(cx, alto, self.y + 8))
-            self.canvas.itemconfig(caja, outline=color, state="normal")
+            alto_ojo = alto
+            if expresion == ExpresionOjos.DUDA and lado == "der":
+                alto_ojo = OJO_ALTO_OBSTACULO
+            y_ojo = self.y + (8 + (alto - alto_ojo) / 2) * escala
+            self.canvas.coords(caja, *self._coords_caja(cx, alto_ojo * escala, y_ojo))
+            self.canvas.itemconfig(caja, outline=color, state="normal",
+                                   width=max(1, 2 * escala))
 
-            # La pupila se oculta cuando la expresión es SIN_DATOS.
             pupila = self._ids[f"pupila_{lado}"]
-            cx_pupila = cx + (desplazamiento if lado == "izq" else -desplazamiento)
-            cy_pupila = self.y + 8 + alto / 2
-            self.canvas.coords(pupila, *self._coords_pupila(cx_pupila, cy_pupila, tamano))
+            dx = desplazamiento if lado == "izq" else -desplazamiento
+            cx_pupila = cx + dx * escala
+            cy_pupila = y_ojo + alto_ojo * escala / 2
+            self.canvas.coords(pupila, *self._coords_pupila(cx_pupila, cy_pupila, tamano * escala))
             self.canvas.itemconfig(pupila, fill=color)
             self.canvas.itemconfig(
                 pupila,

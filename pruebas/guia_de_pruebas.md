@@ -363,7 +363,7 @@ static const ModulosActivos MODULOS = { true, true, true, true, true };
 |---|---|---|
 | **Servos** (flag `servos=1`) | Mover el deslizador del **cuello** y los **hombros** en la GUI; presionar **REPOSO**. | El cuello y los 2 brazos se mueven suaves (10°..170°). Serial: `Servo 'cuello' -> 30 grados.` |
 | **Motores** (flag `motores=1`) | Mantener el d-pad en direcciones: **arriba / abajo / izquierda / derecha**. | Las 2 ruedas giran: adelante, atrás, y giro en el sitio (a ~70 % de PWM, por ser motores de 6 V). Serial: `Motor -> arriba`. Las velocidades suben/bajan con rampa (sin tirón). **Seguridad:** si en modo manual no llega un comando en ~2 s, los motores se detienen solos con log `SEGURIDAD` ("Sin comando del operador..."). |
-| **Distancia** (flag `distancia=1`) | Poner la mano frente al sensor (fijo al frente) a < 15 cm. | Al acercar la mano aparece la **advertencia** en la GUI, el medidor de proximidad se llena, se enciende el LED **rojo** y sale el log `Obstáculo muy cerca: X.Xcm`. En automático, a ≤ 15 cm el robot gira a la derecha en el sitio; **sin eco o con lectura vieja se detiene** (§5.4). |
+| **Distancia** (flag `distancia=1`) | Acercar un objeto al sensor fijo del frente. | A ≤ 25 cm aparece la **advertencia** en la GUI y se enciende el LED **rojo**. En automático, el robot se detiene antes de iniciar la maniobra de evasión (§5.4). |
 | **Batería** (flag `bateria=1`) | Mirar el Sol de batería y el consumo con el robot alimentado y en reposo/operando. | El nivel se calcula de la tensión del lado batería (bus + shunt del INA219) y solo se actualiza con la corriente casi nula: mientras los motores giran se mantiene el último valor para no confundir la caída de tensión con una descarga. Log crítico (rojo) y LED **rojo** si el nivel cae por debajo de 0.10 (< ~6,8 V). |
 | **OLED** (flag `oled=1`) | Ninguna acción extra. | La pantalla 0.96" muestra BAT / DIS / MODO / CONECTADO. |
 | **LEDs** (siempre) | Ninguna acción extra. | Amarillo encendido cuando todo está normal; rojo cuando hay advertencia, error **o algún módulo desactivado** (config incompleta). El verde de encendido va directo al riel de 5 V. |
@@ -398,7 +398,8 @@ referencia para probar que el robot falla del lado seguro.
 | Escenario | Qué hace el sistema | Dónde está |
 |---|---|---|
 | Arranque sin lectura válida del HC-SR04 | Autonomía en **ALTO**: no mueve motores hasta tener una medición fresca | `lib/auto/auto.cpp`, `lib/decision/decision.cpp` |
-| Obstáculo a **≤ 15 cm** | Gira a la **derecha** en el sitio (no avanza) | `decision.cpp` |
+| Obstáculo a **≤ 25 cm** | Frena, hace un gesto con el cuello y gira en el sitio. Alterna el primer lado entre obstáculos. Tras cada giro espera a que las ruedas se detengan y toma otra medición | `decision.cpp` |
+| El primer giro no despeja el camino | Prueba hacia el lado opuesto. Si queda libre, saluda con un brazo. Si sigue bloqueado, muestra ojos de duda y espera una medición válida de camino libre | `decision.cpp`, `app/widgets/logica/ojos.py` |
 | Sin eco (`-1`) o sensor colgado | **ALTO**; el eco tiene timeout de 40 ms y una lectura de más de **750 ms** ya no se considera fresca | `lib/distancia/distancia.cpp` |
 | Cambio manual ↔ automático | Detiene motores y reporta `alto`; el primer movimiento es una decisión nueva | `Auto::modoAutonomo()` |
 | Modo manual sin órdenes durante **2 s** | Detiene los motores y registra `SEGURIDAD` | `main.cpp` |
@@ -463,7 +464,7 @@ Al terminar, `scripts/firmware_manifest.py` imprime la versión, el tamaño y el
 
 ```
 ===================== FIRMWARE OTA =====================
-  Version : 1.0.0
+  Version : 1.1.0
   Binario : ...\.pio\build\esp32dev\firmware.bin
   Tamano  : 896832 bytes
   MD5     : 7c79d28030666c00dd16008e35826b09
@@ -530,7 +531,7 @@ Medio: **WiFi TCP**, el ESP32 es el **servidor** y la PC el cliente. JSON, **un 
 ```json
 {"protocolo":1,"tipo":"estado","bateria":0.83,"modo":"manual","hay_advertencia":true,"hay_error":false,
  "distancia_cm":12.3,"navegacion":"alto","consumo_watts":3.4,"conexion_activa":true,"cargando":false,
- "modulo_inactivo":false,"version_firmware":"1.0.0","ota_pendiente":false,
+ "modulo_inactivo":false,"version_firmware":"1.1.0","ota_pendiente":false,
  "tiempo_restante_min":42,"posiciones_servos":{"cuello":0,"hombro_izquierdo":10,"hombro_derecho":0}}
 {"protocolo":1,"tipo":"log","origen":"DISTANCIA","mensaje":"Obstáculo muy cerca: 8.0cm","nivel":"advertencia"}
 ```
@@ -618,7 +619,7 @@ no llenar el Logger de repeticiones.
 
 **Seguridad física y autonomía (matriz §5.4):**
 - [ ] Al arrancar, el robot queda en **manual** y detenido; si se pide automático sin lectura, **no se mueve** hasta tener una medición válida.
-- [ ] Con un obstáculo a ≤ 15 cm, gira a la derecha en el sitio; sin eco o con lectura vieja, se detiene.
+- [ ] Con un obstáculo a ≤ 25 cm, frena, mueve el cuello y gira en el sitio. Al repetir con otro obstáculo, empieza hacia el lado contrario. Sin eco o con lectura vieja, se detiene.
 - [ ] Cambiar entre manual y automático detiene los motores antes del siguiente movimiento.
 - [ ] En manual, dejar de mandar comandos 2 s detiene las ruedas y registra `SEGURIDAD`.
 - [ ] Sin ninguna conexión durante 10 min, el monitor muestra `[MODO] Sin conexion durante 10 min: modo automatico` y la GUI lo refleja al reconectar.
