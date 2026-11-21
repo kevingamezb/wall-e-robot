@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_pantalla_controles.py
-# Kevin Gámez - 30/10/2026
-
 """Integración de la pestaña "Controles" incrustada en la barra lateral."""
 
 
@@ -57,8 +54,7 @@ def test_pestana_controles_incrusta_el_modal(raiz_tk):
     assert capturas[-1] is False
     assert cambios == [True]
 
-    # Volver a Conectar a mitad de captura cancela la captura y reactiva el
-    # teclado (si no, escribir la IP cambiaría el mapeo).
+    # Si la captura sigue activa, escribir la IP cambiaría el atajo.
     modal._empezar_captura("abajo")
     pantalla.mostrar_pagina("conectar")
     assert modal._capturando is None
@@ -78,10 +74,7 @@ def test_vaciar_la_cache_no_rompe_las_etiquetas_de_conexion(raiz_tk):
         raiz_tk, EstadoRobot(), Escala(0.25), mapeo=MapeoTeclado())
     raiz_tk.update()
 
-    # El fallo original: se guardaba solo el id del canvas, el objeto Texto se
-    # descartaba y al vaciarse la caché su PhotoImage desaparecía. Entonces
-    # itemconfig() lanzaba '_tkinter.TclError: image "pyimage..." does not exist'
-    # y la pestaña CONTROLES dejaba de responder.
+    # Regresión: conservar solo el id del canvas permitía que Tk perdiera la imagen.
     assert any(isinstance(item, Texto) for item in pantalla._items_conexion)
     cache = getattr(raiz_tk, "_cache_texto_quadrillion", None)
     assert cache is not None

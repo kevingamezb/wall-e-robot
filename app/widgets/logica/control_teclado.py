@@ -1,7 +1,3 @@
-# wall-e-robot/app/widgets/logica/control_teclado.py
-# Kevin Gámez - 06/10/2026
-
-
 import types
 
 from .mapeo_teclado import (
@@ -48,13 +44,11 @@ class ControlTeclado:
         self._pulsadas = set()
         self._temporizadores = {}
 
-        # True mientras el panel de controles captura una tecla nueva.
         self.suspendido = False
         raiz.bind("<KeyPress>", self._al_presionar, add="+")
         raiz.bind("<KeyRelease>", self._al_soltar, add="+")
         raiz.bind("<FocusOut>", lambda _e: self.limpiar_estado())
 
-    # Entrada de teclado 
     def _en_campo_de_texto(self, evento) -> bool:
         """True si el evento ocurrió en un campo donde se escribe texto."""
         widget = getattr(evento, "widget", None)
@@ -73,9 +67,7 @@ class ControlTeclado:
             return
         accion_id = self.mapeo.buscar_accion(keysym)
 
-        # "manual" es un atajo global: va antes del guard de campos de texto
-        # para que siga funcionando si el foco está en IP/Puerto (Shift y Caps
-        # Lock también cambian el keysym, por eso se normaliza).
+        # El atajo de modo funciona incluso con el foco en los campos de conexión.
         if accion_id == "manual":
             if keysym not in self._pulsadas:
                 self._pulsadas.add(keysym)
@@ -103,8 +95,7 @@ class ControlTeclado:
         estaba_pulsada = keysym in self._pulsadas
         self._pulsadas.discard(keysym)
 
-        # Se limpia siempre, aunque el foco ya esté en otro widget: si no, un
-        # motor podría quedarse presionado al soltar la tecla fuera del lienzo.
+        # Suelta el mando aunque el foco haya cambiado desde la pulsación.
         timer = self._temporizadores.pop(keysym, None)
         if timer is not None:
             self.raiz.after_cancel(timer)
@@ -138,9 +129,6 @@ class ControlTeclado:
                 types.SimpleNamespace(keysym=keysym))
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.widgets.logica.control_teclado
-
 if __name__ == "__main__":
     print("Prueba control_teclado.py\n")
 
@@ -162,7 +150,6 @@ if __name__ == "__main__":
     gamepad.suscribir_comando(comandos.append)
     control = ControlTeclado(raiz, MapeoTeclado(), gamepad)
 
-    # Flecha arriba -> comando motor
     print("Dirección con motor (auto-repetido)")
     control._al_presionar(_tecla("Up"))
     assert comandos[-1] == {"tipo": "motor", "direccion": "arriba"}
@@ -183,7 +170,6 @@ if __name__ == "__main__":
     control._al_soltar(_tecla("m"))
     print("OK: manual se pide una vez al pulsar M\n")
 
-    # Discreta (reposo) -> UN disparo
     print("Discreta dispara una sola vez")
     n = len(comandos)
     control._al_presionar(_tecla("r"))
@@ -208,7 +194,6 @@ if __name__ == "__main__":
     assert gamepad.cuello.posicion == 10, "Al soltar el eje no debe seguir avanzando"
     print(f"OK: pasos de 5°, se detiene en {gamepad.cuello.posicion}\n")
 
-    # Reposo por teclado
     print("Reposo")
     n = len(comandos)
     control._al_presionar(_tecla("r"))
@@ -217,7 +202,6 @@ if __name__ == "__main__":
     assert comandos[-1]["tipo"] == "multi"
     print("OK: reposo dispara UN multi\n")
 
-    # Teclas sin mapear se ignoran
     print("Teclas ignoradas")
     n = len(comandos)
     control._al_presionar(_tecla("F12"))
@@ -236,7 +220,6 @@ if __name__ == "__main__":
     assert not gamepad.direccion_arriba.presionado
     print("OK: cada tecla con su propio estado\n")
 
-    # Limpiar estado al perder el foco
     print("Pérdida de foco")
     control._al_presionar(_tecla("r"))
     control.limpiar_estado()

@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_navegacion.py
-# Kevin Gámez - 16/10/2026
-
 """Pruebas de app.widgets.logica.navegacion: maniobra, símbolo y color."""
 
 

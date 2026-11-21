@@ -1,6 +1,3 @@
-// wall-e-robot/firmware/lib/ota/ota.cpp
-// Kevin Gámez - 16/10/2026
-
 #include "ota.h"
 
 #include <WiFi.h>
@@ -19,14 +16,12 @@
 
 Ota ota;
 
-// Servidor HTTP del portal OTA (solo se abre en iniciar()).
 static WebServer servidorWeb(PUERTO_OTA_WEB);
 
 // La tarea de guardia y el loop la comparten: volatile porque se lee desde
 // la tarea de guardia.
 static volatile bool s_confirmado = false;
 
-// Estado de la subida web en curso: autorizada (autenticada) y completada.
 static bool s_uploadAutorizado = false;
 static bool s_uploadOk         = false;
 
@@ -86,10 +81,8 @@ static void canjearAcceso() {
     servidorWeb.send(303);
 }
 
-// --------------------------------------------------------------- self-test
 bool Ota::selfTestInicial(String& motivo) {
 
-    // Chequeos FATALES: si fallan, se revierte.
     if (WiFi.softAPIP() == INADDR_NONE) {
         motivo = "AP sin IP";
         return false;
@@ -100,9 +93,7 @@ bool Ota::selfTestInicial(String& motivo) {
         return false;
     }
 
-    // Avisos: módulos habilitados que no inicializaron (hardware ausente o con
-    // fallo). NO revierten: un periférico que no responde no es firmware roto.
-    // Además, llegar hasta aquí ya implica que todos los iniciar() terminaron.
+    // Un periférico ausente genera un aviso y permite confirmar la imagen.
     if (MODULOS.oled && !oled.activo()) {
         Serial.println("[OTA] Aviso (no revierte): OLED habilitado sin inicializar.");
     }
@@ -118,18 +109,13 @@ bool Ota::selfTestInicial(String& motivo) {
 }
 
 
-// ------------------------------------------------------------- rollback
 
-// Tarea FreeRTOS de guardia: corre en paralelo al loop() y no depende de él,
-// por eso protege también si setup() o loop() se cuelgan. Si la partición en
-// ejecución está en PENDING_VERIFY y no se confirma en OTA_AUTOCONFIRMA_MS,
-// la marca inválida y reinicia (rollback a la versión anterior).
+// La tarea de rollback sigue activa aunque se cuelgue setup() o loop().
 static void tareaGuardiaRollback(void*) {
 
     const esp_partition_t* corriendo = esp_ota_get_running_partition();
     esp_ota_img_states_t   estado    = ESP_OTA_IMG_UNDEFINED;
 
-    // Sin verificación pendiente: arranque normal, la tarea termina.
     if (esp_ota_get_state_partition(corriendo, &estado) != ESP_OK ||
         estado != ESP_OTA_IMG_PENDING_VERIFY) {
 
@@ -203,7 +189,6 @@ bool Ota::pendiente() const {
 }
 
 
-// ------------------------------------------------------------------ web
 static String paginaPrincipal() {
 
     String h;
@@ -242,7 +227,6 @@ static String paginaResultado(bool ok, const String& mensaje) {
 }
 
 
-// GET /: sirve el formulario del portal tras autenticar al navegador.
 static void manejarRaiz() {
 
     if (!autenticado()) {
@@ -266,7 +250,6 @@ static void manejarUpload() {
         s_uploadAutorizado = false;
         s_uploadOk         = false;
 
-        // Si falla la autenticación, se descarta el cuerpo.
         if (!autenticado()) {
             Serial.println("[OTA-WEB] Subida RECHAZADA: sin autenticacion.");
             return;
@@ -317,8 +300,6 @@ static void manejarUpload() {
 }
 
 
-// POST /update: respuesta final al navegador. Si la imagen se aplicó bien,
-// informa y reinicia para arrancar la versión nueva.
 static void manejarUpdate() {
 
     if (!autenticado()) {
@@ -342,7 +323,6 @@ static void manejarUpdate() {
 }
 
 
-// Rutas del portal: formulario en /, subida en /update, 404 para el resto.
 static void configurarWeb() {
 
     const char* cabeceras[] = {"Cookie"};
@@ -356,11 +336,7 @@ static void configurarWeb() {
     });
 
     servidorWeb.begin();
-    // WebServer::handleClient() hace delay(1) cuando no hay cliente. Como se
-    // llama en cada loop(), eso deja el bucle a ~1 ms y el HC-SR04 (que mide
-    // los bordes del eco sondeando el pin una vez por vuelta) cuantiza la
-    // distancia en pasos de ~17 cm. En el ESP32 no hace falta ese retardo:
-    // FreeRTOS ya se encarga de los demás tasks.
+    // Evita el delay(1) de WebServer, que dejaría el muestreo del eco en pasos de ~17 cm.
     servidorWeb.enableDelay(false);
     Serial.println("[OTA-WEB] Portal listo en http://192.168.4.1/");
 }

@@ -1,11 +1,3 @@
-# wall-e-robot/app/widgets/renderizado/icono_sistema_render.py
-# Kevin Gámez - 13/09/2026
-
-# Dibuja un ícono de sistema. Si el PNG de app/recursos/ está exportado se usa
-# la imagen (teñida con el color del estado); si no, se cae al glifo procedural
-# de siempre (texto o el rayo hecho de polígono).
-
-
 from ...nucleo.paleta import Paleta
 from ...widgets.logica.icono_sistema import TipoIcono
 from .base_render import RenderizadorBase
@@ -26,7 +18,6 @@ class IconoSistemaRenderer(RenderizadorBase):
         """Crea el ítem (texto o rayo) correspondiente al tipo de ícono."""
         cx, cy = self.x + self.lado / 2, self.y + self.lado / 2
         if self.widget.tipo == TipoIcono.CARGANDO:
-            # Un rayo hecho de polígono: sin emoji ni recurso externo.
             s = self.lado
             puntos = [
                 cx + 0.28 * s, cy - 0.30 * s,
@@ -79,7 +70,6 @@ class IconoSistemaRenderer(RenderizadorBase):
 
     def dibujar(self):
         """Dibuja o actualiza el ícono (el PNG ya trae su propia caja)."""
-        # Contenido: PNG si existe, si no el glifo procedural.
         if carga_recursos.existe(self.widget.archivo):
             self._dibujar_imagen(self.widget.color)
         else:

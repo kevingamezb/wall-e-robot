@@ -1,7 +1,3 @@
-# wall-e-robot/app/widgets/logica/sol_bateria.py
-# Kevin Gámez - 13/09/2026
-
-
 from ...nucleo.estado import EstadoRobot
 from ...nucleo.paleta import Paleta
 
@@ -57,9 +53,6 @@ class SolBateria:
         return self.estado.tiempo_restante_min
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.widgets.logica.sol_bateria
-
 if __name__ == "__main__":
     print("Prueba sol_bateria.py\n")
 

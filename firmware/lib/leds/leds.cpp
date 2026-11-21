@@ -1,6 +1,3 @@
-// wall-e-robot/firmware/lib/leds/leds.cpp
-// Kevin Gámez - 13/10/2026
-
 #include "leds.h"
 #include "pines.h"
 
@@ -31,7 +28,6 @@ void Leds::actualizar(bool hayAdvertencia, bool hayError, bool hayModuloInactivo
         return;
     }
 
-    // Cualquiera de las tres condiciones se considera alerta.
     bool alerta = hayAdvertencia || hayError || hayModuloInactivo;
 
     digitalWrite(PIN_LED_ROJO,     alerta ? HIGH : LOW);

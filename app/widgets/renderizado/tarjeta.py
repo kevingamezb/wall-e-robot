@@ -1,10 +1,3 @@
-# wall-e-robot/app/widgets/renderizado/tarjeta.py
-# Rediseño de la GUI según el diseño
-#
-# Tarjetas claras con doble contorno, pastilla de alerta y título (Quadrillion),
-# más las pantallas oscuras que van dentro de ellas.
-
-
 from ...nucleo.paleta import Paleta
 from ...nucleo.disenio import Disenio
 from .base_render import rectangulo_redondeado

@@ -1,8 +1,3 @@
-# wall-e-robot/app/widgets/renderizado/sol_bateria_render.py
-# Kevin Gámez - 13/09/2026
-# Rediseño: sol de 8 rayos con contorno, como en el diseño.
-
-
 import math
 from ...nucleo.paleta import Paleta
 from .base_render import RenderizadorBase

@@ -1,7 +1,3 @@
-# wall-e-robot/app/widgets/logica/barras_consumo.py
-# Kevin Gámez - 13/09/2026
-
-
 from ...nucleo.estado import EstadoRobot
 from ...nucleo.paleta import Paleta, color_por_umbral
 
@@ -35,9 +31,6 @@ class BarrasConsumo:
         return f"{self.estado.consumo_watts:.1f} W"
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.widgets.logica.barras_consumo
-
 if __name__ == "__main__":
     print("Prueba barras_consumo.py\n")
 

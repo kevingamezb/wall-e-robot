@@ -1,7 +1,3 @@
-# wall-e-robot/app/widgets/logica/proximidad.py
-# Kevin Gámez - 13/10/2026
-
-
 from ...nucleo.estado import EstadoRobot
 from ...nucleo.paleta import Paleta
 
@@ -51,9 +47,6 @@ class Proximidad:
         return f"{self.estado.distancia_obstaculo_cm:.0f} cm"
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.widgets.logica.proximidad
-
 if __name__ == "__main__":
     print("Prueba proximidad.py\n")
 

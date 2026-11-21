@@ -1,9 +1,3 @@
-# wall-e-robot/app/widgets/renderizado/gamepad_render.py
-# Kevin Gámez - 13/09/2026
-# Rediseño: cruceta de flechas con perilla de reposo central y deslizadores
-# del diseño (cuello horizontal y brazos L/R verticales).
-
-
 from PIL import Image, ImageDraw, ImageTk
 from ...nucleo.paleta import Paleta
 from ...nucleo.disenio import Disenio
@@ -54,7 +48,6 @@ class GamepadRenderer:
         self._abajo = flecha(gamepad.direccion_abajo, Disenio.FLECHA_ABAJO, 180, "abajo")
         self._izquierda = flecha(gamepad.direccion_izquierda, Disenio.FLECHA_IZQUIERDA, 270, "izquierda")
 
-        # Perilla central: reposo de todos los servos.
         rx1, ry1, rx2, ry2 = e.caja(Disenio.REPOSO)
         r_perilla = (rx2 - rx1) / 2
         cx_p, cy_p = (rx1 + rx2) / 2, (ry1 + ry2) / 2
@@ -66,7 +59,6 @@ class GamepadRenderer:
             },
             dentro=lambda x, y: (x - cx_p) ** 2 + (y - cy_p) ** 2 <= r_perilla ** 2)
 
-        # Deslizadores
         cx0, cy0, largo_c = Disenio.CUELLO_PISTA
         grosor = e(Disenio.PISTA_GROSOR)
         radio = e(Disenio.THUMB_RADIO)
@@ -82,8 +74,7 @@ class GamepadRenderer:
             gamepad.hombro_derecho, canvas, e(rx), e(ry), e(largo_b),
             orientacion="vertical", alto_pista=grosor, radio_thumb=radio)
 
-        # Se dibujan una vez para fijar el orden de las capas (la capa
-        # "apagado" debe quedar por encima de todas las piezas).
+        # El orden de creación mantiene el velo de apagado por encima del mando.
         self._dibujar_piezas()
 
         px = e.fuente(30)
@@ -101,7 +92,6 @@ class GamepadRenderer:
                                            Paleta.FONDO_WIDGET, ancla="center",
                                            contorno=Paleta.FONDO_WIDGET, grosor=1)
 
-        # Capa "apagado": velo sobre la zona del mando + aviso.
         x1, y1, x2, y2 = e.caja(Disenio.LINEA_CONTROL)
         m = e(26)
         ancho_v, alto_v = x2 - x1 - 2 * m, y2 - y1 - 2 * m - e(110)

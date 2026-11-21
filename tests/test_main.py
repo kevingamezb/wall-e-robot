@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_main.py
-# Kevin Gámez - 29/10/2026
-
 """Pruebas de la conexión en segundo plano de app.main.
 
 La ventana no se monta: se construye Aplicacion con __new__ y se inyectan una
@@ -278,7 +275,6 @@ def test_no_lanza_dos_intentos_a_la_vez(app, monkeypatch):
     app._conectar("1.2.3.4", 8080)   # no lanza
 
 
-# ------------------------------------------------------- reconexión automática
 def test_error_al_conectar_programa_reintento(app, hilos, monkeypatch):
     """Un fallo deja el primer reintento agendado a 1 s."""
     class _ComunicacionCaida:
@@ -306,7 +302,6 @@ def test_backoff_crece_hasta_el_maximo(app):
 
     esperas = [milisegundos for milisegundos, _ in app.root.agendados]
     assert esperas == [1000, 2000, 4000, 8000, 10000, 10000]
-    # Cada reprogramación cancela el temporizador anterior.
     assert len(app.root.cancelados) == 5
 
 

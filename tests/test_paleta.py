@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_paleta.py
-# Kevin Gámez - 16/10/2026
-
 """Pruebas de app.nucleo.paleta: mapeo de fracción a color por umbral."""
 
 

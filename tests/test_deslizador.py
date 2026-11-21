@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_deslizador.py
-# Kevin Gámez - 16/10/2026
-
 """Pruebas de app.widgets.logica.deslizador: rango, posición y validez."""
 
 

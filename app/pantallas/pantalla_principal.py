@@ -1,8 +1,3 @@
-# wall-e-robot/app/pantallas/pantalla_principal.py
-# Kevin Gámez - 13/09/2026
-# Rediseño de la GUI.
-
-
 import time
 import textwrap
 import tkinter as tk
@@ -77,10 +72,7 @@ class PantallaPrincipal:
         self._on_cambio_mapeo = on_cambio_mapeo
         self._al_captura = al_captura
         self._pagina = "conectar"
-        # Objetos Texto e ids de canvas del formulario de conexión. Hay que
-        # conservar los Texto: si solo se guardara su id, la PhotoImage podría
-        # liberarse al vaciarse la caché y entonces itemconfig() fallaría con
-        # "image ... does not exist".
+        # Conserva los objetos Texto para que sus PhotoImage sobrevivan al vaciar la caché.
         self._items_conexion = []
         self._conexion_activa = False
         self._conexion_pendiente = False
@@ -94,7 +86,6 @@ class PantallaPrincipal:
         self.canvas.yview_moveto(0)
         self.frame = self.canvas   # compatibilidad con el diseño anterior
 
-        # Widgets lógicos
         self.ojos = Ojos(estado)
         self.iconos = {t: IconoSistema(estado, t) for t in TipoIcono}
         self.sol = SolBateria(estado)
@@ -104,7 +95,6 @@ class PantallaPrincipal:
         self.logger = LoggerWidget(estado)
         self.gamepad = Gamepad(estado)
         self.boton_conectar = Boton("Conectar")
-        # El botón de modo solo se habilita con conexión (necesita al robot).
         self.boton_modo = Boton("MODO: --", habilitado=False)
         self.boton_conectar.suscribir(self._al_pulsar_conectar)
         if on_modo is not None:
@@ -120,7 +110,6 @@ class PantallaPrincipal:
 
         self.establecer_conexion(False, SIN_CONEXION)
 
-    # Marco de la ventana
     def _construir_marco(self):
         """Fondo plateado, logo, cabecera y los dos paneles negros."""
         e, c = self.e, self.canvas
@@ -135,7 +124,6 @@ class PantallaPrincipal:
             c.create_polygon(puntos, fill=Paleta.FONDO_NEGRO, outline="#24272b",
                              width=max(1, e(8)))
 
-        # Cabecera: rayas + título + telemetría.
         x1, y1, x2, _ = Disenio.RAYAS_TITULO
         c.create_image(e(x1), e(y1), image=carga_recursos.cargar_ancho(
             "bombillitos", e(x2 - x1), master=c), anchor="nw")
@@ -148,7 +136,6 @@ class PantallaPrincipal:
         self._telemetria = Texto(c, e(mx), e((my + mb) / 2), "| -- FPS | -- ms |",
                                  e.fuente(30), Paleta.TEXTO_LOG, ancla="w")
 
-    # Barra lateral (conexión)
     def _construir_barra_lateral(self):
         e, c = self.e, self.canvas
         x1, y1, x2, y2 = e.caja(Disenio.SELECTOR)
@@ -156,7 +143,6 @@ class PantallaPrincipal:
             x1 + e(40), y1, x2 - e(40), y1, x2, y1 + e(40), x2, y2, x1, y2,
             x1, y1 + e(40), fill=COLOR_TAB_FONDO, outline="")
 
-        # Pestañas: "Conectar" (activa) y "Controles" (editor de teclas).
         cx, cy, cx2, cy2 = Disenio.TAB_CONECTAR
         self._tab_conectar = Texto(c, e((cx + cx2) / 2), e((cy + cy2) / 2),
                                    "Conectar", e.fuente(44), Paleta.DORADO,
@@ -179,7 +165,6 @@ class PantallaPrincipal:
             c.tag_bind(area, "<Leave>", lambda _ev: c.configure(cursor=""))
             self._areas_pestanas.append(area)
 
-        # Campos IP y puerto.
         familia = tkfont.nametofont("TkDefaultFont").actual("family")
         x, y = Disenio.ETIQUETA_WIFI
         self._items_conexion.append(Texto(
@@ -214,7 +199,6 @@ class PantallaPrincipal:
                 width=fx2 - fx1, height=fy2 - fy1))
             setattr(self, nombre, campo)
 
-        # Botón Conectar / Desconectar.
         bx1, by1, bx2, by2 = e.caja(Disenio.BOTON_CONECTAR)
         self.render_conectar = BotonImagenRenderer(
             self.boton_conectar, c, bx1, by1, bx2 - bx1, "boton_conectar",
@@ -224,7 +208,6 @@ class PantallaPrincipal:
             },
             texto="Conectar", texto_px=e.fuente(116), texto_color=Paleta.TINTA)
 
-        # Estado de la conexión / errores.
         sx, sy, _, _ = Disenio.ESTADO_CONEXION
         self._estado_conexion = Texto(c, e(sx), e(sy), "", e.fuente(46),
                                       Paleta.GRIS, ancla="nw")
@@ -241,14 +224,12 @@ class PantallaPrincipal:
                 bx1, e(1940), window=ota, anchor="nw",
                 width=bx2 - bx1, height=e(116)))
 
-        # Pestaña "Controles": el editor de teclas ocupa el lugar del formulario.
         self.panel_controles = None
         if self._mapeo is not None:
             self.panel_controles = ModalControles(
                 c, self._mapeo, on_cambio=self._on_cambio_mapeo or (lambda: None),
                 incrustado=True, al_captura=self._al_captura, escala=e)
             px, py, px2, py2 = e.caja(Disenio.PANEL_CONTROLES)
-            # Asegurarse de que el window sea un Frame, no un Toplevel.
             ventana = self.panel_controles.ventana
             if not isinstance(ventana, tk.Frame):
                 raise TypeError("El argumento 'window' de create_window debe ser un Frame, no un Toplevel.")
@@ -262,8 +243,7 @@ class PantallaPrincipal:
         if pagina == "controles" and self.panel_controles is None:
             return
         if pagina == "conectar" and self.panel_controles is not None:
-            # Si se oculta el panel a mitad de captura, se cancela: si no, la
-            # siguiente tecla (p. ej. al escribir la IP) cambiaría el mapeo.
+            # Cancela la captura para que escribir en el formulario no cambie un atajo.
             self.panel_controles.cancelar_captura()
         self._pagina = pagina
         en_conexion = pagina == "conectar"
@@ -281,8 +261,7 @@ class PantallaPrincipal:
         self._tab_controles.poner(
             color=Paleta.TEXTO_LOG if en_conexion else Paleta.DORADO)
 
-        # Al cambiar de pestaña, el foco vuelve al lienzo: si se quedara en el
-        # campo IP/Port, la tecla M se interpretaría como texto y no como atajo.
+        # Devuelve el foco al lienzo para que la tecla M funcione como atajo.
         self.canvas.focus_set()
 
     def _enlazar_clic(self, item, boton, al_hover=None):
@@ -305,14 +284,12 @@ class PantallaPrincipal:
         c.tag_bind(item, "<Enter>", entrar)
         c.tag_bind(item, "<Leave>", salir)
 
-    # Tarjetas
     def _construir_estado(self):
         e, c = self.e, self.canvas
         self.t_estado = Tarjeta(c, e, Disenio.TARJETA_ESTADO, Disenio.LINEA_ESTADO,
                                 "estado", "Estado")
         pantalla_oscura(c, e, Disenio.PANTALLA_ESTADO)
 
-        # Rótulo de modo: ícono del mando + texto (clic = cambiar de modo).
         ix, iy, ix2, _ = Disenio.ICONO_MODO
         self.render_modo_icono = IconoSistemaRenderer(
             self.iconos[TipoIcono.MODO_MANUAL], c, e(ix), e(iy), e(ix2 - ix))
@@ -392,7 +369,6 @@ class PantallaPrincipal:
         linea_vertical(c, e, sx, y1, y2, g)
         self.render_gamepad = GamepadRenderer(self.gamepad, c, e)
 
-    # Conexión
     def conectar_gamepad(self, callback):
         """Conecta los comandos del gamepad hacia la conexión del robot."""
         self.gamepad.suscribir_comando(callback)
@@ -450,7 +426,6 @@ class PantallaPrincipal:
         """
         self._conexion_pendiente = False
         self._conexion_activa = activa
-        # El botón de modo necesita al robot para enviarle el comando.
         self.boton_modo.habilitado = activa
         self.boton_conectar.texto = "Desconectar" if activa else "Conectar"
         for campo in (self.campo_ip, self.campo_port):
@@ -466,7 +441,6 @@ class PantallaPrincipal:
         """Dato de latencia (ms) para la cabecera; None si no hay."""
         self._latencia_ms = milisegundos
 
-    # Ciclo de actualización
     def _fps(self) -> int:
         ahora = time.perf_counter()
         self._tiempos.append(ahora)
@@ -480,7 +454,6 @@ class PantallaPrincipal:
     def dibujar(self):
         """Redibuja todos los bloques de la pantalla (se llama cada ciclo)."""
         estado = self.estado
-        # El gamepad solo manda en manual: en automático decide el robot.
         self.gamepad.habilitar(
             self._conexion_activa and estado.modo == Modo.MANUAL)
 
@@ -490,11 +463,9 @@ class PantallaPrincipal:
         else:
             self.boton_modo.texto = "MODO: MANUAL" if manual else "MODO: AUTOMÁTICO"
 
-        # Cabecera
         ms = "--" if self._latencia_ms is None else self._latencia_ms
         self._telemetria.poner(texto=f"| {self._fps()} FPS | {ms} ms |")
 
-        # Estado
         self.render_modo_icono.dibujar()
         self._modo_titulo.poner(
             color=Paleta.DORADO if manual else Paleta.GRIS)
@@ -504,7 +475,6 @@ class PantallaPrincipal:
         for render in self.render_iconos:
             render.dibujar()
 
-        # Energía
         self.render_barras.dibujar()
         self.render_sol.dibujar()
         color_consumo = self.barras.color
@@ -520,11 +490,9 @@ class PantallaPrincipal:
         self._lbl_pct.poner(texto=pct, color=color_sol,
                             contorno=self._oscuro(color_sol, 0.62))
 
-        # Navegación y control
         self.render_navegacion.dibujar()
         self.render_gamepad.dibujar()
 
-        # Pastillas de alerta de cada tarjeta.
         if estado.hay_error or estado.modulo_inactivo:
             alerta = Paleta.ROJO
         elif estado.hay_advertencia:
@@ -544,9 +512,6 @@ class PantallaPrincipal:
 
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.pantallas.pantalla_principal
-
 if __name__ == "__main__":
     from ..nucleo.disenio import Escala
     print("PantallaPrincipal")
@@ -563,7 +528,6 @@ if __name__ == "__main__":
     comandos = []
     pantalla.conectar_gamepad(comandos.append)
 
-    # Conectado y en manual -> el mando queda activo; luego sin conexión.
     estado.conexion_activa = True
     estado.modo = Modo.MANUAL
     pantalla.establecer_conexion(True, "192.168.4.1")
@@ -578,7 +542,6 @@ if __name__ == "__main__":
     raiz.update()
     assert not pantalla.gamepad.habilitado, "Sin conexión apaga el mando"
 
-    # Un puerto inválido se muestra como error, sin lanzar excepción.
     pantalla.campo_port.delete(0, "end")
     pantalla.campo_port.insert(0, "abc")
     pantalla.boton_conectar.presionar()

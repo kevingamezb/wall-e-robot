@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_control_teclado.py
-# Kevin Gámez - 16/10/2026
-
 """Pruebas de app.widgets.logica.control_teclado: eventos de Tk -> gamepad.
 
 Se simulan los eventos de teclado con objetos mínimos (SimpleNamespace) y una

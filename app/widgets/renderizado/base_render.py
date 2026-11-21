@@ -1,7 +1,3 @@
-# wall-e-robot/app/widgets/renderizado/base_render.py
-# Kevin Gámez - 13/09/2026
-
-
 import math
 from ...nucleo.paleta import Paleta
 from .recoloreo import Recoloreo
@@ -42,7 +38,6 @@ def borde_panel(canvas, radio=Paleta.RADIO_TARJETA, margen=2, color=Paleta.BORDE
     )
 
 
-# Primitivas de "holograma"
 def fulgor_radial(canvas, cx, cy, radio, color, capas=4):
     """Dibuja un brillo radial tipo holograma y devuelve sus ids."""
     ids = []
@@ -163,9 +158,6 @@ class RenderizadorBase:
 
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.widgets.renderizado.base_render
-
 # Usa una raíz de Tkinter retirada para ejecutarse sin mostrar
 # ninguna ventana.
 

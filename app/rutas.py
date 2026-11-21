@@ -1,13 +1,4 @@
-# wall-e-robot/app/rutas.py
-# Kevin Gámez - 17/10/2026
-#
-# Resuelve las rutas de recursos y de configuración tanto al correr desde el
-# código fuente como dentro de un ejecutable empaquetado con PyInstaller.
-#
-# En el código fuente las rutas cuelgan del árbol del repositorio; congelado,
-# los recursos viajan dentro del bundle (sys._MEIPASS) y la configuración del
-# usuario se escribe en la carpeta de configuración del sistema (%APPDATA% en
-# Windows, ~/.config en Linux), nunca dentro del bundle.
+# PyInstaller extrae los recursos en sys._MEIPASS; la configuración persiste fuera del bundle.
 
 
 import os
@@ -40,7 +31,6 @@ def directorio_configuracion() -> Path:
         if sys.platform == "win32":
             base = os.environ.get("APPDATA") or str(Path.home())
             return Path(base) / "Wall-E"
-        # Linux/macOS: usar XDG_CONFIG_HOME o ~/.config
         base = os.environ.get("XDG_CONFIG_HOME") or (Path.home() / ".config")
         return Path(base) / "wall-e"
     return Path(__file__).resolve().parents[1] / "configuracion"

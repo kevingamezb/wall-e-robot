@@ -1,9 +1,3 @@
-# wall-e-robot/app/widgets/renderizado/navegacion_render.py
-# Kevin Gámez - 13/09/2026
-# Rediseño: medidor de arcos tipo "señal" a la izquierda y, a la derecha, la
-# distancia y el movimiento decidido por el robot.
-
-
 import math
 from ...nucleo.paleta import Paleta
 from ...nucleo.disenio import Disenio
@@ -27,7 +21,6 @@ class NavegacionRenderer(RenderizadorBase):
         self.e = e
         self._textos = {}
 
-    # Construcción (una sola vez)
     def _construir(self):
         e, c = self.e, self.canvas
         cx, cy = Disenio.RADAR_CENTRO

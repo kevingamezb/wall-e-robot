@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_base_render.py
-# Kevin Gámez - 16/10/2026
-
 """Pruebas de app.widgets.renderizado.base_render: helpers de dibujo HUD.
 
 Usan una raíz de Tkinter retirada (sin ventana) y un Canvas real, de modo que

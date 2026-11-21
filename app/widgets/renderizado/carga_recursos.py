@@ -1,10 +1,3 @@
-# wall-e-robot/app/widgets/renderizado/carga_recursos.py
-# Kevin Gámez - 15/10/2026
-#
-# Carga los PNG de app/recursos/, los tiñe (vía Recoloreo) con un color de la
-# Paleta y los entrega como PhotoImage de Tk.
-
-
 from pathlib import Path
 from PIL import Image, ImageTk, ImageOps
 from PIL.Image import Resampling as ImageResampling
@@ -17,11 +10,7 @@ from .recoloreo import Recoloreo
 # un temp dir; congelado, apunta dentro del bundle.
 DIRECTORIO = rutas.directorio_recursos()
 
-# Cache de PhotoImage ya construidos: (nombre, color, alto, espejo) -> foto.
-# Mantener las referencias evita que el recolector de basura libere las imágenes.
-# Sin 'master' se usa este cache global (cajones y pruebas sueltas); con
-# 'master' se usa uno por raíz de Tk para que dos intérpretes no compartan
-# imágenes (cada PhotoImage pertenece a un solo intérprete).
+# Cada PhotoImage pertenece a un intérprete de Tk. La caché mantiene sus referencias vivas.
 _CACHE = {}
 
 
@@ -123,9 +112,6 @@ def cargar_fondo(nombre: str, ancho: int, alto: int, master=None):
 
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.widgets.renderizado.carga_recursos
-
 # Usa una raíz de Tkinter retirada y PNG generados en un temp dir, para no
 # depender de que los assets reales estén exportados.
 
@@ -146,7 +132,6 @@ if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as temporal:
         DIRECTORIO = Path(temporal)
 
-        # PNG de prueba: mitad opaca, fondo transparente (20x10).
         muestra = Image.new("RGBA", (20, 10), (255, 255, 255, 0))
         for x in range(10):
             for y in range(10):

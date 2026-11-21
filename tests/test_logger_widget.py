@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_logger_widget.py
-# Kevin Gámez - 16/10/2026
-
 """Pruebas de app.widgets.logica.logger_widget: puente estado -> render."""
 
 

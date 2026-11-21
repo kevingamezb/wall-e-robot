@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_arquitectura.py
-# Kevin Gámez - 03/11/2026
-
 """Pruebas de arquitectura por imports.
 
 Las capas bajas (núcleo, comunicación y lógica de widgets) no deben depender

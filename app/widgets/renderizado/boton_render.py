@@ -1,14 +1,9 @@
-# wall-e-robot/app/widgets/renderizado/boton_render.py
-# Kevin Gámez - 29/10/2026
-
-
 import tkinter as tk
 from ...nucleo.paleta import Paleta
 from .base_render import RenderizadorBase, rectangulo_redondeado
 from .recoloreo import Recoloreo
 
 
-# Parámetros de la transición de color
 PASOS_TRANSICION = 6
 INTERVALO_TRANSICION_MS = 16
 
@@ -27,13 +22,11 @@ class BotonRenderer(RenderizadorBase):
         self.radio_esquinas   = radio_esquinas
         self.tamano_fuente    = tamano_fuente
 
-        # Estado de la animación de color.
         self._color_visual = None   # color aplicado actualmente (lo que se ve)
         self._color_origen = None   # punto de partida de la animación en curso
         self._color_destino = None  # destino (None = sin animación activa)
         self._paso = 0
 
-    # Traducción de eventos del mouse a estados lógicos
     def _al_presionar(self, _evento):
         self.widget.presionar()
 
@@ -84,7 +77,6 @@ class BotonRenderer(RenderizadorBase):
 
     def dibujar(self):
         """Dibuja o actualiza el botón y reenlaza sus eventos."""
-        # Bezel (placa metálica) y halo, detrás del fondo animado
         self._primera_vez(
             "bezel",
             lambda: rectangulo_redondeado(
@@ -105,7 +97,6 @@ class BotonRenderer(RenderizadorBase):
             ),
         )
 
-        # Fondo del botón
         fondo = self._primera_vez(
             "fondo",
             lambda: rectangulo_redondeado(
@@ -116,7 +107,6 @@ class BotonRenderer(RenderizadorBase):
             ),
         )
 
-        # Color de fondo: si cambió el estado lógico, arranca la transición.
         objetivo = self.widget.color_fondo
         if self._color_visual is None:
             self._aplicar_color(objetivo)
@@ -127,15 +117,12 @@ class BotonRenderer(RenderizadorBase):
             self._paso = 0
             self.canvas.after(INTERVALO_TRANSICION_MS, self._animar_hacia)
 
-        # (Re)enlaza los eventos sobre el fondo. El hover se enlaza solo al
-        # fondo (no a la etiqueta) para evitar parpadeos al cruzar el texto.
+        # Limita el hover al fondo para evitar parpadeos al cruzar la etiqueta.
         self.canvas.tag_bind(fondo, "<ButtonPress-1>", self._al_presionar)
         self.canvas.tag_bind(fondo, "<ButtonRelease-1>", self._al_soltar)
         self.canvas.tag_bind(fondo, "<Enter>", self._al_entrar)
         self.canvas.tag_bind(fondo, "<Leave>", self._al_salir)
 
-        # Texto del botón (vivo: algunos botones cambian su etiqueta, p. ej. el
-        # de modo). Se reescribe solo cuando el texto cambió.
         etiqueta = self._primera_vez(
             "etiqueta",
             lambda: self.canvas.create_text(
@@ -150,7 +137,6 @@ class BotonRenderer(RenderizadorBase):
         # Borde y color del texto dependen de presionado/habilitado; se repintan
         # únicamente cuando ese estado cambia (el fondo sí se anima aparte).
         if self._hay_cambio("estado", (self.widget.presionado, self.widget.habilitado)):
-            # El halo se enciende con la presión y se apaga al soltar.
             halo = self._ids["halo"]
             self.canvas.itemconfig(
                 halo, state="normal" if self.widget.presionado else "hidden",

@@ -1,7 +1,3 @@
-# wall-e-robot/app/widgets/logica/deslizador.py
-# Kevin Gámez - 28/08/2026
-
-
 class MovimientoDeslizador:
     """Contiene la posición solicitada y la validez de un intento de desplazamiento del deslizador."""
     def __init__(self, posicion: float, valido: bool):
@@ -39,9 +35,6 @@ class Deslizador:
         self._actualizar(posicion, valido=True)
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.widgets.logica.deslizador
-
 if __name__ == "__main__":
     print("Prueba deslizador.py\n")
 

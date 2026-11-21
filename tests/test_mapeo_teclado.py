@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_mapeo_teclado.py
-# Kevin Gámez - 16/10/2026
-
 """Pruebas de app.widgets.logica.mapeo_teclado: perfil, persistencia y conflictos."""
 
 

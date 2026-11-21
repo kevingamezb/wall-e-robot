@@ -1,7 +1,3 @@
-# wall-e-robot/app/widgets/logica/icono_sistema.py
-# Kevin Gámez - 13/09/2026
-
-
 from enum import Enum
 from ...nucleo.estado import EstadoRobot, Modo, NivelConexion
 from ...nucleo.paleta import Paleta
@@ -28,7 +24,6 @@ class IconoSistema:
             TipoIcono.ADVERTENCIA: self.estado.hay_advertencia,
             TipoIcono.CARGANDO:    self.estado.cargando,
             TipoIcono.MODO_MANUAL: self.estado.modo == Modo.MANUAL,
-            # Un módulo inactivo (config incompleta) también enciende el error.
             TipoIcono.ERROR:       self.estado.hay_error or self.estado.modulo_inactivo,
             TipoIcono.CONEXION:    self.estado.conexion_activa,
         }
@@ -40,7 +35,6 @@ class IconoSistema:
             return Paleta.GRIS
 
         if self.tipo == TipoIcono.CONEXION:
-            # La señal se colorea según su calidad (alta/media/baja).
             return {
                 NivelConexion.ALTA:  Paleta.DORADO,
                 NivelConexion.MEDIA: Paleta.NARANJA,
@@ -79,9 +73,6 @@ class IconoSistema:
         }[self.tipo]
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.widgets.logica.icono_sistema
-
 if __name__ == "__main__":
     print("Prueba icono_sistema.py\n")
 

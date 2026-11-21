@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_proximidad.py
-# Kevin Gámez - 16/10/2026
-
 """Pruebas de app.widgets.logica.proximidad: cercanía, obstáculo y etiqueta."""
 
 

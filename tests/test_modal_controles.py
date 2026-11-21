@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_modal_controles.py
-# Kevin Gámez - 16/10/2026
-
 """Pruebas de app.pantallas.modal_controles: captura de teclas y avisos.
 
 El modal se monta sobre una raíz de Tkinter retirada; no se muestra ventana.

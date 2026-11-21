@@ -1,7 +1,3 @@
-# wall-e-robot/app/widgets/logica/gamepad.py
-# Kevin Gámez - 13/09/2026
-
-
 from ...nucleo.estado import EstadoRobot
 from ...nucleo.paleta import Paleta
 from .boton import Boton
@@ -73,9 +69,6 @@ class Gamepad:
         })
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.widgets.logica.gamepad
-
 if __name__ == "__main__":
     print("Prueba gamepad.py\n")
 

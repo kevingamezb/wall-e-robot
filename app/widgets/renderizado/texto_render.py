@@ -1,6 +1,3 @@
-# wall-e-robot/app/widgets/renderizado/texto_render.py
-# Kevin Gámez - 29/10/2026
-
 from collections import OrderedDict
 from PIL import Image, ImageDraw, ImageFont, ImageTk
 
@@ -8,8 +5,7 @@ from ... import rutas
 
 
 ARCHIVO_FUENTE = "Quadrillion Sb.otf"
-# Quadrillion no trae flechas (↑ ↓ ← →) ni otros signos: para esas teclas se
-# usa una fuente del sistema que sí los tenga.
+# Usa una fuente del sistema para los símbolos que faltan en Quadrillion, como las flechas.
 RUTAS_RESPALDO = (
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
@@ -96,8 +92,7 @@ def foto_texto(texto, px, color, contorno=None, grosor=0, alinear="left",
     tipo = fuente(px)
     if respaldo and faltan_glifos(texto, tipo):
         tipo = fuente_respaldo(px)
-    # La caché vive en la raíz de Tk: al destruirla se liberan sus imágenes y
-    # dos raíces distintas (como en las pruebas) nunca comparten PhotoImage.
+    # Cada raíz de Tk mantiene su propia caché porque las PhotoImage pertenecen a su intérprete.
     if master is not None:
         raiz = master.winfo_toplevel()
         cache = getattr(raiz, "_cache_texto_quadrillion", None)

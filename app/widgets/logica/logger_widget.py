@@ -1,7 +1,3 @@
-# wall-e-robot/app/widgets/logica/logger_widget.py
-# Kevin Gámez - 13/09/2026
-
-
 from ...nucleo.estado import EstadoRobot, EntradaLog
 
 
@@ -23,9 +19,6 @@ class LoggerWidget:
         return self.estado.logger.obtener_lineas()
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.widgets.logica.logger_widget
-
 if __name__ == "__main__":
     print("Prueba logger_widget.py\n")
 

@@ -1,5 +1,3 @@
-# wall-e-robot/app/widgets/renderizado/barras_consumo_render.py
-# Kevin Gámez - 13/09/2026
 # Rediseño: 5 barras + barra base grande, con el estilo del diseño.
 
 

@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_sol_bateria.py
-# Kevin Gámez - 16/10/2026
-
 """Pruebas de app.widgets.logica.sol_bateria: rayos, color y etiqueta."""
 
 

@@ -1,6 +1,3 @@
-# wall-e-robot/pruebas/ejecutar_cajones.py
-# Kevin Gámez - 13/09/2026
-
 # Uso (desde la raíz del proyecto, donde está la carpeta 'app'):
 #   python pruebas/ejecutar_cajones.py
 

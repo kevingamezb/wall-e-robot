@@ -1,7 +1,3 @@
-# wall-e-robot/app/widgets/renderizado/boton_imagen_render.py
-# Kevin Gámez - 30/10/2026
-
-
 import math
 from ...nucleo.paleta import Paleta
 from .base_render import RenderizadorBase
@@ -118,7 +114,6 @@ class BotonImagenRenderer(RenderizadorBase):
             lambda: self.canvas.create_image(self.x, self.y, image=foto,
                                              anchor="nw"))
 
-        # Texto centrado (la etiqueta del botón lógico puede cambiar en vivo).
         _, px, color = self._texto_def
         if px:
             texto = self.widget.texto
@@ -134,7 +129,6 @@ class BotonImagenRenderer(RenderizadorBase):
             self.canvas.itemconfig(imagen, image=foto)
             self._foto_actual = foto   # evita que Tk libere la imagen
 
-        # Enlaces idempotentes de eventos.
         self.canvas.tag_bind(imagen, "<ButtonPress-1>", self._al_presionar)
         self.canvas.tag_bind(imagen, "<ButtonRelease-1>", self._al_soltar)
         self.canvas.tag_bind(imagen, "<Motion>", self._al_mover)

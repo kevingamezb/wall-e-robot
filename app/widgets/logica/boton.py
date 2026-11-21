@@ -1,7 +1,3 @@
-# wall-e-robot/app/widgets/logica/boton.py
-# Kevin Gámez - 27/08/2026
-
-
 from ...nucleo.paleta import Paleta
 
 
@@ -50,9 +46,6 @@ class Boton:
         return Paleta.FONDO_APP
     
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.widgets.logica.boton
-
 if __name__ == "__main__":
     print("Prueba boton.py\n")
 

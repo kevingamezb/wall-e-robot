@@ -1,12 +1,7 @@
-# wall-e-robot/app/widgets/logica/navegacion.py
-# Kevin Gámez - 13/10/2026
-
-
 from ...nucleo.estado import EstadoRobot, Maniobra, Modo
 from ...nucleo.paleta import Paleta
 
 
-# Glifo que representa cada maniobra.
 SIMBOLOS = {
     Maniobra.RECTO:     "\u25b2",   # ▲
     Maniobra.IZQUIERDA: "\u25c0",   # ◀
@@ -68,9 +63,6 @@ class Navegacion:
         return Paleta.AZUL
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.widgets.logica.navegacion
-
 if __name__ == "__main__":
     print("Prueba navegacion.py\n")
 

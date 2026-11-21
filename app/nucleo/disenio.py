@@ -1,7 +1,3 @@
-# wall-e-robot/app/nucleo/disenio.py
-# Kevin Gámez - 29/10/2026
-
-
 import os
 
 ANCHO_BASE = 3840

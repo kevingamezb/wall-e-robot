@@ -1,9 +1,3 @@
-# wall-e-robot/app/widgets/renderizado/logger_widget_render.py
-# Kevin Gámez - 13/09/2026
-# Rediseño: terminal clara dentro de la tarjeta "Registro" y barra de
-# desplazamiento propia (pista oscura + perilla dorada), como en el diseño.
-
-
 import math
 import tkinter as tk
 import tkinter.font as tkfont
@@ -14,10 +8,8 @@ from ...nucleo.estado import NivelLog
 from .base_render import rectangulo_redondeado
 
 
-# Tipografías monoespaciadas, por orden de preferencia.
 MONOESPACIADAS = ("Consolas", "DejaVu Sans Mono", "Menlo", "Courier New")
 
-# Colores de las etiquetas sobre fondo claro.
 COLOR_TS = "#6b6d8a"
 COLOR_AVISO = "#a85f00"
 COLOR_ERROR = "#c0332f"
@@ -58,7 +50,6 @@ class BarraRegistro:
         util = (self.y2 - self.y1) - 2 * margen
         visible = ultimo - primero
         if visible >= 1.0:
-            # Todo cabe: la perilla queda en reposo, arriba, con su tamaño base.
             alto, y = self.e(55), self.y1 + margen
         else:
             alto = max(self.e(45), util * visible)

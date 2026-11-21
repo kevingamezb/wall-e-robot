@@ -1,7 +1,3 @@
-# wall-e-robot/app/widgets/renderizado/recoloreo.py
-# Kevin Gámez - 15/10/2026
-
-
 from PIL import Image, ImageChops
 
 
@@ -72,9 +68,6 @@ class Recoloreo:
 
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.widgets.renderizado.recoloreo
-
 # Solo depende de Pillow (sin Tkinter): puede ejecutarse sin display.
 
 if __name__ == "__main__":

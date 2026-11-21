@@ -1,10 +1,3 @@
-# wall-e-robot/scripts/firmware_manifest.py
-# Kevin Gámez - 16/10/2026
-#
-# Genera, tras compilar, el MD5 de firmware.bin y lo imprime junto a la versión.
-# Ese MD5 es el que se pega en el portal web OTA (/update) para verificar la
-# integridad de la subida.
-
 import hashlib
 import os
 import re

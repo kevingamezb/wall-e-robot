@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_recoloreo.py
-# Kevin Gámez - 18/10/2026
-
 """Pruebas de app.widgets.renderizado.recoloreo.
 
 Cubren las matemáticas de color (hex <-> RGB e interpolación) y el tinte de
@@ -25,7 +22,6 @@ def muestra():
     return imagen
 
 
-# ------------------------------------------------------- conversiones hex<->rgb
 
 def test_a_rgb_devuelve_tupla_de_canals():
     assert Recoloreo.a_rgb("#cba135") == (0xCB, 0xA1, 0x35)
@@ -39,7 +35,6 @@ def test_ida_y_vuelta_sin_perdida():
     assert Recoloreo.a_hex(Recoloreo.a_rgb(Paleta.ROJO)) == Paleta.ROJO
 
 
-# -------------------------------------------------------------- interpolación
 
 @pytest.mark.parametrize(
     "t, esperado",
@@ -60,7 +55,6 @@ def test_interpolar_recorta_t(t, esperado):
     assert Recoloreo.interpolar("#000000", "#ffffff", t) == esperado
 
 
-# ------------------------------------------------------------------ tinte
 
 def test_tenido_conserva_alfa(muestra):
     """El tinte pinta el dibujo opaco pero deja transparente el fondo."""

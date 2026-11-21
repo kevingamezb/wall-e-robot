@@ -1,7 +1,3 @@
-# wall-e-robot/app/nucleo/paleta.py
-# Kevin Gámez - 26/08/2026
-
-
 class Paleta:
     """Paleta de colores y sistema visual de la GUI."""
 
@@ -94,9 +90,6 @@ def color_por_umbral(fraccion: float, invertido: bool = False) -> str:
 
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.nucleo.paleta
-
 if __name__ == '__main__':
     print("Prueba paleta.py\n")
 

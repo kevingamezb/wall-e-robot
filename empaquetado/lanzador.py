@@ -1,10 +1,4 @@
-# wall-e-robot/empaquetado/lanzador.py
-# Kevin Gámez - 17/10/2026
-#
-# Punto de entrada que usa PyInstaller para construir el ejecutable. Mantiene
-# el arranque real en app.main (una sola fuente de verdad) y solo añade la raíz
-# del proyecto a sys.path para poder importar el paquete 'app' al correr como
-# script (congelado, 'app' ya viaja dentro del bundle).
+# PyInstaller usa este lanzador. Al ejecutarlo como script, sys.path debe incluir la raíz del repo.
 
 
 import sys

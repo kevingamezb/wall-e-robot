@@ -1,9 +1,3 @@
-# wall-e-robot/app/pantallas/modal_controles.py
-# Kevin Gámez - 06/10/2026
-#
-# Editor de los controles de teclado (ventana aparte o pestaña incrustada).
-
-
 import tkinter as tk
 
 from ..nucleo.disenio import Disenio, Escala
@@ -17,9 +11,7 @@ from ..widgets.renderizado.texto_render import fuente as fuente_quadrillion
 from ..widgets.renderizado.texto_render import foto_texto
 
 
-# Geometría en unidades de diseño. A la escala máxima (0.40) cada fila mide
-# ~57 px, la tecla 180 x 42 px y la × 56 x 42 px; por debajo se reducen en la
-# misma proporción para que sigan cabiendo en la barra lateral.
+# Medidas en unidades del diseño. La escala de la interfaz las convierte a píxeles.
 FILA_ALTO    = 104    # alto de cada fila (sin separadores entre ellas)
 BOTON_ANCHO  = 96     # botón × (cuadrado, mismo alto que la tecla)
 CONTROL_ALTO = 76     # alto de la caja de la tecla y de la ×
@@ -28,8 +20,6 @@ MARGEN_FILA  = 14     # aire a los lados de cada fila
 BARRA_ANCHO  = 26
 COLOR_BORDE  = "#6b6d8a"   # contorno de las cajas de tecla y ×
 ANCHO_PANEL  = Disenio.PANEL_CONTROLES[2] - Disenio.PANEL_CONTROLES[0]
-# Columna del nombre: lo justo para "Hombro izq. arriba" en una línea. La caja
-# de la tecla ocupa todo el resto, así los botones quedan pegados al nombre.
 ANCHO_NOMBRE = 450
 
 
@@ -60,7 +50,6 @@ class _BarraLista:
         self.canvas.bind("<B1-Motion>", self._al_arrastrar)
         self.canvas.bind("<ButtonRelease-1>", self._soltar)
 
-    # Sincronización con el lienzo de filas
     def set(self, primero, ultimo):
         """Recibe la porción visible (yscrollcommand) y redibuja la perilla."""
         self._primero, self._ultimo = float(primero), float(ultimo)
@@ -117,7 +106,6 @@ class _BarraLista:
         self.canvas.coords(perilla, *rectangulo_puntos(
             margen, y, ancho - margen, y + alto_perilla, radio))
 
-    # Arrastre
     def _al_presionar(self, evento):
         """Empieza el arrastre; un clic en el carril salta a esa posición."""
         if self._alto_perilla <= 0:
@@ -181,7 +169,6 @@ class ModalControles:
             self.ventana.grab_set() # TODO: Investigar error [tkinter.TclError: grab failed: window not viewable]
         fondo = Paleta.FONDO_NEGRO if incrustado else Paleta.FONDO_APP
 
-        # Sugerencia y estado de captura.
         self.lbl_ayuda = tk.Label(
             self.ventana, text="Selecciona una tecla para reasignarla. Esc cancela la captura.",
             bg=fondo, fg=Paleta.TEXTO_TENUE,
@@ -205,8 +192,6 @@ class ModalControles:
         self.lbl_estado.pack(fill="x")
         self._poner_estado("", Paleta.DORADO)
 
-        # Lista desplazable: las filas mantienen su tamaño táctil sin ocultar
-        # acciones. La barra usa los mismos colores que el registro.
         lista = tk.Frame(self.ventana, bg=Paleta.FONDO_WIDGET)
         lista.pack(fill="both", expand=True, padx=self._px(SEPARACION),
                    pady=(self._px(SEPARACION // 2), 0))
@@ -227,11 +212,9 @@ class ModalControles:
         self._enlazar_rueda(self.lienzo_filas, self.marco_filas,
                             self.barra_filas.canvas)
 
-        # Lista de filas (acción | tecla | limpiar).
         self._filas = {}  # accion_id -> (btn_tecla, btn_limpiar)
         self._construir_filas()
 
-        # Pie: restaurar por defecto + cerrar.
         pie = tk.Frame(self.ventana, bg=fondo)
         pie.pack(fill="x", padx=self._px(Paleta.UNIDAD),
                  pady=self._px(Paleta.UNIDAD))
@@ -261,14 +244,12 @@ class ModalControles:
                               Paleta.DORADO)
 
         if incrustado:
-            # Un Frame no recibe teclas por sí mismo: se escucha en la ventana
-            # (solo actúa mientras hay una captura en curso).
+            # El Frame no recibe teclas por sí solo, así que la captura escucha en la ventana.
             self.ventana.winfo_toplevel().bind("<KeyPress>", self._al_tecla, add="+")
         else:
             self.ventana.bind("<KeyPress>", self._al_tecla)
         self._refrescar_filas()
 
-    # Medidas y textos
     def _px(self, unidades):
         """Unidades de diseño -> píxeles enteros (mínimo 1)."""
         return max(1, int(round(self.e(unidades))))
@@ -330,8 +311,7 @@ class ModalControles:
         if isinstance(widget, tk.Label):
             opciones["anchor"] = "w"
         if isinstance(widget, tk.Button):
-            # El texto nativo también debe quedar oculto en hover/deshabilitado:
-            # se pinta del color del fondo activo, no del normal.
+            # Iguala el texto nativo al fondo de cada estado para mantenerlo oculto.
             opciones["activeforeground"] = widget.cget("activebackground")
             opciones["disabledforeground"] = widget.cget("bg")
         widget.config(**opciones)
@@ -342,7 +322,6 @@ class ModalControles:
                           ancho_px=self._ancho_texto(), max_lineas=2,
                           respaldo=True)
 
-    # Construcción
     def _construir_filas(self):
         """Crea una fila por acción: nombre | tecla (flexible) | ×.
 
@@ -431,7 +410,6 @@ class ModalControles:
         self._poner_texto(boton, "X", self._fuente(50),
                           Paleta.TEXTO_LOG if activo else Paleta.TEXTO_TENUE)
 
-    # Desplazamiento
     def _actualizar_region_filas(self, _evento=None):
         """Sincroniza el área desplazable cuando cambian las filas."""
         self.lienzo_filas.configure(scrollregion=self.lienzo_filas.bbox("all"))
@@ -484,7 +462,6 @@ class ModalControles:
             return "break"
         return self._desplazar(-2 if evento.delta > 0 else 2)
 
-    # Lógica (sin cambios)
     def _empezar_captura(self, accion_id: str):
         """Entra en modo captura para la acción dada (hace toggle si es la misma)."""
         self._capturando = None if self._capturando == accion_id else accion_id
@@ -588,9 +565,6 @@ class ModalControles:
 
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.pantallas.modal_controles
-
 if __name__ == "__main__":
     import types
     from ..widgets.logica.mapeo_teclado import MapeoTeclado
@@ -605,13 +579,11 @@ if __name__ == "__main__":
     modal = ModalControles(raiz, mapeo, on_cambio=lambda: cambios.append(True))
     raiz.update()
 
-    # La fila muestra la tecla por defecto de cada acción
     modal._refrescar_filas()
     btn_arriba, _ = modal._filas["arriba"]
     assert getattr(btn_arriba, "_texto_plano", btn_arriba.cget("text")) == "\u2191", f"Debería verse ↑, llegó {btn_arriba.cget('text')}"
     print("OK: la cruceta muestra la flecha de fábrica\n")
 
-    # Captura: asignar una tecla nueva notifica el cambio y guarda
     modal._empezar_captura("arriba")
     assert modal._capturando == "arriba", "Debe entrar en modo captura"
     modal._al_tecla(types.SimpleNamespace(keysym="U"))
@@ -620,14 +592,12 @@ if __name__ == "__main__":
     assert modal._capturando is None, "Tras capturar se sale del modo"
     print("OK: captura en vivo asigna y avisa del cambio\n")
 
-    # Esc cancela la captura sin tocar el mapeo
     n_original = mapeo.tecla_de("abajo")
     modal._empezar_captura("abajo")
     modal._al_tecla(types.SimpleNamespace(keysym="Escape"))
     assert mapeo.tecla_de("abajo") == n_original, "Esc no debe cambiar nada"
     print("OK: Esc cancela sin modificar\n")
 
-    # Los modificadores solos no se asignan
     modal._empezar_captura("abajo")
     modal._al_tecla(types.SimpleNamespace(keysym="Shift_L"))
     assert mapeo.tecla_de("abajo") == n_original, "Shift solo no se asigna"
@@ -635,7 +605,6 @@ if __name__ == "__main__":
     assert mapeo.tecla_de("abajo") == "v"
     print("OK: los modificadores se ignoran al capturar\n")
 
-    # Una tecla robada de otra acción se avisa en el estado
     modal._empezar_captura("abajo")
     modal._al_tecla(types.SimpleNamespace(keysym="q"))  # 'q' era de cuello_mas
     assert mapeo.tecla_de("abajo") == "q", "abajo toma la q"
@@ -644,7 +613,6 @@ if __name__ == "__main__":
     assert "la perdi\u00f3" in mensaje, "Debe avisar que otra acción perdió la tecla"
     print(f"OK: {mensaje}\n")
 
-    # Limpiar y restaurar
     modal._limpiar("abajo")
     assert mapeo.tecla_de("abajo") is None
     modal._restaurar()

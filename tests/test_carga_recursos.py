@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_carga_recursos.py
-# Kevin Gámez - 16/10/2026
-
 """Pruebas de app.widgets.renderizado.carga_recursos.
 
 Se usa un directorio temporal con un PNG generado al vuelo y una raíz de

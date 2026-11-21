@@ -1,6 +1,3 @@
-# wall-e-robot/tests/conftest.py
-# Kevin Gámez - 16/10/2026
-
 """Configuración común de la suite de pruebas.
 
 Garantiza que la raíz del proyecto esté en sys.path (para poder importar el

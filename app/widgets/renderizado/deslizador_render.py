@@ -1,8 +1,3 @@
-# wall-e-robot/app/widgets/renderizado/deslizador_render.py
-# Kevin Gámez - 13/09/2026
-# Rediseño: pista oscura redondeada y perilla gris con centro dorado.
-
-
 from ...nucleo.paleta import Paleta
 from .base_render import RenderizadorBase, rectangulo_redondeado
 from .recoloreo import Recoloreo
@@ -32,7 +27,6 @@ class DeslizadorRenderer(RenderizadorBase):
         self._arrastrando = False
         self._en_hover = False
 
-    # Conversiones de coordenadas
     def _minimo(self):
         return min(self.widget.rango)
 
@@ -55,7 +49,6 @@ class DeslizadorRenderer(RenderizadorBase):
             factor = max(0.0, min(1.0, (self.y + self.largo - py) / self.largo))
         return self._minimo() + factor * (self._maximo() - self._minimo())
 
-    # Eventos del mouse
     def _al_presionar(self, evento):
         """Mueve el thumb hasta el mouse y habilita el arrastre."""
         self._arrastrando = True
@@ -87,7 +80,6 @@ class DeslizadorRenderer(RenderizadorBase):
             self._ultimo_enviado = valor
             self.widget.mover(valor)
 
-    # Dibujo
     def _centro_thumb(self):
         return self._valor_a_pixel(self.widget.posicion)
 
@@ -130,7 +122,6 @@ class DeslizadorRenderer(RenderizadorBase):
         self.canvas.coords(centro, px - r_in, py - r_in, px + r_in, py + r_in)
         self.canvas.itemconfig(thumb, fill="#c9c9c9" if activo else "#9a9a9a")
 
-        # Enlaza la interacción sobre pista y perilla (idempotente).
         for item in (pista, thumb, centro):
             self.canvas.tag_bind(item, "<ButtonPress-1>", self._al_presionar)
             self.canvas.tag_bind(item, "<B1-Motion>", self._al_arrastrar)

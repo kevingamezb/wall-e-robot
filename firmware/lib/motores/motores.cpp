@@ -1,19 +1,13 @@
-// wall-e-robot/firmware/lib/motores/motores.cpp
-// Kevin Gámez - 13/09/2026
-
 #include "motores.h"
 #include "pines.h"
 
-// Velocidad fija del d-pad (PWM 0-255). Los motores son de 6 V y la batería
-// llega a 8,4 V: 178/255 ~ 70 %, para no sobrevoltarlos.
+// Limita el PWM al 70 % para los motores de 6 V con la batería a 8,4 V.
 static const int VELOCIDAD_GIRO = 178;
 
-// El cableado montado invierte el sentido lógico del TB6612: los signos van
-// al revés de la propuesta inicial. Si se corrige el cableado, cambiar a +1.
+// El signo compensa la inversión del cableado actual.
 static const int SENTIDO_MOTORES = -1;
 
-// Rampa anti-tirón: cada INTERVALO_RAMPA_MS la velocidad real avanza PASO_RAMPA
-// hacia su meta.
+// La rampa limita el cambio de velocidad para evitar tirones.
 static const int       PASO_RAMPA         = 15;
 static const uint32_t  INTERVALO_RAMPA_MS = 12;
 
@@ -38,14 +32,12 @@ void Motores::iniciar() {
         pinMode(pin, OUTPUT);
     }
 
-    // STBY en HIGH: sin esto el TB6612 no mueve nada.
     pinMode(_stby, OUTPUT);
     digitalWrite(_stby, HIGH);
 
     _pwmA.attachPin(_pwma, 1000, 8);
     _pwmB.attachPin(_pwmb, 1000, 8);
 
-    // Nada se mueve hasta que la app lo pida.
     _metaA = _metaB = 0;
     _velA  = _velB  = 0;
     _rueda(_ain1, _ain2, _pwmA, 0);
@@ -69,14 +61,14 @@ void Motores::_rueda(uint8_t inA, uint8_t inB, ESP32PWM& pwm, int velocidad) {
         digitalWrite(inB, LOW);
     }
 
-    pwm.writeScaled(abs(velocidad) / 255.0f);   // duty 0.0-1.0
+    pwm.writeScaled(abs(velocidad) / 255.0f);
 }
 
 
 void Motores::mover(const String& direccion) {
 
     if (!_activo) {
-        return;   // módulo inactivo: no mover nada
+        return;
     }
 
     if (direccion == "arriba") {
@@ -88,7 +80,6 @@ void Motores::mover(const String& direccion) {
         _metaB = -SENTIDO_MOTORES * VELOCIDAD_GIRO;
 
     } else if (direccion == "izquierda") {
-        // Giro en el sitio: ruedas contrapuestas.
         _metaA = -SENTIDO_MOTORES * VELOCIDAD_GIRO;
         _metaB =  SENTIDO_MOTORES * VELOCIDAD_GIRO;
 
@@ -101,7 +92,6 @@ void Motores::mover(const String& direccion) {
 
 void Motores::detener() {
 
-    // Se frenan las metas: la rampa baja las velocidades reales de a poco
     _metaA = 0;
     _metaB = 0;
 }
@@ -119,7 +109,6 @@ void Motores::actualizar() {
     }
     _ultimaRampaMs = ahoraMs;
 
-    // Un paso de rampa hacia la meta, sin pasarse.
     if (_velA < _metaA) { _velA = min(_metaA, _velA + PASO_RAMPA); }
     if (_velA > _metaA) { _velA = max(_metaA, _velA - PASO_RAMPA); }
     if (_velB < _metaB) { _velB = min(_metaB, _velB + PASO_RAMPA); }

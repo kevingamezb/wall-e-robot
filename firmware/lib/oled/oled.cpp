@@ -1,6 +1,3 @@
-// wall-e-robot/firmware/lib/oled/oled.cpp
-// Kevin Gámez - 13/09/2026
-
 #include "oled.h"
 
 static const uint8_t OLED_ANCHO   = 128;
@@ -30,7 +27,7 @@ void PantallaOled::iniciar() {
     _pantalla.setCursor(0, 0);
     _pantalla.print("WALL-E ROBOT");
     _pantalla.display();
-    // La pantalla va montada invertida: se gira 180° para que se lea derecha.
+    // El módulo está montado a 180°.
     _pantalla.setRotation(2);
 
     _activo = true;
@@ -42,12 +39,11 @@ void PantallaOled::mostrar(float bateria, float distanciaCm,
                            const String& modo, bool conexionActiva) {
 
     if (!_activo) {
-        return;   // módulo apagado
+        return;
     }
 
     _pantalla.clearDisplay();
 
-    // bateria llega normalizada 0.0-1.0; se muestra como porcentaje entero.
     _pantalla.setCursor(0, 0);
     _pantalla.print("BAT ");
     if (bateria < 0.0f) {
@@ -57,7 +53,6 @@ void PantallaOled::mostrar(float bateria, float distanciaCm,
         _pantalla.println("%");
     }
 
-    // distanciaCm = -1 indica sin lectura (se muestra el centinela tal cual).
     _pantalla.setCursor(0, 10);
     _pantalla.print("DIS "); _pantalla.print(distanciaCm, 1); _pantalla.println("cm");
 

@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_estado.py
-# Kevin Gámez - 16/10/2026
-
 """Pruebas de app.nucleo.estado: caja de estado y buffer del logger."""
 
 

@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_icono_sistema.py
-# Kevin Gámez - 16/10/2026
-
 """Pruebas de app.widgets.logica.icono_sistema: activación, color y recursos."""
 
 

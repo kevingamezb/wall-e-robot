@@ -1,7 +1,3 @@
-# wall-e-robot/app/widgets/logica/mapeo_teclado.py
-# Kevin Gámez - 06/10/2026
-
-
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -40,7 +36,6 @@ ACCIONES: tuple[Accion, ...] = (
     Accion("hombro_der_menos", "Hombro der. abajo" , EJE, PASO_HOMBRO),
 )
 
-# Teclas modificadoras: se ignoran al leer el teclado; nunca disparan acciones.
 MODIFICADORAS = {
     "Shift_L", "Shift_R", "Control_L", "Control_R",
     "Alt_L", "Alt_R", "Caps_Lock",
@@ -131,7 +126,6 @@ class MapeoTeclado:
         }, indent=2, ensure_ascii=False), encoding="utf-8")
         return ruta
 
-    # Consultas
     def tecla_de(self, accion_id: str) -> str | None:
         return self._mapa.get(accion_id)
 
@@ -180,9 +174,6 @@ class MapeoTeclado:
         self._mapa = {k: v for k, v in self._mapa.items() if k in validas}
 
 # Cajón de Pruebas
-# Ejecutar desde la raíz del proyecto:
-#   python -m app.widgets.logica.mapeo_teclado
-
 if __name__ == "__main__":
     import sys
     try:
@@ -193,7 +184,6 @@ if __name__ == "__main__":
         pass
     print("Prueba mapeo_teclado.py\n")
 
-    # Perfil por defecto cubre todas las acciones y sin teclas duplicadas
     print("Perfil por defecto")
     mapeo = MapeoTeclado()
     assert {a.id for a in ACCIONES} <= set(mapeo._mapa), "Faltan acciones"
@@ -202,7 +192,6 @@ if __name__ == "__main__":
     assert mapeo.tecla_de("arriba") == "Up", "ARRIBA debería ser la flecha ↑"
     print(f"OK: {len(mapeo._mapa)} acciones, teclas únicas\n")
 
-    # Cargar sin archivo -> por defecto; con archivo -> round-trip
     print("Persistencia (JSON)")
     import tempfile
     with tempfile.TemporaryDirectory() as tmp:
@@ -215,7 +204,6 @@ if __name__ == "__main__":
         assert mapeo3.tecla_de("reposo") == "r"
     print("OK: round-trip y fallback a defaults sin archivo\n")
 
-    # Asignar: reemplaza la tecla anterior y libera la acción ocupada
     print("Asignaciones y conflictos")
     mapeo = MapeoTeclado()
     mapeo.asignar("arriba", "x")  # x no estaba ocupada
@@ -227,7 +215,6 @@ if __name__ == "__main__":
     assert mapeo.tecla_ocupada("x") == "abajo"
     print("OK: una tecla = una acción (la última manda)\n")
 
-    # Limpiar y restaurar
     print("Limpiar / restaurar")
     mapeo.limpiar("abajo")
     assert mapeo.tecla_de("abajo") is None
@@ -235,7 +222,6 @@ if __name__ == "__main__":
     assert mapeo.tecla_de("abajo") == "Down"
     print("OK: limpiar libera; restaurar vuelve a fábrica\n")
 
-    # Nombres legibles de teclas para la GUI
     print("nombre_tecla")
     assert nombre_tecla("Up") == "\u2191"
     assert nombre_tecla("space") == "ESPACIO"
@@ -243,7 +229,6 @@ if __name__ == "__main__":
     assert nombre_tecla("F5") == "F5"
     print(f"OK: {nombre_tecla('Up')} / {nombre_tecla('space')} / {nombre_tecla('q')}\n")
 
-    # Acciones válidas: 12 en total
     assert len(ACCIONES) == 12
     ejes = [a for a in ACCIONES if a.tipo == EJE]
     assert len(ejes) == 6 and all(a.paso > 0 for a in ejes)

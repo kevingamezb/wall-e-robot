@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_conexion.py
-# Kevin Gámez - 16/10/2026
-
 """Pruebas de app.comunicacion.conexion.
 
 Cubre la conexión offline, el parseo tolerante del protocolo y la robustez de
@@ -26,7 +23,6 @@ from app.comunicacion.conexion import (
 from app.nucleo.estado import EstadoRobot, Modo, Maniobra, NivelConexion, NivelLog
 
 
-# --------------------------------------------------------------- frescura
 @pytest.mark.parametrize(
     "segundos, esperado",
     [
@@ -53,7 +49,6 @@ def test_nivel_por_frescura_limites(segundos, esperado):
     assert nivel_por_frescura(segundos) == esperado
 
 
-# --------------------------------------------------------------- offline
 def test_offline_apaga_y_descarta():
     """Sin robot: no hay conexión ni señal y los comandos se descartan."""
     estado = EstadoRobot()
@@ -67,7 +62,6 @@ def test_offline_apaga_y_descarta():
     assert estado.nivel_conexion == NivelConexion.NULA
 
 
-# ----------------------------------------------------------- protocolo real
 @pytest.fixture
 def proto():
     """Instancia de Comunicacion sin abrir socket (para probar el parseo)."""
@@ -205,7 +199,6 @@ def test_comunicacion_tiene_cerrar():
     assert callable(getattr(Comunicacion, "cerrar", None))
 
 
-# --------------------------------------------------------- robustez de red
 class _SocketGuion:
     """Socket mínimo: entrega trozos en orden y luego queda sin datos."""
 

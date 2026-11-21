@@ -1,11 +1,3 @@
-# wall-e-robot/app/main.py
-# Kevin Gámez - 13/09/2026
-#
-# Punto de entrada de la aplicación de escritorio del Wall-E.
-# Para arrancar (desde la raíz del proyecto, donde está la carpeta 'app'):
-#   python -m app.main   (o, equivalentemente,  python -m app)
-
-
 import base64
 import http.client
 import queue
@@ -26,7 +18,6 @@ from .widgets.logica.mapeo_teclado import MapeoTeclado
 from .widgets.logica.control_teclado import ControlTeclado
 
 
-# Cada cuántos milisegundos se lee el "robot" y se redibuja la pantalla.
 INTERVALO_CICLO_MS = 33
 
 # Puerto en el que escucha el ESP32 (firmware y socket deben coincidir).
@@ -87,15 +78,11 @@ class Aplicacion:
         self.root.title("Wall-E · Panel de control")
         self.root.configure(bg=Paleta.FONDO_APP)
 
-        # Estado compartido del que leen todos los widgets.
         self.estado = EstadoRobot()
 
-        # Arranca sin conexión: al entrar se pide la IP del robot (ver iniciar()).
         self.conexion = ConexionOffline()
 
-        # La conexión TCP se abre en un hilo para no congelar la GUI mientras
-        # el socket espera al ESP32. El hilo deja el resultado en esta cola y
-        # el ciclo de la aplicación (hilo de Tk) lo aplica.
+        # El hilo abre el socket y encola el resultado para aplicarlo en el hilo de Tk.
         self._conexion_pendiente = False
         self._intento_conexion = 0
         self._resultados_conexion: queue.Queue = queue.Queue()
@@ -103,17 +90,15 @@ class Aplicacion:
         self._ota_pendiente = False
         self._credenciales_ota = None
 
-        # Última conexión válida: se usa para reintentar si el robot se cae.
         self._ultima_ip: str | None = None
         self._ultimo_puerto = PUERTO
         self._reconectando = False
         self._reintentos = 0
-        self._reconexion_id = None   # id de root.after() pendiente
+        self._reconexion_id = None
 
         self.contenedor = tk.Frame(root, bg=Paleta.FONDO_APP)
         self.contenedor.pack(fill="both", expand=True)
 
-        # Mapeo de teclado.
         self.mapeo = MapeoTeclado.cargar()
 
         self.pantalla = PantallaPrincipal(
@@ -125,7 +110,6 @@ class Aplicacion:
             on_modo=self._cambiar_modo,
             mapeo=self.mapeo,
             on_cambio_mapeo=self.mapeo.guardar,
-            # Mientras se captura una tecla nueva, el teclado no mueve al robot.
             al_captura=self._suspender_teclado,
             on_ota=self._abrir_portal_ota,
         )
@@ -184,7 +168,6 @@ class Aplicacion:
             messagebox.showerror("Portal OTA", "No se pudo abrir el navegador.",
                                  parent=self.root)
 
-    # Conexión con el robot
     def _conectar(self, ip: str, puerto: int = PUERTO):
         """Intenta abrir la conexión real con el ESP32 en segundo plano.
 
@@ -196,7 +179,7 @@ class Aplicacion:
         dirección a la que se reintenta cuando el enlace se cae.
         """
         if self._conexion_pendiente:
-            return   # ya hay un intento en curso
+            return
 
         # Un intento manual reemplaza cualquier reintento automático en curso.
         self._cancelar_reconexion()
@@ -287,8 +270,7 @@ class Aplicacion:
 
     def _aplicar_resultado_conexion(self, intento, ip, nueva, error):
         """Cierra o adopta el socket según haya ido el intento."""
-        # Un intento viejo (el usuario desconectó o reconectó mientras tanto)
-        # no debe pisar la conexión actual; si abrió un socket, se descarta.
+        # Un resultado de conexión obsoleto nunca puede reemplazar la conexión actual.
         if intento != self._intento_conexion:
             if nueva is not None:
                 nueva.cerrar()
@@ -302,7 +284,6 @@ class Aplicacion:
             self._programar_reconexion()
             return
 
-        # Conexión lograda: se cancela cualquier reintento pendiente.
         self._cancelar_reconexion()
         self._ultima_ip = ip
         self._cerrar_conexion_actual()
@@ -312,8 +293,7 @@ class Aplicacion:
 
     def _desconectar(self):
         """Cierra la conexión actual y deja el panel sin conexión."""
-        # Invalida cualquier intento en curso: si su socket llega después,
-        # _aplicar_resultado_conexion lo cerrará sin activarlo.
+        # Invalida el intento en curso para que se cierre su socket si llega tarde.
         self._intento_conexion += 1
         self._conexion_pendiente = False
         # Un cierre explícito del usuario no debe reconectar solo.
@@ -337,16 +317,12 @@ class Aplicacion:
         if callable(cerrar):
             cerrar()
 
-    # Bucle principal de la aplicación
     def ciclo(self):
         """Un paso de la aplicación: leer al robot y redibujar la pantalla."""
         self._procesar_resultados_conexion()
         self._procesar_acceso_ota()
         self.conexion.actualizar_estado(self.estado)
 
-        # Si el robot se apagó/reinició en plena conexión, la red lo marca como
-        # "perdida": se degrada a sin-conexión, se avisa en el log y se
-        # programa un reintento automático.
         if getattr(self.conexion, "perdida", False):
             self._cerrar_conexion_actual()
             self.conexion = ConexionOffline()
