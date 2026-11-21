@@ -1,4 +1,4 @@
-# 🤖 Wall-E Robot (ESP32 + App de escritorio)
+# 🤖 Wall-E Robot
 
 <p align="center">
   <img src="app/recursos/titulo.png" alt="Wall-E Robot" width="720">
@@ -16,228 +16,95 @@
   <a href="https://hub.xerj.org/contributors/kevingamezb"><img alt="XERJ Corpus Hub contributor" src="https://hub.xerj.org/contributors/kevingamezb/badge.svg"></a>
 </p>
 
----
+La aplicación muestra la distancia a obstáculos y el consumo eléctrico, y se reconecta automáticamente si pierde el enlace.
 
-Un robot Wall-E autónomo y controlado por WiFi basado en el chip **ESP32**. Cuenta con una
-arquitectura desacoplada de software, una aplicación de escritorio interactiva y un sistema de
-actualización inalámbrica (OTA).
-
----
-
-<p align="center">
-  <img src="app/recursos/foto_gui.png" alt="Wall-E Robot" width="680">
-</p>
-
-## ✨ Características principales
-
-* **🧠 Navegación autónoma segura:** bucle no bloqueante (`millis()`), evasión de obstáculos y
-  parada automática si no hay lectura fresca del sensor. Arranca detenido y no avanza a ciegas.
-* **💻 App de escritorio:** panel modular en Python (Tkinter); la conexión TCP se abre en un hilo
-  aparte, con socket no bloqueante y refresco por eventos (`after`).
-* **🔌 Reconexión automática:** si el robot se apaga o se aleja, la app reintenta con espera
-  creciente (1 → 10 s) sin bloquear la interfaz.
-* **🎮 Control manual explícito:** el firmware arranca en manual, el botón **MODO** alterna
-  manual/automático, igual que la tecla **M**. El gamepad solo manda en manual
-  y los motores se detienen a los 2 s sin órdenes. Si nadie se conecta en 10 min, vuelve a
-  automático.
-* **📡 Telemetría en tiempo real:** WiFi/TCP con mensajes JSON de una línea (`\n`) y protocolo
-  versionado.
-* **⚡ Actualizaciones inalámbricas:** OTA con validación MD5, autenticación obligatoria y guardia
-  de rollback.
-* **✅ Verificable:** suite de pytest con cobertura, cajones de prueba por módulo y tests nativos
-  de la lógica de decisión del firmware.
-
-## 📋 Requisitos
-
-| Componente | Requisito |
-|---|---|
-| PC | Python **3.10+** con Tkinter y [Pillow](https://python-pillow.org/) |
-| Robot | ESP32 con PlatformIO (VS Code o CLI) |
-| Red | WiFi del robot (**WPA2**, red `WALL-E`) |
+![Panel de control de Wall-E](app/recursos/foto_gui.png)
 
 ## 📦 Descargas
 
-Cada push a `main` publica (y actualiza) la release
-[**latest**](https://github.com/kevingamezb/wall-e-robot/releases/latest):
+Descarga los archivos desde la [última versión publicada](https://github.com/kevingamezb/wall-e-robot/releases/latest).
 
-| Plataforma | Archivo |
-|---|---|
-| Windows 10/11 | `Wall-E.exe` (autocontenido, sin instalar Python) |
-| Debian / Ubuntu / Mint | `wall-e_<versión>_amd64.deb` |
-| Windows (paquete completo) | `wall-e-<versión>-win64.zip` |
-| Linux (paquete completo) | `wall-e-<versión>-linux64.zip` |
-| Firmware ESP32 | `firmware.bin` + `firmware.bin.md5` |
+| Plataforma | Archivo | Instalación |
+| --- | --- | --- |
+| Windows 10/11 | `Wall-E.exe` | Ejecuta el archivo directamente. |
+| Debian, Ubuntu y Mint (amd64) | `wall-e_<versión>_amd64.deb` | Instala el archivo con `sudo apt install ./nombre-del-archivo.deb`, usando el nombre descargado. |
+| Windows y Linux | `wall-e-<versión>-win64.zip` o `wall-e-<versión>-linux64.zip` | Extrae el paquete. Incluye la aplicación, el firmware y las instrucciones. |
+| ESP32 | `firmware.bin` y `firmware.bin.md5` | Usa ambos archivos para actualizar desde el portal OTA. |
 
-Los ZIP incluyen la app, el firmware, un `LEEME.md` y `SHA256SUMS.txt`. La
-release añade un `SHA256SUMS.txt` con los hashes de todos los archivos.
+La versión publicada incluye `SHA256SUMS.txt` para verificar las descargas.
 
-En Windows basta con ejecutar `Wall-E.exe`. En Debian/Ubuntu/Mint:
+## 🎮 Uso
 
-```bash
-sudo apt install ./wall-e_<versión>_amd64.deb
-```
+1. Conecta el computador a la red Wi-Fi `WALL-E` con la clave configurada en el firmware.
+2. Abre la aplicación, escribe la IP del robot (`192.168.4.1` por defecto) y pulsa **CONECTAR**.
+3. Pulsa **MODO** o la tecla **M** para alternar entre control manual y navegación autónoma.
 
-Los pull request compilan los mismos artefactos, pero no publican release.
+El robot arranca detenido en modo manual. Si pasan dos segundos sin órdenes, los motores se detienen. Si nadie se conecta durante diez minutos, pasa a modo automático. En modo automático navega sin depender de la aplicación y se detiene si falta el eco del sensor o si la última lectura tiene más de 750 ms.
 
-### 🪟 Windows: SmartScreen y antivirus
+Para actualizar por Wi-Fi, abre **Conectar → Abrir Portal OTA** en la aplicación mientras estás en la red del robot. Inicia sesión con las credenciales OTA y carga el binario junto con su archivo MD5 según las indicaciones del portal.
 
-`Wall-E.exe` se compila con PyInstaller en modo `--onefile`, que se autoextrae
-en `%TEMP%` al arrancar. Ese patrón hace que SmartScreen o Defender puedan
-marcarlo como desconocido o como falso positivo (`Trojan:Win32/...!ml`), aunque
-el binario sea limpio. Los metadatos de versión, el icono propio y desactivar
-UPX reducen la probabilidad, pero **la solución definitiva es firmar el
-ejecutable** con un certificado de código.
+## 🔌 Conexiones
 
-Si aparece el aviso:
+El montaje usa un ESP32, un sensor ultrasónico HC-SR04 fijo al frente, un controlador TB6612FNG con dos motores CC, tres servos MG90S, un sensor de corriente INA219, una pantalla OLED SSD1306 de 0,96″ y tres LED. El firmware define los GPIO y las direcciones I²C en [pines.h](firmware/include/pines.h).
 
-1. Pulsa **Más información → Ejecutar de todas formas**.
-2. Si Defender lo pone en cuarentena, restáuralo desde **Seguridad de Windows →
-   Protección antivirus y contra amenazas → Historial de protección**.
-3. Si prefieres evitar el `--onefile`, usa el ZIP
-   `wall-e-<versión>-win64.zip`: la app se ejecuta desde una carpeta
-   (`--onedir`), un patrón que los antivirus marcan mucho menos.
+### Alimentación
 
-Para ayudar a quitar el falso positivo, envía `Wall-E.exe` en
-[Microsoft Security Intelligence](https://www.microsoft.com/en-us/wdsi/filesubmission)
-como **Clean (false positive)**. La firma de código (SignPath Foundation para
-proyectos open source, o un certificado OV) permite además construir reputación
-en SmartScreen; un certificado autofirmado no sirve para distribución pública.
+La batería LiPo 2S de 2000 mAh (8,4 V cargada) alimenta el driver de motores y, mediante un convertidor reductor, el riel de 5 V. El relé o MOSFET realiza el corte físico de alimentación.
 
+| Desde | Hasta | Función |
+| --- | --- | --- |
+| Positivo de batería | `VIN+` del INA219 | Entrada de corriente medida. |
+| `VIN−` del INA219 | `VIN` del relé o MOSFET | Salida del INA219, en serie con la batería. |
+| `VOUT` del relé o MOSFET | `VM` del TB6612FNG e `IN+` del convertidor de 5 V | Alimentación de motores y entrada del convertidor. |
+| `OUT+` del convertidor de 5 V | `VIN` del ESP32, `VCC` del HC-SR04 y `VCC` de los tres MG90S | Alimentación de 5 V. Los servos toman corriente del convertidor. |
+| `OUT+` del convertidor de 5 V | Ánodo del LED verde | Indicador fijo. Si el LED es discreto, usa una resistencia en serie para limitar la corriente. |
+| `3V3` del ESP32 | `VCC` del INA219, del OLED y del TB6612FNG | Alimentación lógica de 3,3 V. |
+| Negativo de batería | GND del convertidor, ESP32, TB6612FNG, HC-SR04, servos, INA219 y OLED, y cátodos de los tres LED | Tierra común. En el convertidor, `OUT−` va a esta misma tierra. |
 
-## 🚀 Inicio rápido (app)
+### Señales y motores
 
-Desde la raíz del repositorio:
+| Componente | Terminal | Conexión |
+| --- | --- | --- |
+| HC-SR04 | `TRIG` | GPIO17 |
+| HC-SR04 | `ECHO` | GPIO16 mediante el divisor indicado abajo |
+| TB6612FNG | `STBY` | GPIO4 |
+| TB6612FNG | `PWMA` / `AIN1` / `AIN2` | GPIO25 / GPIO26 / GPIO27 |
+| TB6612FNG | `PWMB` / `BIN1` / `BIN2` | GPIO33 / GPIO32 / GPIO14 |
+| TB6612FNG | `AO1` / `AO2` | Bornes positivo / negativo del motor A |
+| TB6612FNG | `BO1` / `BO2` | Bornes positivo / negativo del motor B |
+| MG90S del cuello | Señal | GPIO23 |
+| MG90S del brazo izquierdo | Señal | GPIO18 |
+| MG90S del brazo derecho | Señal | GPIO19 |
+| INA219 (`0x40`) y OLED (`0x3C`) | `SDA` / `SCL` | GPIO21 / GPIO22, bus I²C compartido |
+| LED rojo | Ánodo | GPIO13 mediante 220 Ω |
+| LED amarillo | Ánodo | GPIO2 mediante 220 Ω |
+
+- **Eco del HC-SR04.** Conecta `ECHO` al GPIO16 mediante una resistencia de 1 kΩ y el GPIO16 a GND mediante una de 2 kΩ. El divisor adapta el eco de 5 V al nivel del ESP32.
+- **Bus I²C.** Si los módulos no incorporan resistencias de pull-up, conecta una de 4,7 kΩ desde cada línea (`SDA` y `SCL`) a 3,3 V.
+- **Sentido de marcha.** El firmware asigna A a la izquierda y B a la derecha. Confirma esa correspondencia y el sentido de marcha en el montaje. El cableado documentado usa `SENTIDO_MOTORES = -1` en [motores.cpp](firmware/lib/motores/motores.cpp).
+
+## 🛠️ Instalación desde el código fuente
+
+### Aplicación de escritorio
+
+Necesitas Python 3.10 o superior con Tkinter. Desde la raíz del repositorio, instala las dependencias e inicia la aplicación.
 
 ```bash
 python -m pip install -r requirements.txt
 python -m app.main
 ```
 
-La app arranca **sin conexión**. En la barra lateral escribe la IP del robot
-(`192.168.4.1` por defecto) y pulsa **CONECTAR**.
+### Firmware del ESP32
 
-Con el firmware actualizado, **Abrir Portal OTA** en la pestaña **Conectar**
-abre el portal en el navegador con una sesión de 10 minutos. La app solicita
-el usuario y la contraseña OTA en el primer acceso y los conserva en memoria
-hasta que se cierra o falla la autenticación. Usa el botón mientras estás
-conectado al punto de acceso Wi-Fi del robot.
-
-Para el desarrollo y las pruebas:
-
-```bash
-python -m pip install -r requirements-dev.txt
-python -m pytest
-python pruebas/ejecutar_cajones.py
-```
-
-## 🔧 Firmware (ESP32)
-
-El proyecto PlatformIO se abre/invoca desde **la raíz del repositorio**.
-
-1. Crea las credenciales (no se versionan):
-
-   ```bash
-   cp firmware/include/secrets.example.h firmware/include/secrets.h
-   ```
-
-   Define `WIFI_AP_CLAVE` (8+ caracteres), `OTA_USUARIO` y `OTA_CLAVE` (8+
-   caracteres). Sin `secrets.h` el build **falla a propósito**: no se permite un
-   AP abierto ni un portal OTA sin clave.
-
-2. Compila y flashea:
+1. Abre la raíz del repositorio en PlatformIO.
+2. Copia [secrets.example.h](firmware/include/secrets.example.h) como `firmware/include/secrets.h`. Define `WIFI_AP_CLAVE` y `OTA_CLAVE` con al menos ocho caracteres cada una y asigna un valor a `OTA_USUARIO`.
+3. Conecta el ESP32 por USB, compila y carga el firmware.
 
    ```bash
    pio run
    pio run -t upload
-   pio device monitor
    ```
-
-3. Prueba la lógica pura del firmware sin hardware:
-
-   ```bash
-   pio test -e native
-   ```
-
-> `pio test -e native` necesita un compilador host (`g++`). En Windows puede no
-> estar instalado; el CI lo ejecuta en Ubuntu.
-
-## 🧪 Pruebas y CI
-
-| Qué | Cómo |
-|---|---|
-| Suite de la app | `python -m pytest` |
-| Cobertura (mínimo 80 %) | `python -m pytest --cov=app --cov-report=term-missing --cov-fail-under=80` |
-| Cajones por módulo | `python pruebas/ejecutar_cajones.py` |
-| Firmware ESP32 | `pio run` |
-| Decisión autónoma (nativa) | `pio test -e native` |
-
-El workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) ejecuta los
-jobs de app (pytest + cobertura + cajones) y firmware (compilación + tests
-nativos) en cada push/PR a `main`.
-
-El workflow [`.github/workflows/release.yml`](.github/workflows/release.yml)
-compila en cada push/PR a `main`:
-
-* **Windows:** `Wall-E.exe` (PyInstaller `--onefile`, sin Python) y el ZIP.
-* **Linux (Ubuntu 22.04):** `wall-e_<versión>_amd64.deb` y el ZIP.
-* **Firmware:** `firmware.bin` + `firmware.bin.md5`, compilado una sola vez y
-  reutilizado por ambas plataformas.
-
-En un **push a `main`** publica o actualiza la release móvil `latest` con todos
-esos archivos. En un **pull request** solo los sube como artefactos del
-workflow (los PR de forks no reciben secrets ni permiso de escritura). El
-firmware de PR usa credenciales de CI ficticias; la release real exige los
-secrets `WIFI_AP_CLAVE`, `OTA_USUARIO` y `OTA_CLAVE` del repositorio.
-
-El workflow asigna una versión como `1.1.0.42.g23ac572abcde` al firmware,
-los paquetes y la release. Combina la versión base de `config.h`, el número
-de ejecución de GitHub Actions y 12 caracteres del SHA compilado. La versión
-base sigue disponible para compilaciones locales y el workflow solo modifica
-la copia de trabajo de cada job.
-
-## 📁 Estructura
-
-```text
-wall-e-robot/
-├── app/            # App de escritorio (Python + Tkinter)
-│   ├── comunicacion/   # TCP + JSON, reconexión y parseo tolerante
-│   ├── nucleo/         # Estado, paleta y diseño
-│   ├── pantallas/      # Pantalla principal y modales
-│   └── widgets/        # Lógica y renderizado de widgets
-├── firmware/       # Firmware ESP32 (PlatformIO)
-│   ├── include/        # config.h, pines.h y secrets.example.h
-│   ├── lib/            # Módulos: auto, decision, distancia, motores, OTA…
-│   ├── src/            # main.cpp
-│   └── test/           # Tests nativos (Unity)
-├── tests/          # Suite pytest de la app
-├── pruebas/        # Runner de cajones y guía de pruebas
-├── scripts/        # Empaquetado y manifiesto del firmware
-├── configuracion/  # Mapeo de teclas persistente
-└── platformio.ini
-```
-
-## 🛡️ Seguridad y comportamiento ante fallos
-
-* El AP WiFi y el portal OTA exigen credenciales; el firmware se niega a compilar
-  sin ellas.
-* En **automático**, el robot se detiene si no hay eco o si la última medición
-  tiene más de 750 ms. Si se cae la conexión con la app, **sigue navegando solo**.
-* En **manual**, si dejan de llegar órdenes durante 2 s, los motores se detienen.
-* Si nadie se conecta durante 10 min, el firmware vuelve solo a **automático**.
-* Cualquier cambio manual ↔ automático detiene los motores antes del siguiente
-  movimiento.
-* Los mensajes entrantes están limitados a 4 KiB y el protocolo avisa si la app
-  usa una versión más nueva.
-
-La matriz completa de pruebas de seguridad física está en
-[`pruebas/guia_de_pruebas.md`](pruebas/guia_de_pruebas.md) (§5.4).
-
-## 📚 Documentación
-
-* [Guía de pruebas y operación](pruebas/guia_de_pruebas.md): cajones, pytest,
-  firmware, OTA, protocolo y checklist.
-* [Esquema de conexión](esquema_de_conexion.md): cableado del robot.
 
 ## 📄 Licencia
 
-Este proyecto está bajo la Licencia **GPL-3.0**. Consulta [`LICENSE`](LICENSE) para más detalles.
+[GNU General Public License v3.0](LICENSE).
