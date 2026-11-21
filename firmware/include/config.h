@@ -1,23 +1,16 @@
-// wall-e-robot/firmware/include/config.h
-// Kevin Gámez - 13/09/2026
-
 #ifndef CONFIG_H
 #define CONFIG_H
 
 #include <Arduino.h>
 
-// Credenciales: secrets.h es obligatorio y no se versiona (ver
-// secrets.example.h). Sin él la compilación falla a propósito: un AP abierto
-// o un portal OTA sin clave permitiría a cualquiera controlar el robot.
+// secrets.h es obligatorio. Usa secrets.example.h como plantilla local.
 #if !__has_include("secrets.h")
     #error "Falta firmware/include/secrets.h: copia secrets.example.h y define WIFI_AP_CLAVE, OTA_USUARIO y OTA_CLAVE."
 #endif
 
 #include "secrets.h"
 
-// WPA2 exige una clave de al menos 8 caracteres; se valida al compilar para
-// que nunca se distribuya un firmware con el AP abierto. sizeof incluye el
-// terminador nulo, de ahí el +1.
+// WPA2 exige 8 caracteres y sizeof cuenta también el terminador nulo.
 static_assert(sizeof(WIFI_AP_CLAVE) >= 9,
               "WIFI_AP_CLAVE debe tener al menos 8 caracteres (WPA2).");
 static_assert(sizeof(OTA_USUARIO) >= 2,
@@ -25,8 +18,7 @@ static_assert(sizeof(OTA_USUARIO) >= 2,
 static_assert(sizeof(OTA_CLAVE) >= 9,
               "OTA_CLAVE debe tener al menos 8 caracteres.");
 
-// Versión del firmware; se reporta en la telemetría y en el portal OTA.
-static const char* PROYECTO_VERSION = "1.0.0";
+static const char* PROYECTO_VERSION = "1.1.0";
 
 // Versión del protocolo TCP+JSON. La app (app/comunicacion/conexion.py)
 // publica y valida el mismo número; subirlo solo cuando cambie el contrato.
@@ -36,8 +28,6 @@ static const int PROTOCOLO_VERSION = 1;
 // descarta completa para no agotar la RAM del ESP32.
 static const int MAX_MENSAJE_ENTRANTE = 4096;
 
-// Hardware instalado: cada flag habilita la inicialización y el uso del
-// módulo en setup()/loop().
 typedef struct {
     bool servos;     // 3 servos MG90S (2 brazos + cuello)
     bool distancia;  // HC-SR04 fijo al frente (mide distancia, sin barrido)
@@ -46,11 +36,8 @@ typedef struct {
     bool motores;    // TB6612FNG (d-pad)
 } ModulosActivos;
 
-// Configuración actual: todos los módulos activos.
 static const ModulosActivos MODULOS = { true, true, true, true, true };
 
-// true si algún módulo de MODULOS está desactivado (lo advierten los LEDs
-// y la telemetría).
 static inline bool hayModuloInactivo() {
     return !MODULOS.servos || !MODULOS.distancia || !MODULOS.bateria ||
            !MODULOS.oled   || !MODULOS.motores;
@@ -60,21 +47,18 @@ static inline bool hayModuloInactivo() {
 // brazo der.); un false ignora el servo sin perder su ángulo comandado.
 static const bool SERVOS_ACTIVOS[] = { true, true, true};
 
-// SSID del AP WiFi y puerto del servidor TCP de telemetría/mando (app Python).
 static const char* WIFI_AP_SSID        = "WALL-E";
 static const int   PUERTO_SERVIDOR     = 8080;
 
-// OTA
 static const bool     OTA_ACTIVADO        = true;
 
 // Plazo (ms) que la guardia de rollback espera la confirmación del self-test;
 // si vence sin confirmar, se revierte a la versión anterior.
 static const uint32_t OTA_AUTOCONFIRMA_MS = 15000;
 
-// Puerto HTTP del portal web OTA.
 static const int      PUERTO_OTA_WEB      = 80;
 
-static const float   UMBRAL_OBSTACULO_CM  = 25.0;   // Distancia (cm) de "obstáculo cercano" (alerta)
+static const float   UMBRAL_OBSTACULO_CM  = 25.0;
 
 // Sin órdenes del operador en modo manual durante este tiempo (ms), se
 // detienen los motores.
@@ -83,20 +67,17 @@ static const int     TIEMPO_MANUAL_TIMEOUT_MS = 2000;
 // El firmware arranca en manual para no moverse sin supervisión.
 static const uint32_t TIEMPO_SIN_CONEXION_AUTOMATICO_MS = 600000;  // 10 min
 
-// Periodos (ms) de telemetría y sensores
-static const uint32_t ENVIO_ESTADO_MS      = 500;   // envío del estado al cliente
-static const uint32_t LECTURA_DISTANCIA_MS = 250;   // muestreo del HC-SR04
-static const uint32_t LECTURA_BATERIA_MS   = 250;   // lectura del INA219
+static const uint32_t ENVIO_ESTADO_MS      = 500;
+static const uint32_t LECTURA_DISTANCIA_MS = 250;
+static const uint32_t LECTURA_BATERIA_MS   = 250;
 
 // El PWM de los motores (1 kHz) mete transitorios en la lectura del INA219.
 // Muestreo más rápido + filtro EMA para quedarnos con la tendencia.
 static const float BATERIA_FILTRO_ALPHA = 0.5f;
 
-// El nivel de carga se calcula solo con la batería en reposo: con corriente
-// circulando, la resistencia interna de la batería y del cableado bajan la
-// tensión y parecería que se descarga (para luego "recuperarse" al parar).
-static const float   BATERIA_CORRIENTE_REPOSO_A = 0.05f;  // |I| menor que esto
-static const uint32_t BATERIA_REPOSO_ESTABLE_MS = 500;    // sostenido este tiempo
+// El nivel se actualiza en reposo para evitar el efecto de la caída de tensión bajo carga.
+static const float   BATERIA_CORRIENTE_REPOSO_A = 0.05f;
+static const uint32_t BATERIA_REPOSO_ESTABLE_MS = 500;
 
 // Antigüedad máxima de la última medición para que Auto pueda moverse. Si el
 // sensor deja de responder, los motores se detienen en vez de seguir a ciegas.
@@ -108,4 +89,4 @@ static const float BATERIA_VOLTAJE_MIN     = 6.6;
 static const float BATERIA_VOLTAJE_MAX     = 8.4;
 static const float BATERIA_CAPACIDAD_MAH   = 2000;
 
-#endif // CONFIG_H
+#endif
