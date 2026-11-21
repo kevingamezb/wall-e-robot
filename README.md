@@ -189,6 +189,12 @@ workflow (los PR de forks no reciben secrets ni permiso de escritura). El
 firmware de PR usa credenciales de CI ficticias; la release real exige los
 secrets `WIFI_AP_CLAVE`, `OTA_USUARIO` y `OTA_CLAVE` del repositorio.
 
+El workflow asigna una versión como `1.1.0.42.g23ac572abcde` al firmware,
+los paquetes y la release. Combina la versión base de `config.h`, el número
+de ejecución de GitHub Actions y 12 caracteres del SHA compilado. La versión
+base sigue disponible para compilaciones locales y el workflow solo modifica
+la copia de trabajo de cada job.
+
 ## 📁 Estructura
 
 ```text

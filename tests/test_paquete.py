@@ -1,6 +1,3 @@
-# wall-e-robot/tests/test_paquete.py
-# Kevin Gámez - 17/10/2026
-
 """Pruebas del empaquetado de distribucion.
 
 Cubren dos cosas:
@@ -40,7 +37,6 @@ def empaquetador():
     return _cargar_empaquetador()
 
 
-# --------------------------------------------------------------- rutas / app
 
 def test_rutas_en_codigo_fuente():
     """Sin congelar, las rutas apuntan al arbol del repositorio."""
@@ -67,7 +63,6 @@ def test_app_tiene_punto_de_entrada():
     assert callable(main)
 
 
-# --------------------------------------------------------- helpers de hash
 
 def test_leer_version_coincide_con_config(empaquetador):
     """leer_version extrae el mismo valor que hay en config.h."""
@@ -76,6 +71,24 @@ def test_leer_version_coincide_con_config(empaquetador):
     esperado = re.search(r'PROYECTO_VERSION\s*=\s*"([^"]+)"', config).group(1)
 
     assert empaquetador.leer_version(RAIZ) == esperado
+
+
+def test_version_de_compilacion_identifica_el_commit(empaquetador, tmp_path):
+    from scripts.versionar_compilacion import versionar
+
+    config = tmp_path / "firmware" / "include" / "config.h"
+    config.parent.mkdir(parents=True)
+    config.write_bytes(
+        b'static const char* PROYECTO_VERSION = "1.2.3";\r\n'
+        b'static const int PROTOCOLO_VERSION = 1;\r\n'
+    )
+    commit = "ab" * 20
+
+    assert versionar(config, "42", commit) == "1.2.3.42.gabababababab"
+    assert empaquetador.leer_version(tmp_path) == "1.2.3.42.gabababababab"
+    assert versionar(config, "42", commit) == "1.2.3.42.gabababababab"
+    assert versionar(config, "43", "cd" * 20) == "1.2.3.43.gcdcdcdcdcdcd"
+    assert config.read_bytes().endswith(b"static const int PROTOCOLO_VERSION = 1;\r\n")
 
 
 def test_md5_y_sha256_de_archivo(empaquetador, tmp_path):
@@ -144,7 +157,6 @@ def test_nombre_paquete(empaquetador):
     assert empaquetador.nombre_paquete("1.0.0") == "wall-e-1.0.0"
 
 
-# ------------------------------------------- helpers para .exe y .deb
 
 def test_adjuntar_firmware_copia_bin_md5_y_version(empaquetador, tmp_path):
     """adjuntar_firmware deja firmware.bin, .md5 y version.txt en el destino."""
@@ -229,6 +241,12 @@ def test_generar_version_info_windows(empaquetador, tmp_path):
     assert "StringStruct('ProductName', 'WALL-E')" in texto
     assert "StringStruct('FileVersion', '1.2.3')" in texto
 
+    version_ci = "1.2.3.65537.gabababababab"
+    texto_ci = empaquetador.generar_version_info_windows(ruta, version_ci).read_text(
+        encoding="utf-8")
+    assert "filevers=(1, 2, 3, 1)" in texto_ci
+    assert f"StringStruct('FileVersion', '{version_ci}')" in texto_ci
+
 
 @pytest.mark.parametrize("plataforma", ["linux", "darwin"])
 def test_exe_solo_se_construye_en_windows(empaquetador, monkeypatch, plataforma):
@@ -256,7 +274,7 @@ def test_validar_secrets_distribucion(empaquetador, tmp_path):
         '#define OTA_CLAVE     "12345678"\n',
         encoding="utf-8",
     )
-    empaquetador.validar_secrets_distribucion(ruta)   # no debe lanzar
+    empaquetador.validar_secrets_distribucion(ruta)
 
     ruta.write_text(
         '#define WIFI_AP_CLAVE "corta"\n'
@@ -270,7 +288,6 @@ def test_validar_secrets_distribucion(empaquetador, tmp_path):
 
 
 
-# --------------------------------------------- integridad del firmware real
 
 def test_firmware_compilado_corresponde_a_su_md5(empaquetador):
     """Si hay un firmware compilado, su .md5 coincide con el .bin."""
@@ -283,7 +300,6 @@ def test_firmware_compilado_corresponde_a_su_md5(empaquetador):
     assert empaquetador.verificar_md5(binario, md5) is True
 
 
-# ------------------------------------------- integridad de un ZIP generado
 
 def _zip_generado():
     import sys
@@ -301,7 +317,6 @@ def test_zip_generado_es_integro():
     with zipfile.ZipFile(ruta_zip) as zf:
         nombres = set(zf.namelist())
 
-        # Archivos requeridos (con una carpeta raiz wall-e-<version>/).
         assert any(n.endswith("/LEEME.md") for n in nombres)
         assert any(n.endswith("/SHA256SUMS.txt") for n in nombres)
         assert any(n.endswith("/Wall-E/Wall-E.exe") or n.endswith("/Wall-E/Wall-E")
@@ -309,7 +324,6 @@ def test_zip_generado_es_integro():
         assert any(n.endswith("/firmware/firmware.bin") for n in nombres)
         assert any(n.endswith("/firmware/firmware.bin.md5") for n in nombres)
 
-        # El MD5 del firmware coincide con el .bin.
         bin_nombre = next(n for n in nombres
                           if n.endswith("/firmware/firmware.bin"))
         md5_nombre = next(n for n in nombres
@@ -318,7 +332,6 @@ def test_zip_generado_es_integro():
         md5_texto = zf.read(md5_nombre).decode("ascii").strip().lower()
         assert hashlib.md5(bin_bytes).hexdigest() == md5_texto
 
-        # SHA256SUMS valida cada archivo (menos el propio listado).
         sums_nombre = next(n for n in nombres if n.endswith("/SHA256SUMS.txt"))
         raiz_zip = sums_nombre.rsplit("/", 1)[0]
         for linea in zf.read(sums_nombre).decode("utf-8").splitlines():
@@ -328,7 +341,6 @@ def test_zip_generado_es_integro():
             contenido = zf.read(f"{raiz_zip}/{rel}")
             assert hashlib.sha256(contenido).hexdigest() == esperado
 
-        # No viaja ningun archivo prohibido.
         prohibidos = ("secrets.h", "secrets.distribucion.h", "/.git/",
                       "__pycache__", ".coverage", "/.pio/")
         assert not any(p in n for n in nombres for p in prohibidos)

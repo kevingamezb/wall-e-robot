@@ -1,29 +1,5 @@
-# wall-e-robot — builds de distribución y publicación automática.
-#
-# Se ejecuta en cada push y pull request a main:
-#   - push a main: compila y publica/actualiza la Release "latest" (tag móvil)
-#     con:
-#       · Wall-E.exe                         (Windows, PyInstaller onefile)
-#       · wall-e_<version>_amd64.deb         (Debian/Ubuntu/Mint)
-#       · firmware.bin + firmware.bin.md5    (ESP32, para el portal OTA)
-#       · wall-e-<version>-win64.zip         (ZIP actual: app + firmware + LEEME)
-#       · wall-e-<version>-linux64.zip       (ZIP actual: app + firmware + LEEME)
-#       · SHA256SUMS.txt                     (integridad de todos los assets)
-#   - pull request: compila y sube los mismos artefactos al workflow, sin crear
-#     Release. Los PR de forks no reciben secrets y su token es de solo lectura,
-#     así que publicar desde un PR no sería fiable.
-#   - workflow_dispatch: compila; publica solo si se marca "publicar".
-#
-# PyInstaller NO cross-compila:
-#   - firmware: se compila UNA VEZ en Linux (el .bin del ESP32 es igual desde
-#     cualquier PC) y se reparte al resto de jobs.
-#   - linux:   build en Ubuntu 22.04 para que el binario arranque en
-#     Debian/Ubuntu/Mint >= 22.04 (glibc 2.35+).
-#   - windows: build en windows-latest.
-#
-# Secrets requeridos para publicar: WIFI_AP_CLAVE, OTA_USUARIO y OTA_CLAVE.
-# En PR se usan credenciales de CI ficticias: nunca se filtran las reales en
-# artefactos descargables.
+# PyInstaller requiere un build por sistema. Ubuntu 22.04 fija la base de glibc en 2.35.
+# El firmware se compila una vez y se reutiliza en ambos paquetes.
 
 name: Distribución
 
@@ -41,8 +17,7 @@ on:
 
 concurrency:
   group: distribucion-${{ github.workflow }}-${{ github.ref }}
-  # En main los runs se serializan para que la release no quede a medias ni
-  # una compilación vieja pise a la nueva. En PR se cancela el run anterior.
+  # Serializa las publicaciones a latest para que no compitan entre sí.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -56,6 +31,8 @@ jobs:
     name: Firmware ESP32 (BIN + MD5)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -63,6 +40,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Asignar versión al commit
+        id: version
+        run: python scripts/versionar_compilacion.py
 
       - name: Cache PlatformIO
         uses: actions/cache@v4
@@ -103,7 +84,6 @@ jobs:
             fi
           fi
           cat > empaquetado/secrets.distribucion.h <<EOF
-          // Generado por CI en el build de distribución. No se versiona.
           #ifndef SECRETS_H
           #define SECRETS_H
 
@@ -153,6 +133,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Asignar versión al commit
+        run: python scripts/versionar_compilacion.py
 
       - name: Install system GUI libraries
         run: |
@@ -205,6 +188,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Asignar versión al commit
+        run: python scripts/versionar_compilacion.py
 
       - name: Install dependencies
         run: |
@@ -282,23 +268,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.firmware.outputs.version }}
         run: |
-          version=$(grep -oP 'PROYECTO_VERSION\s*=\s*"\K[^"]+' firmware/include/config.h)
           cat > notas.md <<EOF
           Compilación automática de \`main\`.
 
           - **Commit:** [\`${GITHUB_SHA:0:7}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})
-          - **Versión del proyecto:** \`${version}\`
+          - **Versión de la compilación:** \`${VERSION}\`
           - **Ejecución:** [#${GITHUB_RUN_NUMBER}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})
 
-          Descarga \`Wall-E.exe\` para Windows o \`wall-e_${version}_amd64.deb\` para
+          Descarga \`Wall-E.exe\` para Windows o \`wall-e_${VERSION}_amd64.deb\` para
           Debian/Ubuntu/Mint. El firmware (\`firmware.bin\` + \`firmware.bin.md5\`) se
           sube al portal OTA. Verifica la integridad con \`SHA256SUMS.txt\`.
           EOF
 
           if gh release view latest >/dev/null 2>&1; then
-            # Borrar assets viejos para que no queden .exe/.deb de versiones
-            # anteriores en la release móvil.
+            # Retira los artefactos que quedaron de versiones anteriores de latest.
             gh release view latest --json assets --jq '.assets[].name' |
               while read -r nombre; do
                 [ -n "$nombre" ] && gh release delete-asset latest "$nombre" --yes

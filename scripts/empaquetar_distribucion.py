@@ -1,38 +1,5 @@
-# wall-e-robot/scripts/empaquetar_distribucion.py
-# Kevin Gámez - 17/10/2026
-#
-# Construye artefactos versionados listos para entregar al equipo:
-#   - ZIP (por defecto): app de PyInstaller (onedir) + firmware + LEEME +
-#     SHA256SUMS.txt.
-#   - --exe: Wall-E.exe autocontenido para Windows (PyInstaller --onefile).
-#   - --deb: paquete Debian/Ubuntu/Mint con la app, lanzador, icono, .desktop
-#     y el firmware OTA.
-#   - --solo-firmware: solo firmware.bin + firmware.bin.md5 (para CI).
-#
-# El firmware se compila SIEMPRE con una clave de distribucion (nunca la de
-# desarrollo) y su MD5 se verifica antes de empaquetarlo.
-#
-# No versiona artefactos: la salida vive en dist/ (ignorada por Git) y cada
-# paquete se ensambla en un temporal, sin mezclarse con builds anteriores.
-#
-# Uso:
-#   python scripts/empaquetar_distribucion.py
-#   python scripts/empaquetar_distribucion.py --firmware-bin RUTA/firmware.bin
-#   python scripts/empaquetar_distribucion.py --solo-firmware   (solo el .bin)
-#   python scripts/empaquetar_distribucion.py --exe             (solo Windows)
-#   python scripts/empaquetar_distribucion.py --deb \
-#       --firmware-bin dist/firmware.bin                        (solo Linux)
-#
-# PyInstaller no cross-compila: cada artefacto se genera en su sistema
-# operativo. En CI (ver .github/workflows/release.yml) el firmware se compila
-# una vez con --solo-firmware y los builds de Windows/Linux lo adjuntan con
-# --firmware-bin.
-#
-# Requisitos:
-#   - PyInstaller instalado (requirements-dev.txt).
-#   - PlatformIO (solo si se compila el firmware; ver --firmware-bin).
-#   - dpkg-deb (solo para --deb; viene con dpkg en Debian/Ubuntu).
-#   - empaquetado/secrets.distribucion.h con la clave del AP (no versionado).
+# El firmware de distribución se compila con credenciales propias del equipo.
+# PyInstaller requiere compilar el ejecutable en su sistema operativo de destino.
 
 
 import argparse
@@ -65,7 +32,6 @@ PROHIBIDOS = {
     ".vscode", "__pycache__", ".pytest_cache", ".coverage", ".pio",
     "modelo_3d",
 }
-# Sufijos de artefactos que tampoco deben viajar.
 SUFIJOS_PROHIBIDOS = (".spec", ".log")
 
 
@@ -84,7 +50,8 @@ def _version_numerica(version: str) -> tuple[int, int, int, int]:
     """Convierte '1.2.3' en (1, 2, 3, 0), como exige el recurso PE."""
     numeros = [int(n) for n in re.findall(r"\d+", version)[:4]]
     numeros = (numeros + [0, 0, 0, 0])[:4]
-    return numeros[0], numeros[1], numeros[2], numeros[3]
+    # El cuarto campo PE tiene 16 bits. FileVersion conserva el número completo.
+    return numeros[0], numeros[1], numeros[2], numeros[3] % 65536
 
 
 def _plataforma_es(nombre: str) -> bool:
@@ -275,9 +242,7 @@ def construir_firmware_distribucion(temporal: Path) -> Path:
     entorno = os.environ.copy()
     libdeps = RAIZ / ".pio" / "libdeps"
     if libdeps.is_dir():
-        # El arbol temporal no tiene .pio propio: sin esto, el Library Manager
-        # intenta descargar otra vez las librerias que el build de desarrollo
-        # ya tiene instaladas y falla cuando no hay red.
+        # Reutiliza las bibliotecas instaladas para compilar el árbol temporal sin descargarlas de nuevo.
         entorno["PLATFORMIO_LIBDEPS_DIR"] = str(libdeps)
     subprocess.run([pio, "run"], cwd=str(trabajo), check=True, env=entorno)
 
@@ -380,7 +345,6 @@ def _ejecutar_pyinstaller(destino: Path, temporal: Path, onefile: bool):
         icono = generar_icono_cuadrado(temporal / "wall-e.ico", "ico")
         if icono:
             comando += ["--icon", str(icono)]
-        # Fabricante, producto y version visibles en las propiedades del .exe.
         info = generar_version_info_windows(
             temporal / "version_info.txt", leer_version())
         comando += ["--version-file", str(info)]
@@ -535,7 +499,6 @@ def construir_deb(firmware_bin=None, salida: Path | None = None) -> Path:
         temporal = Path(tmp_str)
         raiz = temporal / "paquete"
 
-        # 1) App onedir en /opt/wall-e (sin la carpeta intermedia Wall-E).
         construido = temporal / "pyinstaller"
         construir_app(construido, temporal)
         origen_app = construido / NOMBRE_APP
@@ -546,12 +509,10 @@ def construir_deb(firmware_bin=None, salida: Path | None = None) -> Path:
         for elemento in origen_app.iterdir():
             shutil.move(str(elemento), str(app_dir / elemento.name))
 
-        # 2) Lanzador en /usr/bin.
         bin_dir = raiz / "usr" / "bin"
         bin_dir.mkdir(parents=True)
         (bin_dir / "wall-e").symlink_to(f"/opt/wall-e/{NOMBRE_APP}")
 
-        # 3) Entrada de menú e icono.
         escritorio_dir = raiz / "usr" / "share" / "applications"
         escritorio_dir.mkdir(parents=True)
         (escritorio_dir / "wall-e.desktop").write_text(
@@ -573,7 +534,6 @@ def construir_deb(firmware_bin=None, salida: Path | None = None) -> Path:
             icono_dir.mkdir(parents=True)
             generar_icono_cuadrado(icono_dir / "wall-e.png", "png", lado)
 
-        # 4) Firmware OTA + documentación.
         doc_dir = raiz / "usr" / "share" / "doc" / "wall-e"
         doc_dir.mkdir(parents=True)
         crear_leeme_deb(doc_dir, version, arquitectura)
@@ -586,7 +546,6 @@ def construir_deb(firmware_bin=None, salida: Path | None = None) -> Path:
             raise RuntimeError(
                 "El MD5 del firmware incluido no coincide con el .bin.")
 
-        # 5) Metadatos Debian.
         tamano_kib = sum(
             archivo.stat().st_size for archivo in raiz.rglob("*")
             if archivo.is_file()
@@ -696,15 +655,12 @@ def empaquetar(firmware_bin=None, salida: Path | None = None):
         temporal = Path(tmp_str)
         raiz_paquete = temporal / nombre_paquete(version)
 
-        # 1) App (onedir) dentro de la raiz del paquete.
         construir_app(raiz_paquete, temporal)
 
-        # 2) Firmware de la misma version.
         firmware_destino = raiz_paquete / "firmware"
         bin_final, md5_final = adjuntar_firmware(
             firmware_destino, firmware_bin, temporal, version)
 
-        # 3) LEEME e integridad.
         crear_leeme(raiz_paquete, version)
 
         prohibidos = contiene_prohibidos(raiz_paquete)
@@ -720,7 +676,6 @@ def empaquetar(firmware_bin=None, salida: Path | None = None):
 
         escribir_sha256sums(raiz_paquete)
 
-        # 4) ZIP con carpeta raiz wall-e-<version>/.
         with zipfile.ZipFile(zip_ruta, "w", zipfile.ZIP_DEFLATED) as zf:
             for archivo in sorted(raiz_paquete.rglob("*")):
                 if archivo.is_file():
