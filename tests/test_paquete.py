@@ -265,25 +265,17 @@ def test_deb_solo_se_construye_en_linux(empaquetador):
         empaquetador.construir_deb()
 
 
-def test_validar_secrets_distribucion(empaquetador, tmp_path):
-    """Las credenciales de distribución deben cumplir el mínimo del firmware."""
-    ruta = tmp_path / "secrets.h"
-    ruta.write_text(
-        '#define WIFI_AP_CLAVE "12345678"\n'
-        '#define OTA_USUARIO   "ci"\n'
-        '#define OTA_CLAVE     "12345678"\n',
-        encoding="utf-8",
-    )
-    empaquetador.validar_secrets_distribucion(ruta)
+def test_compilar_distribucion_sin_credenciales(empaquetador, tmp_path, monkeypatch):
+    def compilar(_comando, *, cwd, **_opciones):
+        trabajo = Path(cwd)
+        assert not (trabajo / "firmware/include/secrets.h").exists()
+        binario = trabajo / ".pio/build/esp32dev/firmware.bin"
+        binario.parent.mkdir(parents=True)
+        binario.write_bytes(b"firmware")
 
-    ruta.write_text(
-        '#define WIFI_AP_CLAVE "corta"\n'
-        '#define OTA_USUARIO   "ci"\n'
-        '#define OTA_CLAVE     "12345678"\n',
-        encoding="utf-8",
-    )
-    with pytest.raises(RuntimeError, match="WIFI_AP_CLAVE"):
-        empaquetador.validar_secrets_distribucion(ruta)
+    monkeypatch.setattr(empaquetador, "localizar_platformio", lambda: "pio")
+    monkeypatch.setattr(empaquetador.subprocess, "run", compilar)
+    assert empaquetador.construir_firmware_distribucion(tmp_path).read_bytes() == b"firmware"
 
 
 

@@ -1,4 +1,3 @@
-# El firmware de distribución se compila con credenciales propias del equipo.
 # PyInstaller requiere compilar el ejecutable en su sistema operativo de destino.
 
 
@@ -16,7 +15,6 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
 CARPETA_TRABAJO = RAIZ / "empaquetado"
-SECRETS_DIST = CARPETA_TRABAJO / "secrets.distribucion.h"
 LANZADOR = CARPETA_TRABAJO / "lanzador.py"
 NOMBRE_APP = "Wall-E"
 MANTENEDOR = "Kevin Gámez <est.kevin.gamez@unimilitar.edu.co>"
@@ -158,9 +156,9 @@ def nombre_paquete(version: str) -> str:
 
 
 def _ignorar_temporal(directorio, nombres):
-    """Filtro de copytree: omite artefactos de build/desarrollo."""
+    """Filtro de copytree: omite secretos locales y artefactos de desarrollo."""
     return [n for n in nombres
-            if n in ("__pycache__", ".pio") or n.endswith(".pyc")]
+            if n.lower() in PROHIBIDOS or n.lower().endswith(".pyc")]
 
 
 def localizar_platformio():
@@ -181,46 +179,8 @@ def localizar_platformio():
     return None
 
 
-def validar_secrets_distribucion(ruta: Path = SECRETS_DIST):
-    """Comprueba que las credenciales de distribución cumplen el mínimo.
-
-    No imprime los valores. Refleja los static_assert de firmware/config.h
-    para dar un error claro antes de invocar PlatformIO.
-    """
-    if not ruta.is_file():
-        raise FileNotFoundError(f"Falta la clave de distribucion: {ruta}")
-
-    contenido = ruta.read_text(encoding="utf-8")
-    minimos = {"WIFI_AP_CLAVE": 8, "OTA_USUARIO": 1, "OTA_CLAVE": 8}
-    for macro, minimo in minimos.items():
-        coincidencia = re.search(
-            rf'#define\s+{macro}\s+"([^"]*)"', contenido)
-        if not coincidencia:
-            raise RuntimeError(
-                f"Falta {macro} en {ruta.name}.")
-        if len(coincidencia.group(1)) < minimo:
-            raise RuntimeError(
-                f"{macro} en {ruta.name} debe tener al menos {minimo} "
-                "caracteres (mira firmware/include/secrets.example.h).")
-
-
 def construir_firmware_distribucion(temporal: Path) -> Path:
-    """Compila el firmware en un arbol temporal con la clave de distribucion.
-
-    Copia firmware/, platformio.ini y el manifiesto a un directorio temporal,
-    coloca alli secrets.distribucion.h como secrets.h y ejecuta PlatformIO.
-    No toca el arbol de trabajo ni secrets.h de desarrollo. Devuelve el .bin.
-    """
-    if not SECRETS_DIST.is_file():
-        raise FileNotFoundError(
-            "Falta la clave de distribucion. Copia empaquetado/"
-            "secrets.distribucion.h desde firmware/include/secrets.example.h "
-            "y rellena WIFI_AP_CLAVE / OTA_CLAVE (con una clave propia del "
-            "equipo, no la de desarrollo)."
-        )
-
-    validar_secrets_distribucion()
-
+    """Compila el firmware de distribución sin credenciales en el binario."""
     trabajo = temporal / "firmware_build"
     shutil.copytree(RAIZ / "firmware", trabajo / "firmware",
                     ignore=_ignorar_temporal)
@@ -229,16 +189,13 @@ def construir_firmware_distribucion(temporal: Path) -> Path:
                  trabajo / "scripts" / "firmware_manifest.py")
     shutil.copy2(RAIZ / "platformio.ini", trabajo / "platformio.ini")
 
-    (trabajo / "firmware" / "include" / "secrets.h").write_text(
-        SECRETS_DIST.read_text(encoding="utf-8"), encoding="utf-8")
-
     pio = localizar_platformio()
     if not pio:
         raise FileNotFoundError(
             "No se encontro PlatformIO. Instalalo o pasa --firmware-bin."
         )
 
-    print("[firmware] Compilando en temporal (clave de distribucion)...")
+    print("[firmware] Compilando firmware en temporal...")
     entorno = os.environ.copy()
     libdeps = RAIZ / ".pio" / "libdeps"
     if libdeps.is_dir():

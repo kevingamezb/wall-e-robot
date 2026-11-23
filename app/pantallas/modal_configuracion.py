@@ -6,6 +6,7 @@ from PIL import Image, ImageDraw, ImageTk
 from ..nucleo.configuracion_control import OPCIONES_MOTORES, OPCIONES_SERVOS
 from ..nucleo.paleta import Paleta
 from ..widgets.renderizado.texto_render import foto_texto
+from .modal_credenciales import ModalCredenciales
 
 
 class ModalConfiguracion(tk.Toplevel):
@@ -17,6 +18,7 @@ class ModalConfiguracion(tk.Toplevel):
         self.title("Configuración")
         self.resizable(False, False)
         self._configuracion = configuracion
+        self.credenciales_actualizadas = False
         self._opciones = {}
         self._rotulos = []
         self._interruptores = [self._imagen_interruptor(activo) for activo in (False, True)]
@@ -29,14 +31,15 @@ class ModalConfiguracion(tk.Toplevel):
         self._grupo(panel, "Motores", OPCIONES_MOTORES)
 
         acciones = tk.Frame(panel, bg=Paleta.FONDO_NEGRO)
-        acciones.pack(anchor="e", pady=(4, 0))
+        acciones.pack(fill="x", pady=(4, 0))
         for texto, comando, fondo, color in (
-            ("Cancelar", self.destroy, Paleta.FONDO_WIDGET, Paleta.TEXTO_LOG),
             ("Aplicar", self._aplicar, Paleta.DORADO, Paleta.TINTA),
+            ("Cancelar", self.destroy, Paleta.FONDO_WIDGET, Paleta.TEXTO_LOG),
+            ("Wi-Fi y OTA", self._abrir_credenciales, Paleta.FONDO_WIDGET, Paleta.DORADO),
         ):
             tk.Button(acciones, text=texto, image=self._texto(texto, 15, color),
                       command=comando, bg=fondo, activebackground=fondo,
-                      relief="flat", padx=12, pady=7).pack(side="left", padx=(8, 0))
+                      relief="flat", padx=12, pady=7).pack(side="right", padx=(8, 0))
 
         self.bind("<Escape>", lambda _evento: self.destroy())
         self.update_idletasks()
@@ -98,3 +101,16 @@ class ModalConfiguracion(tk.Toplevel):
                                  parent=self)
             return
         self.destroy()
+
+    def _abrir_credenciales(self):
+        modal = ModalCredenciales(self)
+        self.wait_window(modal)
+        self.grab_set()
+        if modal.guardado:
+            self.credenciales_actualizadas = True
+            messagebox.showinfo(
+                "Wi-Fi y OTA",
+                "El ESP32 se está reiniciando. Vuelve a conectar el computador "
+                "a la red WALL-E con la nueva contraseña.",
+                parent=self,
+            )

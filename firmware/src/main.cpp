@@ -16,6 +16,7 @@
 #include "leds.h"
 #include "auto.h"
 #include "ota.h"
+#include "credenciales.h"
 
 
 // Impide la confirmación de Arduino antes de que el self-test valide el arranque.
@@ -25,6 +26,39 @@ extern "C" bool verifyRollbackLater() {
 
 
 Comunicacion comunicacion(PUERTO_SERVIDOR);
+static Credenciales s_credenciales;
+static bool s_redProtegida = false;
+static bool s_apIniciado = false;
+
+static bool comprobarRestablecimiento(uint32_t ahora) {
+    static uint32_t inicio = 0;
+    static bool pulsado = false;
+    static bool ejecutado = false;
+    if (digitalRead(PIN_RESTABLECER_RED) == HIGH) {
+        if (ejecutado) {
+            ESP.restart();
+            return true;
+        }
+        pulsado = false;
+        return false;
+    }
+    if (!pulsado) {
+        pulsado = true;
+        inicio = ahora;
+    }
+    if (ejecutado || ahora - inicio < 5000 || ota.actualizando()) {
+        return ejecutado;
+    }
+    ejecutado = true;
+    motores.detenerAhora();
+    if (Credenciales::restaurarFabrica()) {
+        Serial.println("Red restaurada. Suelta BOOT para reiniciar.");
+    } else {
+        ejecutado = false;
+        inicio = ahora;
+    }
+    return ejecutado;
+}
 
 static uint32_t s_ultimaEnvioMs   = 0;
 static uint32_t s_ultimaBateriaMs = 0;
@@ -154,9 +188,13 @@ void setup() {
     ESP32PWM::allocateTimer(3);
 
     leds.iniciar();
+    pinMode(PIN_RESTABLECER_RED, INPUT_PULLUP);
 
     WiFi.mode(WIFI_AP);
-    if (!WiFi.softAP(WIFI_AP_SSID, WIFI_AP_CLAVE)) {
+    s_redProtegida = s_credenciales.cargar() &&
+        WiFi.softAP(WIFI_AP_SSID, s_credenciales.wifi.c_str());
+    s_apIniciado = s_redProtegida || WiFi.softAP(WIFI_AP_SSID);
+    if (!s_apIniciado) {
         Serial.println("ERROR: no se pudo iniciar el AP WiFi.");
     }
     Serial.print("AP iniciada: SSID='");
@@ -164,7 +202,9 @@ void setup() {
     Serial.print("' IP=");
     Serial.println(WiFi.softAPIP());
 
-    comunicacion.iniciarServidor();
+    if (s_redProtegida) {
+        comunicacion.iniciarServidor();
+    }
 
     if (MODULOS.servos) {
         servos.iniciar();
@@ -210,7 +250,11 @@ void setup() {
 
     // OTA después de WiFi y de los módulos (el portal depende del AP).
     comunicacion.setInfoFirmware(PROYECTO_VERSION, ota.pendiente());
-    ota.iniciar();
+    if (s_apIniciado) {
+        ota.iniciar(s_redProtegida ? s_credenciales.usuarioOta : OTA_USUARIO_FABRICA,
+                    s_redProtegida ? s_credenciales.claveOta : OTA_CLAVE_FABRICA,
+                    s_redProtegida);
+    }
 
     Serial.println("Setup completo.");
 }
@@ -227,7 +271,7 @@ void loop() {
         s_otaConfirmado = true;
         if (ota.pendiente()) {
             String motivo;
-            if (ota.selfTestInicial(motivo)) {
+            if (s_apIniciado && ota.selfTestInicial(motivo, s_redProtegida)) {
                 Serial.println("[OTA] Self-test OK: confirmando version.");
                 ota.confirmar();
             } else {
@@ -237,12 +281,26 @@ void loop() {
         }
     }
 
-    ota.procesar();
-
-    comunicacion.escucharCliente();
+    if (comprobarRestablecimiento(ahoraMs)) {
+        return;
+    }
+    uint32_t reinicioMs;
+    if (!ota.reinicioCredenciales(reinicioMs)) {
+        ota.procesar();
+    }
+    if (ota.reinicioCredenciales(reinicioMs)) {
+        motores.detenerAhora();
+        if (millis() - reinicioMs >= 400 && digitalRead(PIN_RESTABLECER_RED) == HIGH) {
+            ESP.restart();
+        }
+        return;
+    }
+    if (s_redProtegida) {
+        comunicacion.escucharCliente();
+    }
 
     // Si nadie se conecta durante 10 minutos, se devuelve el control al robot.
-    if (AUTOMATICO_SIN_CONEXION && !comunicacion.detenido() &&
+    if (s_redProtegida && AUTOMATICO_SIN_CONEXION && !comunicacion.detenido() &&
         comunicacion.modo() == "manual" &&
         comunicacion.sinConexionDurante(
             (unsigned long)TIEMPO_SIN_CONEXION_AUTOMATICO_MS)) {

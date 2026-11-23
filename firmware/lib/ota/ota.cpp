@@ -9,6 +9,7 @@
 #include <esp_random.h>
 
 #include "config.h"
+#include "credenciales.h"
 #include "comunicacion.h"
 #include "oled.h"
 #include "bateria.h"
@@ -17,6 +18,12 @@
 Ota ota;
 
 static WebServer servidorWeb(PUERTO_OTA_WEB);
+static String usuarioOta;
+static String claveOta;
+static bool otaEnServicio = false;
+static bool arduinoOtaEnServicio = false;
+static bool reinicioRedPendiente = false;
+static uint32_t reinicioRedMs = 0;
 
 // La tarea de guardia y el loop la comparten: volatile porque se lee desde
 // la tarea de guardia.
@@ -41,7 +48,7 @@ static String nuevoToken() {
 }
 
 static bool autenticado() {
-    if (servidorWeb.authenticate(OTA_USUARIO, OTA_CLAVE)) {
+    if (servidorWeb.authenticate(usuarioOta.c_str(), claveOta.c_str())) {
         return true;
     }
     if (sesionWeb.isEmpty() || millis() - emitidaSesionMs >= VIGENCIA_SESION_MS) {
@@ -54,7 +61,7 @@ static bool autenticado() {
 
 // La aplicación intercambia Basic Auth por un código de un solo uso.
 static void emitirAcceso() {
-    if (!servidorWeb.authenticate(OTA_USUARIO, OTA_CLAVE)) {
+    if (!servidorWeb.authenticate(usuarioOta.c_str(), claveOta.c_str())) {
         servidorWeb.requestAuthentication();
         return;
     }
@@ -81,14 +88,14 @@ static void canjearAcceso() {
     servidorWeb.send(303);
 }
 
-bool Ota::selfTestInicial(String& motivo) {
+bool Ota::selfTestInicial(String& motivo, bool redProtegida) {
 
     if (WiFi.softAPIP() == INADDR_NONE) {
         motivo = "AP sin IP";
         return false;
     }
 
-    if (!comunicacion.estaEscuchando()) {
+    if (redProtegida && !comunicacion.estaEscuchando()) {
         motivo = "servidor TCP no escucha";
         return false;
     }
@@ -323,14 +330,45 @@ static void manejarUpdate() {
 }
 
 
+static void cambiarCredenciales() {
+    if (servidorWeb.header("Content-Type") != "application/json") {
+        servidorWeb.send(400, "text/plain", "Se requiere JSON");
+        return;
+    }
+    if (!servidorWeb.authenticate(usuarioOta.c_str(), claveOta.c_str())) {
+        servidorWeb.requestAuthentication();
+        return;
+    }
+    if (Update.isRunning() || reinicioRedPendiente) {
+        servidorWeb.send(409, "text/plain", "Ocupado");
+        return;
+    }
+    switch (Credenciales::guardar(servidorWeb.arg("plain"))) {
+        case Credenciales::Resultado::INVALIDAS:
+            servidorWeb.send(400, "text/plain", "Datos no validos");
+            return;
+        case Credenciales::Resultado::ERROR:
+            servidorWeb.send(500, "text/plain", "Error de memoria");
+            return;
+        case Credenciales::Resultado::OK:
+            reinicioRedPendiente = true;
+            reinicioRedMs = millis();
+            servidorWeb.sendHeader("Connection", "close");
+            servidorWeb.send(204);
+    }
+}
+
 static void configurarWeb() {
 
-    const char* cabeceras[] = {"Cookie"};
-    servidorWeb.collectHeaders(cabeceras, 1);
+    const char* cabeceras[] = {"Cookie", "Content-Type"};
+    servidorWeb.collectHeaders(cabeceras, 2);
     servidorWeb.on("/acceso", HTTP_POST, emitirAcceso);
     servidorWeb.on("/acceso", HTTP_GET, canjearAcceso);
     servidorWeb.on("/",            HTTP_GET,  manejarRaiz);
-    servidorWeb.on("/update",      HTTP_POST, manejarUpdate, manejarUpload);
+    servidorWeb.on("/credenciales", HTTP_POST, cambiarCredenciales);
+    if (OTA_ACTIVADO) {
+        servidorWeb.on("/update", HTTP_POST, manejarUpdate, manejarUpload);
+    }
     servidorWeb.onNotFound([]() {
         servidorWeb.send(404, "text/plain", "No encontrado");
     });
@@ -346,7 +384,7 @@ static void configurarWeb() {
 static void configurarArduinoOta() {
 
     ArduinoOTA.setHostname(WIFI_AP_SSID);
-    ArduinoOTA.setPassword(OTA_CLAVE);
+    ArduinoOTA.setPassword(claveOta.c_str());
 
     ArduinoOTA.onStart([]() {
         Serial.println("[OTA] ArduinoOTA: inicio de subida.");
@@ -366,24 +404,36 @@ static void configurarArduinoOta() {
 }
 
 
-void Ota::iniciar() {
+void Ota::iniciar(const String& usuario, const String& clave, bool redProtegida) {
 
-    if (!OTA_ACTIVADO) {
-        Serial.println("[OTA] Desactivado por configuracion.");
-        return;
-    }
-
+    usuarioOta = usuario;
+    claveOta = clave;
     configurarWeb();
-    configurarArduinoOta();
+    arduinoOtaEnServicio = OTA_ACTIVADO && redProtegida;
+    if (arduinoOtaEnServicio) {
+        configurarArduinoOta();
+    }
+    otaEnServicio = true;
 }
 
 
 void Ota::procesar() {
 
-    if (!OTA_ACTIVADO) {
+    if (!otaEnServicio) {
         return;
     }
 
-    ArduinoOTA.handle();
+    if (arduinoOtaEnServicio) {
+        ArduinoOTA.handle();
+    }
     servidorWeb.handleClient();
+}
+
+bool Ota::reinicioCredenciales(uint32_t& iniciadoMs) const {
+    iniciadoMs = reinicioRedMs;
+    return reinicioRedPendiente;
+}
+
+bool Ota::actualizando() const {
+    return Update.isRunning();
 }

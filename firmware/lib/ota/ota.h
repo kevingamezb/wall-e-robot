@@ -11,10 +11,12 @@ public:
     void iniciarGuardiaRollback();
 
     // Levanta el portal web y ArduinoOTA. Llamar después de WiFi.softAP().
-    void iniciar();
+    void iniciar(const String& usuario, const String& clave, bool redProtegida);
 
     // Atiende clientes web y ArduinoOTA. Llamar en cada loop().
     void procesar();
+    bool reinicioCredenciales(uint32_t& iniciadoMs) const;
+    bool actualizando() const;
 
     void confirmar();
 
@@ -22,8 +24,8 @@ public:
 
     bool pendiente() const;
 
-    // El self-test exige que el AP tenga IP y que el servidor TCP escuche.
-    bool selfTestInicial(String& motivo);
+    // El servidor TCP solo se comprueba en arranque protegido.
+    bool selfTestInicial(String& motivo, bool redProtegida);
 };
 
 extern Ota ota;

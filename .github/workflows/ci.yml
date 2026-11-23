@@ -68,20 +68,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install platformio
 
-      - name: Write test credentials
-        run: |
-          cat > firmware/include/secrets.h <<'EOF'
-          // Credenciales SOLO para CI. No son las del equipo.
-          #ifndef SECRETS_H
-          #define SECRETS_H
-
-          #define WIFI_AP_CLAVE "clave-ci-1234"
-          #define OTA_USUARIO   "ci"
-          #define OTA_CLAVE     "clave-ci-ota-1234"
-
-          #endif // SECRETS_H
-          EOF
-
       - name: Compile firmware
         run: pio run
 

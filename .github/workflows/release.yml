@@ -58,48 +58,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install platformio
 
-      - name: Escribir credenciales del firmware
-        env:
-          WIFI_AP_CLAVE: ${{ secrets.WIFI_AP_CLAVE }}
-          OTA_USUARIO: ${{ secrets.OTA_USUARIO }}
-          OTA_CLAVE: ${{ secrets.OTA_CLAVE }}
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "::notice::PR: usando credenciales de CI de prueba (no las de distribución)."
-            WIFI_AP_CLAVE="clave-ci-1234"
-            OTA_USUARIO="ci"
-            OTA_CLAVE="clave-ci-ota-1234"
-          else
-            if [ -z "$WIFI_AP_CLAVE" ] || [ -z "$OTA_CLAVE" ] || [ -z "$OTA_USUARIO" ]; then
-              echo "::error::Faltan los secrets WIFI_AP_CLAVE, OTA_USUARIO y/o OTA_CLAVE (Settings > Secrets)."
-              exit 1
-            fi
-            if [ "${#WIFI_AP_CLAVE}" -lt 8 ]; then
-              echo "::error::WIFI_AP_CLAVE debe tener al menos 8 caracteres (WPA2)."
-              exit 1
-            fi
-            if [ "${#OTA_CLAVE}" -lt 8 ]; then
-              echo "::error::OTA_CLAVE debe tener al menos 8 caracteres."
-              exit 1
-            fi
-          fi
-          cat > empaquetado/secrets.distribucion.h <<EOF
-          #ifndef SECRETS_H
-          #define SECRETS_H
-
-          #define WIFI_AP_CLAVE "$WIFI_AP_CLAVE"
-
-          #define OTA_USUARIO   "$OTA_USUARIO"
-          #define OTA_CLAVE     "$OTA_CLAVE"
-
-          #endif // SECRETS_H
-          EOF
-          # El AP no debe quedar abierto en una distribución real.
-          if grep -qE 'WIFI_AP_CLAVE ""|OTA_CLAVE ""|OTA_USUARIO ""' empaquetado/secrets.distribucion.h; then
-            echo "::error::Una credencial quedó vacía en secrets.distribucion.h."
-            exit 1
-          fi
-
       - name: Compilar el firmware de distribución
         run: python scripts/empaquetar_distribucion.py --solo-firmware
 

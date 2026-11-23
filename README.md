@@ -35,9 +35,29 @@ La versión publicada incluye `SHA256SUMS.txt` para verificar las descargas.
 
 ## 🎮 Uso
 
-1. Conecta el computador a la red Wi-Fi `WALL-E` con la clave configurada en el firmware.
-2. Abre la aplicación y pulsa **Conectar**. La dirección predeterminada es `192.168.4.1:8080`.
-3. Pulsa **MODO** o la tecla **M** para alternar entre control manual y navegación autónoma.
+### Primer arranque
+
+1. Enciende el robot y conecta el computador a la red abierta `WALL-E`.
+2. Abre **Configuración → Wi-Fi y OTA** en la app. En **Acceso OTA actual**, usa el usuario de fábrica `walle` y la contraseña `wall-e-ota`.
+3. En **Nuevas credenciales**, introduce la contraseña Wi-Fi, el usuario OTA y la contraseña OTA. Las contraseñas admiten de 8 a 63 caracteres ASCII imprimibles. Pulsa **Guardar y reiniciar**.
+4. Cuando reaparezca `WALL-E`, vuelve a conectarte con la nueva contraseña. Si el computador conservó el perfil de la red abierta, olvida esa red y agrégala de nuevo.
+5. Pulsa **Conectar** en la app. La dirección predeterminada es `192.168.4.1:8080`.
+
+El portal OTA web y el diálogo de configuración funcionan con el acceso de fábrica mientras la red está abierta. El control remoto de movimiento se habilita al configurar la contraseña Wi-Fi. Realiza la configuración inicial en un lugar controlado. Si actualizas desde una versión que usaba `secrets.h`, sigue estos pasos una vez.
+
+### Cambiar credenciales o recuperar el acceso
+
+El ESP32 conserva las credenciales al apagarlo. Si recuerdas el acceso OTA actual, puedes cambiar las claves en **Configuración → Wi-Fi y OTA**.
+
+Si olvidaste la contraseña Wi-Fi o las credenciales OTA:
+
+1. Con el robot **ya encendido**, mantén pulsado **BOOT** en la placa ESP32 durante cinco segundos para borrar las credenciales guardadas.
+2. Suelta **BOOT**. El ESP32 reinicia con la red abierta `WALL-E` y el acceso OTA de fábrica `walle` / `wall-e-ota`.
+3. Si tu computador recuerda la red con la contraseña anterior, olvida el perfil guardado. Luego repite los pasos de [Primer arranque](#primer-arranque).
+
+### Controles
+
+Pulsa **MODO** o la tecla **M** para alternar entre control manual y navegación autónoma.
 
 La app recuerda la última dirección que conectó correctamente. Abre **Configuración avanzada** para editar la IP y el puerto.
 
@@ -105,13 +125,14 @@ python -m app.main
 ### Firmware del ESP32
 
 1. Abre la raíz del repositorio en PlatformIO.
-2. Copia [secrets.example.h](firmware/include/secrets.example.h) como `firmware/include/secrets.h`. Define `WIFI_AP_CLAVE` y `OTA_CLAVE` con al menos ocho caracteres cada una y asigna un valor a `OTA_USUARIO`.
-3. Conecta el ESP32 por USB, compila y carga el firmware.
+2. Conecta el ESP32 por USB, compila y carga el firmware.
 
    ```bash
    pio run
    pio run -t upload
    ```
+
+3. Abre **Configuración → Wi-Fi y OTA** en la app para configurar las credenciales del dispositivo.
 
 ## 📄 Licencia
 

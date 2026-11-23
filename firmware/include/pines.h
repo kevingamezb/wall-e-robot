@@ -6,6 +6,9 @@
 #define PIN_I2C_SDA         21
 #define PIN_I2C_SCL         22
 
+// Botón BOOT de la placa ESP32, activo en bajo.
+#define PIN_RESTABLECER_RED  0
+
 #define DIR_INA219          0x40
 #define DIR_OLED            0x3C
 

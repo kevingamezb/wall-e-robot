@@ -14,6 +14,7 @@ from .nucleo.configuracion_control import ConfiguracionControl
 from .nucleo.disenio import escala_para_pantalla
 from .nucleo.estado import EstadoRobot, NivelLog, Modo
 from .comunicacion.conexion import Comunicacion, ConexionOffline
+from .comunicacion.credenciales_red import HOST_OTA
 from .pantallas.pantalla_principal import PantallaPrincipal
 from .widgets.logica.mapeo_teclado import MapeoTeclado
 from .widgets.logica.control_teclado import ControlTeclado
@@ -23,7 +24,6 @@ INTERVALO_CICLO_MS = 33
 
 # Puerto en el que escucha el ESP32 (firmware y socket deben coincidir).
 PUERTO = 8080
-HOST_OTA = "192.168.4.1"
 
 
 def nombre_red_wifi() -> str | None:
@@ -141,6 +141,8 @@ class Aplicacion:
         try:
             modal = ModalConfiguracion(self.root, self.configuracion_control)
             self.root.wait_window(modal)
+            if modal.credenciales_actualizadas:
+                self._credenciales_ota = None
         finally:
             self._suspender_teclado(estaba_suspendido)
 

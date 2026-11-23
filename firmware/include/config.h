@@ -3,22 +3,7 @@
 
 #include <Arduino.h>
 
-// secrets.h es obligatorio. Usa secrets.example.h como plantilla local.
-#if !__has_include("secrets.h")
-    #error "Falta firmware/include/secrets.h: copia secrets.example.h y define WIFI_AP_CLAVE, OTA_USUARIO y OTA_CLAVE."
-#endif
-
-#include "secrets.h"
-
-// WPA2 exige 8 caracteres y sizeof cuenta también el terminador nulo.
-static_assert(sizeof(WIFI_AP_CLAVE) >= 9,
-              "WIFI_AP_CLAVE debe tener al menos 8 caracteres (WPA2).");
-static_assert(sizeof(OTA_USUARIO) >= 2,
-              "OTA_USUARIO no puede estar vacío.");
-static_assert(sizeof(OTA_CLAVE) >= 9,
-              "OTA_CLAVE debe tener al menos 8 caracteres.");
-
-static const char* PROYECTO_VERSION = "1.2.1";
+static const char* PROYECTO_VERSION = "1.3.0";
 
 // Versión del protocolo TCP+JSON. La app (app/comunicacion/conexion.py)
 // publica y valida el mismo número; subirlo solo cuando cambie el contrato.
@@ -48,6 +33,8 @@ static inline bool hayModuloInactivo() {
 static const bool SERVOS_ACTIVOS[] = { true, true, true};
 
 static const char* WIFI_AP_SSID        = "WALL-E";
+static const char* OTA_USUARIO_FABRICA = "walle";
+static const char* OTA_CLAVE_FABRICA   = "wall-e-ota";
 static const int   PUERTO_SERVIDOR     = 8080;
 
 static const bool     OTA_ACTIVADO        = true;
