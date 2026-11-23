@@ -36,10 +36,18 @@ La versión publicada incluye `SHA256SUMS.txt` para verificar las descargas.
 ## 🎮 Uso
 
 1. Conecta el computador a la red Wi-Fi `WALL-E` con la clave configurada en el firmware.
-2. Abre la aplicación, escribe la IP del robot (`192.168.4.1` por defecto) y pulsa **CONECTAR**.
+2. Abre la aplicación y pulsa **Conectar**. La dirección predeterminada es `192.168.4.1:8080`.
 3. Pulsa **MODO** o la tecla **M** para alternar entre control manual y navegación autónoma.
 
-El robot arranca detenido en modo manual. Si pasan dos segundos sin órdenes, los motores se detienen. Si nadie se conecta durante diez minutos, pasa a modo automático. En modo automático navega sin depender de la aplicación y se detiene si falta el eco del sensor o si la última lectura tiene más de 750 ms.
+La app recuerda la última dirección que conectó correctamente. Abre **Configuración avanzada** para editar la IP y el puerto.
+
+El robot arranca detenido en modo manual. Si pasan dos segundos sin órdenes de movimiento o el ESP32 detecta que el operador perdió el enlace en manual, se corta el PWM de las ruedas. El arranque automático por inactividad se puede habilitar en el firmware con `AUTOMATICO_SIN_CONEXION`. En modo automático navega sin depender de la aplicación y se detiene si falta el eco del sensor frontal o si la última lectura tiene más de 750 ms.
+
+**Detener** corta el PWM, cancela el modo autónomo o la demo y mantiene el robot detenido incluso tras reconectar. Pulsa el rótulo de modo o **M** para volver al control manual. El botón requiere conexión activa con el firmware que lo admite.
+
+**Demo** ejecuta una animación breve en la OLED con la base quieta. La OLED también parpadea cuando el robot está en reposo. Para habilitar el gesto de cuello y el saludo con un brazo, comprueba primero la holgura del montaje, el recorrido de los cables y la alimentación de 5 V. Luego puedes activar `DEMO_MOVER_SERVOS` en [config.h](firmware/include/config.h).
+
+En automático con la app conectada, **6-7** tiene un 0,1 % de probabilidad cada 5 s y alterna los brazos arriba y abajo con la base quieta. **Vuelta de Ballet** tiene un 2 % cada 10 s cuando el sensor frontal tiene una lectura válida de al menos 45 cm. El robot se detiene, sube un brazo y luego el otro, y gira sobre su eje. **Detener**, salir de automático o perder el enlace cancelan el emote. La vuelta es aproximada. En [config.h](firmware/include/config.h) se pueden ajustar los ángulos de los brazos, el PWM y la duración del giro para el montaje.
 
 Para actualizar por Wi-Fi, abre **Conectar → Abrir Portal OTA** en la aplicación mientras estás en la red del robot. Inicia sesión con las credenciales OTA y carga el binario junto con su archivo MD5 según las indicaciones del portal.
 

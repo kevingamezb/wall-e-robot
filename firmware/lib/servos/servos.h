@@ -27,6 +27,8 @@ public:
 
     // Pose temporal. Un nombre nulo devuelve el servo a su último ángulo manual.
     void aplicarGesto(const char* nombre, int angulo = 0);
+    // Cancela la pose temporal conservando el ángulo ya comandado.
+    void mantenerGesto();
 
     void angulosUsuario(int destino[CANTIDAD]) const;
 

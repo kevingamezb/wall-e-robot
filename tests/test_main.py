@@ -201,6 +201,16 @@ def test_boton_modo_alterna_desde_el_arranque_manual(app, monkeypatch):
     assert app.conexion.mensajes == [{"tipo": "modo", "modo": "automatico"}]
 
 
+def test_reanudar_tras_detener_pide_manual(app, monkeypatch):
+    monkeypatch.setattr(modulo_main, "Comunicacion", _ComunicacionFalsa)
+    app.conexion = _ComunicacionFalsa("1.2.3.4", 8080)
+    app.estado.detenido = True
+
+    app._cambiar_modo()
+
+    assert app.conexion.mensajes == [{"tipo": "modo", "modo": "manual"}]
+
+
 def test_portal_ota_envia_basic_auth_y_abre_con_codigo(app, monkeypatch):
     codigo = "a" * 32
     conexion = Mock()

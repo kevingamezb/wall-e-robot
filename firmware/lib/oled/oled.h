@@ -17,7 +17,7 @@ public:
     void iniciar();
 
     void mostrar(float bateria, float distanciaCm, const String& modo,
-                 bool conexionActiva);
+                 bool conexionActiva, bool mostrarOjos, bool ojosCerrados);
 
     // true si la SSD1306 se inicializó bien (usado por el self-test OTA).
     bool activo() const;

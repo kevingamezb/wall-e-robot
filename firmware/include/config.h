@@ -18,7 +18,7 @@ static_assert(sizeof(OTA_USUARIO) >= 2,
 static_assert(sizeof(OTA_CLAVE) >= 9,
               "OTA_CLAVE debe tener al menos 8 caracteres.");
 
-static const char* PROYECTO_VERSION = "1.1.0";
+static const char* PROYECTO_VERSION = "1.2.0";
 
 // Versión del protocolo TCP+JSON. La app (app/comunicacion/conexion.py)
 // publica y valida el mismo número; subirlo solo cuando cambie el contrato.
@@ -66,6 +66,17 @@ static const int     TIEMPO_MANUAL_TIMEOUT_MS = 2000;
 
 // El firmware arranca en manual para no moverse sin supervisión.
 static const uint32_t TIEMPO_SIN_CONEXION_AUTOMATICO_MS = 600000;  // 10 min
+static const bool AUTOMATICO_SIN_CONEXION = false;
+// Habilitar tras comprobar recorrido, cableado y alimentación en el montaje.
+static const bool DEMO_MOVER_SERVOS = false;
+
+// Ángulos lógicos. Invierte el signo si el montaje de un hombro lo requiere.
+static const int EMOTE_BRAZO_IZQ_ARRIBA = 50;
+static const int EMOTE_BRAZO_DER_ARRIBA = 50;
+// Ajuste inicial en suelo: sin encoders, el giro de 360° es aproximado.
+static const int BALLET_PWM = 110;
+static const uint32_t BALLET_GIRO_MS = 1800;
+static const float BALLET_DISTANCIA_MIN_CM = 45.0f;
 
 static const uint32_t ENVIO_ESTADO_MS      = 500;
 static const uint32_t LECTURA_DISTANCIA_MS = 250;

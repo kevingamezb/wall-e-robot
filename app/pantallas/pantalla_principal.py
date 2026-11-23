@@ -1,3 +1,4 @@
+import json
 import time
 import textwrap
 import tkinter as tk
@@ -6,6 +7,7 @@ import tkinter.font as tkfont
 from ..nucleo.paleta import Paleta
 from ..nucleo.disenio import Disenio, RECORTE_SUPERIOR
 from ..nucleo.estado import EstadoRobot, Modo
+from ..rutas import directorio_configuracion
 from ..widgets.logica.boton import Boton
 from ..widgets.logica.ojos import Ojos
 from ..widgets.logica.icono_sistema import IconoSistema, TipoIcono
@@ -48,7 +50,8 @@ class PantallaPrincipal:
     """Pantalla única de la aplicación: barra lateral de conexión + panel de control."""
     def __init__(self, parent, estado: EstadoRobot, escala,
                  on_conectar=None, on_desconectar=None, on_modo=None,
-                 mapeo=None, on_cambio_mapeo=None, al_captura=None, on_ota=None):
+                 mapeo=None, on_cambio_mapeo=None, al_captura=None, on_ota=None,
+                 on_detener=None, on_demo=None):
         """
         parent         : el frame contenedor (en main.py).
         estado         : el estado compartido con todo el programa.
@@ -74,8 +77,11 @@ class PantallaPrincipal:
         self._pagina = "conectar"
         # Conserva los objetos Texto para que sus PhotoImage sobrevivan al vaciar la caché.
         self._items_conexion = []
+        self._items_avanzados = []
+        self._avanzado = False
         self._conexion_activa = False
         self._conexion_pendiente = False
+        self._destino_intentado = None
         self._tiempos = []          # instantes de los últimos dibujos (FPS)
         self._latencia_ms = None
 
@@ -101,6 +107,13 @@ class PantallaPrincipal:
             self.boton_modo.suscribir(on_modo)
 
         self._construir_marco()
+        self._acciones_robot = [
+            self._crear_accion(texto, callback, caja, color)
+            for texto, callback, caja, color in (
+                ("Demo", on_demo, (2820, 267, 3220, 364), Paleta.DORADO),
+                ("Detener", on_detener, (3270, 267, 3803, 364), Paleta.ROJO),
+            ) if callback is not None
+        ]
         self._construir_barra_lateral()
         self._construir_estado()
         self._construir_energia()
@@ -109,6 +122,20 @@ class PantallaPrincipal:
         self._construir_control()
 
         self.establecer_conexion(False, SIN_CONEXION)
+
+    def _crear_accion(self, texto, callback, caja, color):
+        e, c = self.e, self.canvas
+        boton = tk.Button(c, text=texto, command=callback, bg=color,
+                          relief="flat", state="disabled")
+        boton._rotulos = {
+            "normal": foto_texto(texto, e.fuente(46), Paleta.TINTA, master=c),
+            "disabled": foto_texto(texto, e.fuente(46), Paleta.GRIS, master=c),
+        }
+        boton.configure(image=boton._rotulos["disabled"])
+        x1, y1, x2, y2 = e.caja(caja)
+        c.create_window(x1, y1, window=boton, anchor="nw",
+                        width=x2-x1, height=y2-y1)
+        return boton
 
     def _construir_marco(self):
         """Fondo plateado, logo, cabecera y los dos paneles negros."""
@@ -178,14 +205,17 @@ class PantallaPrincipal:
         self._items_conexion.append(c.create_window(
             x1, y1, window=red, anchor="nw", width=x2 - x1, height=y2 - y1))
 
+        self._ruta_conexion = directorio_configuracion() / "conexion.json"
+        self._destino_guardado = self._cargar_destino()
+        ip, puerto = self._destino_guardado or ("192.168.4.1", 8080)
         for caja_etiqueta, caja_campo, etiqueta, valor, nombre in (
-            (Disenio.ETIQUETA_IP, Disenio.CAMPO_IP, "IP:", "192.168.4.1", "campo_ip"),
-            (Disenio.ETIQUETA_PORT, Disenio.CAMPO_PORT, "PORT:", "8080", "campo_port"),
+            (Disenio.ETIQUETA_IP, Disenio.CAMPO_IP, "IP:", ip, "campo_ip"),
+            (Disenio.ETIQUETA_PORT, Disenio.CAMPO_PORT, "PORT:", str(puerto), "campo_port"),
         ):
             ex, ey, _, eb = caja_etiqueta
             texto = Texto(c, e(ex), e(eb), etiqueta, e.fuente(88),
                           Paleta.DORADO, ancla="sw")
-            self._items_conexion.append(texto)
+            self._items_avanzados.append(texto)
             fx1, fy1, fx2, fy2 = e.caja(caja_campo)
             campo = tk.Entry(
                 c, font=(familia, -max(10, e(48))), bg=Paleta.TARJETA,
@@ -194,10 +224,22 @@ class PantallaPrincipal:
                 disabledforeground=Paleta.FONDO_WIDGET)
             campo.insert(0, valor)
             campo.bind("<Return>", lambda _ev: self.boton_conectar.presionar())
-            self._items_conexion.append(c.create_window(
+            self._items_avanzados.append(c.create_window(
                 fx1, fy1, window=campo, anchor="nw",
                 width=fx2 - fx1, height=fy2 - fy1))
             setattr(self, nombre, campo)
+
+        rotulo_avanzado = "Configuración Avanzada"
+        avanzado = tk.Button(c, text=rotulo_avanzado,
+                             command=self._alternar_avanzado,
+                             relief="flat", bg=Paleta.FONDO_WIDGET)
+        avanzado._rotulo = foto_texto(rotulo_avanzado, e.fuente(42),
+                                      Paleta.DORADO, master=c)
+        avanzado.configure(image=avanzado._rotulo)
+        self._items_conexion.append(c.create_window(
+            e(107), e(1200), window=avanzado, anchor="nw",
+            width=e(750), height=e(90)))
+        self._mostrar_avanzado()
 
         bx1, by1, bx2, by2 = e.caja(Disenio.BOTON_CONECTAR)
         self.render_conectar = BotonImagenRenderer(
@@ -237,6 +279,30 @@ class PantallaPrincipal:
                 px, py, window=ventana, anchor="nw",
                 width=px2 - px, height=py2 - py, state="hidden")
 
+    def _cargar_destino(self):
+        try:
+            datos = json.loads(self._ruta_conexion.read_text(encoding="utf-8"))
+            ip, puerto = datos["ip"], datos["puerto"]
+            if isinstance(ip, str) and ip.strip() and type(puerto) is int and 1 <= puerto <= 65535:
+                return ip, puerto
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+        return None
+
+    def _alternar_avanzado(self):
+        self._avanzado = not self._avanzado
+        self._mostrar_avanzado()
+        if not self._avanzado:
+            self.canvas.focus_set()
+
+    def _mostrar_avanzado(self):
+        visible = self._avanzado and self._pagina == "conectar"
+        for item in self._items_avanzados:
+            if isinstance(item, Texto):
+                item.mostrar(visible)
+            else:
+                self.canvas.itemconfigure(item, state="normal" if visible else "hidden")
+
     def mostrar_pagina(self, pagina: str):
         """Cambia el contenido de la barra lateral: 'conectar' o 'controles'."""
         c = self.canvas
@@ -253,6 +319,7 @@ class PantallaPrincipal:
             else:
                 c.itemconfig(item, state="normal" if en_conexion else "hidden")
         self.render_conectar.mostrar(en_conexion)
+        self._mostrar_avanzado()
         if self.panel_controles is not None:
             c.itemconfig(self._ventana_controles,
                          state="hidden" if en_conexion else "normal")
@@ -385,10 +452,13 @@ class PantallaPrincipal:
             return
         ip = self.campo_ip.get().strip()
         try:
+            if not ip:
+                raise ValueError("escribe la IP del robot en Configuración avanzada")
             puerto = int(self.campo_port.get().strip())
             if not 0 < puerto < 65536:
                 raise ValueError("el puerto debe estar entre 1 y 65535")
             if self._on_conectar:
+                self._destino_intentado = (ip, puerto)
                 self._on_conectar(ip, puerto)
         except (OSError, ValueError) as error:
             self.mostrar_error(f"No se pudo conectar: {error}")
@@ -428,10 +498,21 @@ class PantallaPrincipal:
         self._conexion_activa = activa
         self.boton_modo.habilitado = activa
         self.boton_conectar.texto = "Desconectar" if activa else "Conectar"
+        destino = self._destino_intentado
+        if activa and destino and destino[0] == etiqueta:
+            if destino != self._destino_guardado:
+                try:
+                    self._ruta_conexion.parent.mkdir(parents=True, exist_ok=True)
+                    self._ruta_conexion.write_text(
+                        json.dumps({"ip": destino[0], "puerto": destino[1]}), encoding="utf-8")
+                except OSError:
+                    pass
+                else:
+                    self._destino_guardado = destino
         for campo in (self.campo_ip, self.campo_port):
             campo.config(state="disabled" if activa else "normal")
         self._estado_conexion.poner(
-            texto=textwrap.fill(etiqueta, 24),
+            texto=textwrap.fill(f"Conectado · {etiqueta}" if activa else etiqueta, 24),
             color=Paleta.DORADO if activa else Paleta.GRIS)
 
     def actualizar_red_wifi(self, nombre):
@@ -455,7 +536,12 @@ class PantallaPrincipal:
         """Redibuja todos los bloques de la pantalla (se llama cada ciclo)."""
         estado = self.estado
         self.gamepad.habilitar(
-            self._conexion_activa and estado.modo == Modo.MANUAL)
+            self._conexion_activa and estado.modo == Modo.MANUAL and not estado.detenido)
+        compatible = self._conexion_activa and estado.detenido is not None
+        for boton in self._acciones_robot:
+            habilitado = compatible and (boton.cget("text") != "Demo" or not estado.demo_activa)
+            estado_boton = "normal" if habilitado else "disabled"
+            boton.configure(state=estado_boton, image=boton._rotulos[estado_boton])
 
         manual = estado.modo == Modo.MANUAL
         if not self._conexion_activa:
@@ -467,9 +553,14 @@ class PantallaPrincipal:
         self._telemetria.poner(texto=f"| {self._fps()} FPS | {ms} ms |")
 
         self.render_modo_icono.dibujar()
+        detenido = self._conexion_activa and estado.detenido
         self._modo_titulo.poner(
+            texto="Detenido" if detenido else "Modo Manual",
             color=Paleta.DORADO if manual else Paleta.GRIS)
-        self._modo_sub.poner(texto="Activado" if manual else "Desactivado",
+        subtitulo = "Activado" if manual else "Desactivado"
+        if detenido:
+            subtitulo = "Demo en curso" if estado.demo_activa else "Clic para reanudar"
+        self._modo_sub.poner(texto=subtitulo,
                              color=Paleta.DORADO if manual else Paleta.GRIS)
         self.render_ojos.dibujar()
         for render in self.render_iconos:
@@ -482,7 +573,7 @@ class PantallaPrincipal:
                                 color=color_consumo,
                                 contorno=self._oscuro(color_consumo, 0.7))
         color_sol = self.sol.color
-        pct = (f"{int(round(max(0.0, min(1.0, estado.bateria)) * 100))} %"
+        pct = (f"≈ {int(round(max(0.0, min(1.0, estado.bateria)) * 100))} %"
                if not self.sol.sin_datos else "-- %")
         self._lbl_sol.poner(texto=self.sol.etiqueta,
                             color=self._oscuro(color_sol, 0.33),

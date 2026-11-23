@@ -35,6 +35,11 @@ private:
     String _modoActual = "manual";
 
     unsigned long _ultimaOrdenMs = 0;
+    bool _operadorConectado = false;
+    bool _detenido = false;
+    bool _demoActiva = false;
+    uint32_t _inicioDemoMs = 0;
+    uint32_t _revisionControl = 0;
 
     // millis() del último cliente que se conectó (0 = ninguno desde el arranque).
     unsigned long _ultimaConexionMs = 0;
@@ -101,6 +106,11 @@ public:
 
     // millis() de la última orden recibida (0 si aún no llegó ninguna).
     unsigned long ultimaOrdenMs() const;
+    bool detenido() const { return _detenido; }
+    bool demoActiva() const { return _demoActiva; }
+    uint32_t inicioDemoMs() const { return _inicioDemoMs; }
+    uint32_t revisionControl() const { return _revisionControl; }
+    void terminarDemo();
 };
 
 // Instancia global (definida en firmware/src/main.cpp).

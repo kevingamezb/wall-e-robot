@@ -112,6 +112,8 @@ class Aplicacion:
             on_cambio_mapeo=self.mapeo.guardar,
             al_captura=self._suspender_teclado,
             on_ota=self._abrir_portal_ota,
+            on_detener=lambda: self.conexion.enviar_mensaje({"tipo": "detener"}),
+            on_demo=lambda: self.conexion.enviar_mensaje({"tipo": "demo"}),
         )
         # El gamepad dispara siempre hacia la conexión activa (real u offline).
         self.pantalla.conectar_gamepad(lambda cmd: self.conexion.enviar_mensaje(cmd))
@@ -289,6 +291,8 @@ class Aplicacion:
         self._cerrar_conexion_actual()
         self.conexion = nueva
         self.estado.bateria = -1.0
+        self.estado.detenido = None
+        self.estado.demo_activa = False
         self.pantalla.establecer_conexion(True, ip)
 
     def _desconectar(self):
@@ -308,6 +312,7 @@ class Aplicacion:
         if not isinstance(self.conexion, Comunicacion):
             return   # sin robot real no hay a quién pedirle el cambio
         nuevo = (Modo.AUTOMATICO if self.estado.modo == Modo.MANUAL
+                 and not self.estado.detenido
                  else Modo.MANUAL)
         self.conexion.enviar_mensaje({"tipo": "modo", "modo": nuevo.value})
 

@@ -45,8 +45,15 @@ class Navegacion:
     @property
     def descripcion(self) -> str:
         """Frase larga de la maniobra para la tarjeta de navegación."""
+        if self.estado.detenido:
+            return "Demo en curso" if self.estado.demo_activa else "Detenido"
         if self.en_manual:
             return "Control manual"
+        if self.maniobra == Maniobra.ALTO:
+            if self.estado.distancia_obstaculo_cm is None:
+                return "Sin lectura\nfrontal"
+            if self.estado.hay_advertencia:
+                return "Obstáculo\nal frente"
         return {
             Maniobra.RECTO:     "Avanzando recto",
             Maniobra.IZQUIERDA: "Girando a la\nIzquierda",

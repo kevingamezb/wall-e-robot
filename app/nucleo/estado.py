@@ -122,6 +122,8 @@ class EstadoRobot:
     distancia_obstaculo_cm: float | None = None                                    # SensorDistancia y Ojos (None = sin lectura)
     navegacion:             Maniobra = Maniobra.ALTO                               # PanelNavegacion (decisión del ESP32)
     auto_bloqueado:         bool = False
+    detenido:               bool | None = None
+    demo_activa:            bool = False
     conexion_activa:        bool  = False                                          # IconoEstadoConexión
     nivel_conexion:         NivelConexion = NivelConexion.NULA                     # IconoEstadoConexión (fuerza de señal)
     hay_advertencia:        bool  = False                                          # IconoAdvertencia

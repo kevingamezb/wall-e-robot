@@ -275,6 +275,9 @@ class Comunicacion(Conexion):
                 pass
 
         estado.auto_bloqueado = mensaje.get("auto_bloqueado") is True
+        detenido = mensaje.get("detenido")
+        estado.detenido = detenido if isinstance(detenido, bool) else None
+        estado.demo_activa = mensaje.get("demo_activa") is True
 
         if isinstance(mensaje.get("consumo_watts"), (int, float)):
             estado.consumo_watts = float(mensaje["consumo_watts"])
@@ -357,9 +360,11 @@ class ConexionOffline(Conexion):
     """Estado "sin robot": sin conexión activa ni datos."""
 
     def actualizar_estado(self, estado: EstadoRobot):
-        """No hay robot que leer: solo se marca que no hay conexión."""
+        """Deja sin confirmar las funciones que requieren un enlace activo."""
         estado.conexion_activa = False
         estado.nivel_conexion = NivelConexion.NULA
+        estado.detenido = None
+        estado.demo_activa = False
 
     def enviar_mensaje(self, comando: dict):
         """Sin robot no hay destino: el comando se descarta."""

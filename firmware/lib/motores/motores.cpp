@@ -90,10 +90,34 @@ void Motores::mover(const String& direccion) {
 }
 
 
+void Motores::girarBallet(int pwm) {
+    if (_activo) {
+        _metaA = SENTIDO_MOTORES * constrain(pwm, 0, VELOCIDAD_GIRO);
+        _metaB = -_metaA;
+    }
+}
+
 void Motores::detener() {
 
     _metaA = 0;
     _metaB = 0;
+}
+
+void Motores::detenerAhora() {
+    detener();
+    _velA = _velB = 0;
+    if (_activo) {
+        _rueda(_ain1, _ain2, _pwmA, 0);
+        _rueda(_bin1, _bin2, _pwmB, 0);
+    }
+}
+
+static int avanzarRampa(int velocidad, int meta) {
+    // Al invertir, cada rueda pasa un intervalo de PWM por cero.
+    if ((velocidad < 0 && meta > 0) || (velocidad > 0 && meta < 0)) {
+        meta = 0;
+    }
+    return velocidad + constrain(meta - velocidad, -PASO_RAMPA, PASO_RAMPA);
 }
 
 
@@ -109,10 +133,8 @@ void Motores::actualizar() {
     }
     _ultimaRampaMs = ahoraMs;
 
-    if (_velA < _metaA) { _velA = min(_metaA, _velA + PASO_RAMPA); }
-    if (_velA > _metaA) { _velA = max(_metaA, _velA - PASO_RAMPA); }
-    if (_velB < _metaB) { _velB = min(_metaB, _velB + PASO_RAMPA); }
-    if (_velB > _metaB) { _velB = max(_metaB, _velB - PASO_RAMPA); }
+    _velA = avanzarRampa(_velA, _metaA);
+    _velB = avanzarRampa(_velB, _metaB);
 
     _rueda(_ain1, _ain2, _pwmA, _velA);
     _rueda(_bin1, _bin2, _pwmB, _velB);

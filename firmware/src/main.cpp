@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <ESP32Servo.h>
 #include "esp_task_wdt.h"
+#include <esp_random.h>
 
 #include "config.h"
 #include "pines.h"
@@ -36,6 +37,99 @@ static bool s_errorAnterior       = false;
 static bool s_timeoutAvisado = false;
 
 static bool s_otaConfirmado = false;
+
+enum class Emote { NINGUNO, SEIS_SIETE, BALLET };
+static Emote s_emote = Emote::NINGUNO;
+static uint32_t s_revisionEmote = 0;
+static uint32_t s_sorteo67Ms = 0;
+static uint32_t s_sorteoBalletMs = 0;
+static uint32_t s_inicioEmoteMs = 0;
+static int s_faseEmote = -1;
+static int s_poseAnterior[Servos::CANTIDAD];
+static bool s_balletGirando = false;
+static constexpr char BRAZO_IZQ[] = "hombro_izquierdo";
+static constexpr char BRAZO_DER[] = "hombro_derecho";
+static constexpr uint32_t PASO_EMOTE_MS = 600;
+
+// Devuelve true mientras el emote tiene el control, incluido el ciclo de cancelación.
+static bool actualizarEmote(bool enAutonomo, uint32_t ahora) {
+    const uint32_t revision = comunicacion.revisionControl();
+    const bool habilitado = enAutonomo && comunicacion.estaConectado() &&
+        MODULOS.servos && SERVOS_ACTIVOS[1] && SERVOS_ACTIVOS[2];
+    const bool espacioBallet = sensorDistancia.lecturaFresca(TIEMPO_MAX_LECTURA_MS) &&
+        sensorDistancia.distanciaCm() >= BALLET_DISTANCIA_MIN_CM;
+    if (!habilitado || revision != s_revisionEmote ||
+        (s_emote == Emote::BALLET && !espacioBallet)) {
+        const bool cancelado = s_emote != Emote::NINGUNO;
+        if (cancelado) {
+            motores.detenerAhora();
+        }
+        s_emote = Emote::NINGUNO;
+        s_balletGirando = false;
+        s_revisionEmote = revision;
+        s_sorteo67Ms = s_sorteoBalletMs = ahora;
+        return cancelado;
+    }
+
+    if (s_emote == Emote::NINGUNO) {
+        if (ahora - s_sorteo67Ms >= 5000) {
+            s_sorteo67Ms = ahora;
+            if (esp_random() % 10000 < 10) {
+                s_emote = Emote::SEIS_SIETE;
+            }
+        }
+        if (ahora - s_sorteoBalletMs >= 10000) {
+            s_sorteoBalletMs = ahora;
+            if (espacioBallet && esp_random() % 10000 < 200) {
+                s_emote = Emote::BALLET;
+            }
+        }
+        if (s_emote == Emote::NINGUNO) {
+            return false;
+        }
+        motores.detenerAhora();
+        autoRobot.modoAutonomo(false);
+        servos.angulosUsuario(s_poseAnterior);
+        s_inicioEmoteMs = ahora;
+        s_faseEmote = -1;
+        comunicacion.enviarLog("EMOTE", s_emote == Emote::BALLET ? "Vuelta de Ballet" : "6-7", "info");
+    }
+
+    const uint32_t transcurrido = ahora - s_inicioEmoteMs;
+    const bool ballet = s_emote == Emote::BALLET;
+    const uint32_t duracion = ballet ? 2 * PASO_EMOTE_MS + BALLET_GIRO_MS : 4 * PASO_EMOTE_MS;
+    if (transcurrido >= duracion) {
+        motores.detenerAhora();
+        servos.moverServo(BRAZO_IZQ, s_poseAnterior[1]);
+        servos.moverServo(BRAZO_DER, s_poseAnterior[2]);
+        s_emote = Emote::NINGUNO;
+        s_balletGirando = false;
+        s_sorteo67Ms = s_sorteoBalletMs = ahora;
+        return true;
+    }
+
+    const int fase = ballet && transcurrido >= 2 * PASO_EMOTE_MS
+        ? 2 : transcurrido / PASO_EMOTE_MS;
+    if (fase == s_faseEmote) {
+        return true;
+    }
+    s_faseEmote = fase;
+    if (ballet) {
+        if (fase == 0) {
+            servos.moverServo(BRAZO_IZQ, EMOTE_BRAZO_IZQ_ARRIBA);
+        } else if (fase == 1) {
+            servos.moverServo(BRAZO_DER, EMOTE_BRAZO_DER_ARRIBA);
+        } else {
+            s_balletGirando = true;
+            motores.girarBallet(BALLET_PWM);
+        }
+    } else {
+        const int lado = fase % 2 == 0 ? 1 : -1;
+        servos.moverServo(BRAZO_IZQ, lado * EMOTE_BRAZO_IZQ_ARRIBA / 2);
+        servos.moverServo(BRAZO_DER, -lado * EMOTE_BRAZO_DER_ARRIBA / 2);
+    }
+    return true;
+}
 
 
 void setup() {
@@ -148,7 +242,8 @@ void loop() {
     comunicacion.escucharCliente();
 
     // Si nadie se conecta durante 10 minutos, se devuelve el control al robot.
-    if (comunicacion.modo() == "manual" &&
+    if (AUTOMATICO_SIN_CONEXION && !comunicacion.detenido() &&
+        comunicacion.modo() == "manual" &&
         comunicacion.sinConexionDurante(
             (unsigned long)TIEMPO_SIN_CONEXION_AUTOMATICO_MS)) {
 
@@ -157,11 +252,12 @@ void loop() {
     }
 
     // Lee millis() después de escucharCliente() para evitar que la resta sin signo desborde.
-    if (MODULOS.motores && comunicacion.modo() == "manual" &&
+    if (MODULOS.motores && !motores.detenidos() &&
+        comunicacion.modo() == "manual" &&
         (millis() - comunicacion.ultimaOrdenMs()
          > (unsigned long)TIEMPO_MANUAL_TIMEOUT_MS)) {
 
-        motores.detener();
+        motores.detenerAhora();
         if (!s_timeoutAvisado) {
             comunicacion.enviarLog(
                 "SEGURIDAD",
@@ -188,12 +284,27 @@ void loop() {
     const bool pideAutonomo        = comunicacion.modo() == "automatico";
     const bool enAutonomo          = autonomiaDisponible && pideAutonomo;
 
-    autoRobot.modoAutonomo(enAutonomo);
+    const bool emoteControla = actualizarEmote(enAutonomo, millis());
+    autoRobot.modoAutonomo(enAutonomo && !emoteControla);
 
-    if (enAutonomo) {
+    if (enAutonomo && !emoteControla) {
         autoRobot.actualizar();
-    } else if (pideAutonomo && MODULOS.motores) {
-        motores.detener();
+    } else if (!enAutonomo && pideAutonomo && MODULOS.motores) {
+        motores.detenerAhora();
+    }
+
+    if (comunicacion.demoActiva()) {
+        const uint32_t fase = (millis() - comunicacion.inicioDemoMs()) / 700;
+        if (fase >= 5) {
+            comunicacion.terminarDemo();
+        } else if (DEMO_MOVER_SERVOS && MODULOS.servos) {
+            switch (fase) {
+                case 0: servos.aplicarGesto("cuello", 10); break;
+                case 1: servos.aplicarGesto("cuello", -10); break;
+                case 3: servos.aplicarGesto("hombro_izquierdo", 12); break;
+                default: servos.aplicarGesto(nullptr); break;
+            }
+        }
     }
 
     if (MODULOS.motores) {
@@ -204,17 +315,18 @@ void loop() {
 
         s_ultimaEnvioMs = ahoraMs;
 
-        float distancia = MODULOS.distancia ? sensorDistancia.distanciaCm()
-                                            : -1.0f;
+        const bool lecturaFresca = MODULOS.distancia &&
+            sensorDistancia.lecturaFresca(TIEMPO_MAX_LECTURA_MS);
+        const float distancia = lecturaFresca ? sensorDistancia.distanciaCm() : -1.0f;
 
-        bool advertencia = MODULOS.distancia
+        bool advertencia = lecturaFresca
                          && sensorDistancia.obstaculoCercano(UMBRAL_OBSTACULO_CM);
 
         const float nivelBateria = bateria.nivel();
         bool error = MODULOS.bateria && nivelBateria >= 0.0f && nivelBateria < 0.10f;
 
-        String navegacion = enAutonomo ? autoRobot.navegacion()
-                                       : String("alto");
+        String navegacion = s_balletGirando ? String("derecha")
+            : enAutonomo && !emoteControla ? autoRobot.navegacion() : String("alto");
 
         leds.actualizar(advertencia, error, hayModuloInactivo());
 
@@ -239,8 +351,14 @@ void loop() {
             angulos, Servos::CANTIDAD);
 
         if (MODULOS.oled) {
+            const bool demo = comunicacion.demoActiva();
+            const bool reposo = !enAutonomo && motores.detenidos() &&
+                millis() - comunicacion.ultimaOrdenMs() >= 5000;
+            const uint32_t tiempoOjos = demo ? millis() - comunicacion.inicioDemoMs() : millis();
             oled.mostrar(nivelBateria, distancia,
-                         comunicacion.modo(), comunicacion.estaConectado());
+                         comunicacion.modo(), comunicacion.estaConectado(),
+                         demo || reposo, tiempoOjos % 5000 < 500 ||
+                         (demo && tiempoOjos >= 2100 && tiempoOjos < 2600));
         }
 
         if (advertencia && !s_advertenciaAnterior) {

@@ -113,6 +113,14 @@ void Servos::aplicarGesto(const char* nombre, int angulo) {
 }
 
 
+void Servos::mantenerGesto() {
+    if (habilitado(_servoGesto)) {
+        _angulos[_servoGesto] = _anguloGesto;
+    }
+    _servoGesto = -1;
+}
+
+
 void Servos::angulosUsuario(int destino[CANTIDAD]) const {
     for (int i = 0; i < CANTIDAD; i++) {
         destino[i] = _angulos[i];

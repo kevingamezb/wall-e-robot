@@ -53,9 +53,21 @@ void Comunicacion::escucharCliente() {
 
     if (!cliente || !cliente.connected()) {
 
+        if (_operadorConectado) {
+            _ultimaConexionMs = millis();
+            if (_modoActual == "manual") {
+                _detenido = _detenido || !motores.detenidos();
+                motores.detenerAhora();
+                servos.mantenerGesto();
+                terminarDemo();
+            }
+        }
+        _operadorConectado = false;
         cliente = servidor.available();
 
         if (cliente) {
+            ++_revisionControl;
+            _operadorConectado = true;
             Serial.println("Cliente conectado.");
             mensajeEntrante   = "";
             _descartando      = false;
@@ -135,6 +147,8 @@ void Comunicacion::enviarEstado(float bateria, const String& modo,
     doc["tipo"]               = "estado";
     doc["bateria"]            = bateria;
     doc["modo"]               = modo;
+    doc["detenido"]           = _detenido;
+    doc["demo_activa"]        = _demoActiva;
     doc["hay_advertencia"]    = hay_advertencia;
     doc["hay_error"]          = hay_error;
 
@@ -212,7 +226,23 @@ void Comunicacion::aplicarComando(const JsonVariantConst& comando) {
         return;
     }
 
-    if (strcmp(tipo, "servo") == 0) {
+    if (strcmp(tipo, "detener") == 0) {
+        servos.mantenerGesto();
+        setModo("manual");
+        _detenido = true;
+        enviarLog("CONTROL", "Detenido por el usuario", "info");
+    } else if (strcmp(tipo, "demo") == 0) {
+        if (_demoActiva) {
+            return;
+        }
+        setModo("manual");
+        _detenido = true;
+        _inicioDemoMs = millis();
+        _demoActiva = true;
+    } else if (strcmp(tipo, "servo") == 0) {
+        if (_detenido) {
+            return;
+        }
 
         const char* servo  = comando["servo"];
         int         angulo = comando["angulo"] | 0;
@@ -260,6 +290,9 @@ void Comunicacion::aplicarComando(const JsonVariantConst& comando) {
         Serial.println("'.");
 
     } else if (strcmp(tipo, "motor") == 0) {
+        if (_detenido || _modoActual != "manual") {
+            return;
+        }
 
         const char* direccion = comando["direccion"];
 
@@ -268,7 +301,12 @@ void Comunicacion::aplicarComando(const JsonVariantConst& comando) {
             return;
         }
 
+        if (strcmp(direccion, "arriba") != 0 && strcmp(direccion, "abajo") != 0 &&
+            strcmp(direccion, "izquierda") != 0 && strcmp(direccion, "derecha") != 0) {
+            return;
+        }
         motores.mover(direccion);
+        _ultimaOrdenMs = millis();
 
         Serial.print("Motor -> ");
         Serial.println(direccion);
@@ -293,9 +331,6 @@ void Comunicacion::procesarMensaje(const String& lineaJson) {
         Serial.println(error.c_str());
         return;
     }
-
-    // Las órdenes válidas reinician el plazo de seguridad del modo manual.
-    _ultimaOrdenMs = millis();
 
     // Ante una versión nueva, avisa una vez y sigue aplicando los campos conocidos.
     int version = doc["protocolo"] | PROTOCOLO_VERSION;
@@ -358,9 +393,19 @@ void Comunicacion::setModo(const String& modo) {
     if (modo != "automatico" && modo != "manual") {
         return;
     }
+    terminarDemo();
+    motores.detenerAhora();
+    ++_revisionControl;
+    _detenido = false;
     _modoActual = modo;
 }
 
+void Comunicacion::terminarDemo() {
+    if (_demoActiva) {
+        servos.aplicarGesto(nullptr);
+        _demoActiva = false;
+    }
+}
 
 bool Comunicacion::sinConexionDurante(unsigned long ms) {
     // La resta sin signo tolera el desbordamiento de millis().

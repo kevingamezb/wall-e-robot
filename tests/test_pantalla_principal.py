@@ -74,6 +74,29 @@ def test_recorte_superior_y_navegacion_con_dos_arcos(raiz_tk):
     assert pantalla.t_navegacion._color_pastilla == Paleta.NARANJA
 
 
+def test_detener_sigue_disponible_durante_demo(raiz_tk):
+    estado = EstadoRobot()
+    acciones = []
+    pantalla = PantallaPrincipal(
+        raiz_tk, estado, Escala(0.25),
+        on_demo=lambda: acciones.append("demo"),
+        on_detener=lambda: acciones.append("detener"),
+    )
+    pantalla.establecer_conexion(True, "192.168.4.1")
+    demo, detener = pantalla._acciones_robot
+
+    pantalla.dibujar()
+    assert detener.cget("state") == "disabled"
+
+    estado.detenido = True
+    estado.demo_activa = True
+    pantalla.dibujar()
+    assert pantalla.gamepad.habilitado is False
+    assert demo.cget("state") == "disabled"
+    detener.invoke()
+    assert acciones == ["detener"]
+
+
 def test_cache_texto_conserva_las_entradas_recientes(raiz_tk, monkeypatch):
     monkeypatch.setattr(texto_render, "_MAX_CACHE", 2)
 

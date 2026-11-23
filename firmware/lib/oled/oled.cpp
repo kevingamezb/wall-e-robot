@@ -36,7 +36,8 @@ void PantallaOled::iniciar() {
 
 
 void PantallaOled::mostrar(float bateria, float distanciaCm,
-                           const String& modo, bool conexionActiva) {
+                           const String& modo, bool conexionActiva,
+                           bool mostrarOjos, bool ojosCerrados) {
 
     if (!_activo) {
         return;
@@ -54,7 +55,13 @@ void PantallaOled::mostrar(float bateria, float distanciaCm,
     }
 
     _pantalla.setCursor(0, 10);
-    _pantalla.print("DIS "); _pantalla.print(distanciaCm, 1); _pantalla.println("cm");
+    _pantalla.print("DIS ");
+    if (distanciaCm < 0) {
+        _pantalla.println("--");
+    } else {
+        _pantalla.print(distanciaCm, 1);
+        _pantalla.println("cm");
+    }
 
     _pantalla.setCursor(0, 20);
     _pantalla.print("MODO "); _pantalla.println(modo);
@@ -62,6 +69,15 @@ void PantallaOled::mostrar(float bateria, float distanciaCm,
     _pantalla.setCursor(0, 30);
     _pantalla.println(conexionActiva ? "CONECTADO" : "SIN CONEXION");
 
+    if (mostrarOjos) {
+        for (int x : {32, 72}) {
+            if (ojosCerrados) {
+                _pantalla.drawFastHLine(x, 52, 24, SSD1306_WHITE);
+            } else {
+                _pantalla.fillRoundRect(x, 43, 24, 18, 5, SSD1306_WHITE);
+            }
+        }
+    }
     _pantalla.display();
 }
 

@@ -17,9 +17,11 @@ public:
 
     // Fija la meta de cada rueda. El PWM con signo indica velocidad y sentido.
     void mover(const String& direccion);
+    void girarBallet(int pwm);
 
     // Solicita una parada gradual mediante la rampa.
     void detener();
+    void detenerAhora();
 
     bool detenidos() const { return _velA == 0 && _velB == 0; }
 

@@ -29,17 +29,22 @@ void Auto::actualizar() {
         return;
     }
 
+    const bool lecturaFresca = sensorDistancia.lecturaFresca(TIEMPO_MAX_LECTURA_MS);
+    const float distancia = sensorDistancia.distanciaCm();
     const auto decision = _decision.actualizar(
         millis(), motores.detenidos(),
-        sensorDistancia.lecturaFresca(TIEMPO_MAX_LECTURA_MS),
-        sensorDistancia.distanciaCm(),
+        lecturaFresca, distancia,
         sensorDistancia.inicioUltimaLecturaMs(),
         UMBRAL_OBSTACULO_CM);
 
     _navegacion = nombreManiobra(decision.maniobra);
     _bloqueado = decision.bloqueado;
     if (decision.maniobra == ManiobraDecision::ALTO) {
-        motores.detener();
+        if (!lecturaFresca || distancia < 0 || distancia <= UMBRAL_OBSTACULO_CM) {
+            motores.detenerAhora();
+        } else {
+            motores.detener();
+        }
     } else {
         motores.mover(decision.maniobra == ManiobraDecision::RECTO ? "arriba" : _navegacion);
     }

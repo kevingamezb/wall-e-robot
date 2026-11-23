@@ -50,8 +50,8 @@ class NavegacionRenderer(RenderizadorBase):
 
         px = e.fuente(68)
         self._textos["dist_t"] = Texto(c, e(Disenio.DISTANCIA_TITULO[0]),
-                                       e(Disenio.DISTANCIA_TITULO[1]), "Distancia",
-                                       px, Paleta.TINTA, ancla="w",
+                                       e(Disenio.DISTANCIA_TITULO[1]), "Distancia frontal",
+                                       e.fuente(49), Paleta.TINTA, ancla="w",
                                        contorno=Paleta.TINTA, grosor=1)
         self._textos["dist_v"] = Texto(c, e(Disenio.DISTANCIA_VALOR[0]),
                                        e(Disenio.DISTANCIA_VALOR[1]), "",
