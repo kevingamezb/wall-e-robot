@@ -78,9 +78,9 @@ class Disenio:
     ETIQUETA_WIFI   = (133, 553)
     CAMPO_WIFI      = (107, 623, 857, 698)
     ETIQUETA_IP     = (133, 733, 247, 828)
-    CAMPO_IP        = (107, 825, 857, 900)
+    CAMPO_IP        = (107, 835, 857, 910)
     ETIQUETA_PORT   = (133, 973, 390, 1068)
-    CAMPO_PORT      = (107, 1065, 857, 1140)
+    CAMPO_PORT      = (107, 1075, 857, 1150)
     BOTON_CONECTAR  = (130, 1451, 839, 1679)
     ESTADO_CONEXION = (130, 1740, 839, 2080)
 
