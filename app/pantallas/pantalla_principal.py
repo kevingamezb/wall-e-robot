@@ -51,7 +51,7 @@ class PantallaPrincipal:
     def __init__(self, parent, estado: EstadoRobot, escala,
                  on_conectar=None, on_desconectar=None, on_modo=None,
                  mapeo=None, on_cambio_mapeo=None, al_captura=None, on_ota=None,
-                 on_detener=None, on_demo=None):
+                 on_detener=None, on_demo=None, on_configuracion=None):
         """
         parent         : el frame contenedor (en main.py).
         estado         : el estado compartido con todo el programa.
@@ -107,11 +107,14 @@ class PantallaPrincipal:
             self.boton_modo.suscribir(on_modo)
 
         self._construir_marco()
+        if on_configuracion is not None:
+            self._crear_accion("Configuración", on_configuracion, (2660, 267, 3120, 364),
+                               Paleta.FONDO_WIDGET, color_texto=Paleta.DORADO, habilitada=True)
         self._acciones_robot = [
             self._crear_accion(texto, callback, caja, color)
             for texto, callback, caja, color in (
-                ("Demo", on_demo, (2820, 267, 3220, 364), Paleta.DORADO),
-                ("Detener", on_detener, (3270, 267, 3803, 364), Paleta.ROJO),
+                ("Demo", on_demo, (3160, 267, 3430, 364), Paleta.DORADO),
+                ("Detener", on_detener, (3470, 267, 3803, 364), Paleta.ROJO),
             ) if callback is not None
         ]
         self._construir_barra_lateral()
@@ -123,15 +126,17 @@ class PantallaPrincipal:
 
         self.establecer_conexion(False, SIN_CONEXION)
 
-    def _crear_accion(self, texto, callback, caja, color):
+    def _crear_accion(self, texto, callback, caja, color,
+                      color_texto=Paleta.TINTA, habilitada=False):
         e, c = self.e, self.canvas
+        estado = "normal" if habilitada else "disabled"
         boton = tk.Button(c, text=texto, command=callback, bg=color,
-                          relief="flat", state="disabled")
+                          relief="flat", state=estado)
         boton._rotulos = {
-            "normal": foto_texto(texto, e.fuente(46), Paleta.TINTA, master=c),
+            "normal": foto_texto(texto, e.fuente(46), color_texto, master=c),
             "disabled": foto_texto(texto, e.fuente(46), Paleta.GRIS, master=c),
         }
-        boton.configure(image=boton._rotulos["disabled"])
+        boton.configure(image=boton._rotulos[estado])
         x1, y1, x2, y2 = e.caja(caja)
         c.create_window(x1, y1, window=boton, anchor="nw",
                         width=x2-x1, height=y2-y1)

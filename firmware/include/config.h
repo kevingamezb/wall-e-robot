@@ -18,7 +18,7 @@ static_assert(sizeof(OTA_USUARIO) >= 2,
 static_assert(sizeof(OTA_CLAVE) >= 9,
               "OTA_CLAVE debe tener al menos 8 caracteres.");
 
-static const char* PROYECTO_VERSION = "1.2.0";
+static const char* PROYECTO_VERSION = "1.2.1";
 
 // Versión del protocolo TCP+JSON. La app (app/comunicacion/conexion.py)
 // publica y valida el mismo número; subirlo solo cuando cambie el contrato.

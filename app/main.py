@@ -10,6 +10,7 @@ from tkinter import messagebox, simpledialog
 import webbrowser
 from .rutas import directorio_recursos
 from .nucleo.paleta import Paleta
+from .nucleo.configuracion_control import ConfiguracionControl
 from .nucleo.disenio import escala_para_pantalla
 from .nucleo.estado import EstadoRobot, NivelLog, Modo
 from .comunicacion.conexion import Comunicacion, ConexionOffline
@@ -100,6 +101,7 @@ class Aplicacion:
         self.contenedor.pack(fill="both", expand=True)
 
         self.mapeo = MapeoTeclado.cargar()
+        self.configuracion_control = ConfiguracionControl()
 
         self.pantalla = PantallaPrincipal(
             self.contenedor,
@@ -114,9 +116,10 @@ class Aplicacion:
             on_ota=self._abrir_portal_ota,
             on_detener=lambda: self.conexion.enviar_mensaje({"tipo": "detener"}),
             on_demo=lambda: self.conexion.enviar_mensaje({"tipo": "demo"}),
+            on_configuracion=self._abrir_configuracion,
         )
         # El gamepad dispara siempre hacia la conexión activa (real u offline).
-        self.pantalla.conectar_gamepad(lambda cmd: self.conexion.enviar_mensaje(cmd))
+        self.pantalla.conectar_gamepad(self._enviar_control_manual)
 
         self.control_teclado = ControlTeclado(
             self.root, self.mapeo, self.pantalla.gamepad,
@@ -125,6 +128,21 @@ class Aplicacion:
     def _suspender_teclado(self, activa: bool):
         """Suspende el control por teclado mientras se captura una tecla nueva."""
         self.control_teclado.suspendido = activa
+
+    def _enviar_control_manual(self, comando):
+        self.conexion.enviar_mensaje(self.configuracion_control.ajustar_comando(comando))
+
+    def _abrir_configuracion(self):
+        from .pantallas.modal_configuracion import ModalConfiguracion
+
+        self.control_teclado.limpiar_estado()
+        estaba_suspendido = self.control_teclado.suspendido
+        self._suspender_teclado(True)
+        try:
+            modal = ModalConfiguracion(self.root, self.configuracion_control)
+            self.root.wait_window(modal)
+        finally:
+            self._suspender_teclado(estaba_suspendido)
 
     def _abrir_portal_ota(self):
         if self._ota_pendiente:

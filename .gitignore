@@ -11,6 +11,7 @@ firmware/.vscode/
 # Credenciales privadas del firmware
 firmware/include/secrets.h
 /configuracion/conexion.json
+/configuracion/control_robot.json
 
 # Secretos de la distribucion (clave dedicada del equipo)
 /empaquetado/secrets.distribucion.h
