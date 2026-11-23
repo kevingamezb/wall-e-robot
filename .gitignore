@@ -190,3 +190,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Empaquetado local de desarrollo
+/scripts/empaquetar_dev.py
