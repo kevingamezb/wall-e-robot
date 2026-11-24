@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-static const char* PROYECTO_VERSION = "1.3.0";
+static const char* PROYECTO_VERSION = "1.3.1";
 
 // Versión del protocolo TCP+JSON. La app (app/comunicacion/conexion.py)
 // publica y valida el mismo número; subirlo solo cuando cambie el contrato.
