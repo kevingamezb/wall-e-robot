@@ -71,6 +71,12 @@ En automático con la app conectada, **6-7** tiene un 0,1 % de probabilidad cada
 
 Para actualizar por Wi-Fi, abre **Conectar → Abrir Portal OTA** en la aplicación mientras estás en la red del robot. Inicia sesión con las credenciales OTA y carga el binario junto con su archivo MD5 según las indicaciones del portal.
 
+### Limitaciones de la lectura de batería
+
+El porcentaje es una estimación lineal basada en el voltaje que mide el INA219. Cuando aumenta el consumo, por ejemplo al accionar los motores o los servos, el voltaje puede caer y recuperarse al bajar la carga. Por eso el porcentaje puede variar aunque la carga real de la batería apenas haya cambiado.
+
+El firmware actualiza la estimación tras 500 ms con las ruedas quietas. Durante ese reposo, la electrónica y los servos aún pueden consumir corriente. Para comparar lecturas, deja el robot quieto y espera a que el voltaje y la corriente que muestra la app se estabilicen.
+
 ## 🔌 Conexiones
 
 El montaje usa un ESP32, un sensor ultrasónico HC-SR04 fijo al frente, un controlador TB6612FNG con dos motores CC, tres servos MG90S, un sensor de corriente INA219, una pantalla OLED SSD1306 de 0,96″ y tres LED. El firmware define los GPIO y las direcciones I²C en [pines.h](firmware/include/pines.h).
