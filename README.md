@@ -140,6 +140,14 @@ python -m app.main
 
 3. Abre **Configuración → Wi-Fi y OTA** en la app para configurar las credenciales del dispositivo.
 
+## 🫂 Equipo
+
+<p align="center">
+  <img src="app/recursos/Equipo.jpeg" alt="Wall-E Robot" width="720">
+</p>
+
+Kevin Gámez, Alvaro Orjuela, Shalon León y Andrés León
+
 ## 📄 Licencia
 
 [GNU General Public License v3.0](LICENSE).
