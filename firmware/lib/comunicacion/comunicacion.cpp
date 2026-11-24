@@ -127,7 +127,8 @@ void Comunicacion::enviarMensaje(const String& mensaje) {
 }
 
 
-void Comunicacion::enviarEstado(float bateria, const String& modo,
+void Comunicacion::enviarEstado(float bateria, float voltajeBateria, float corrienteBateria,
+                                const String& modo,
                                 bool hay_advertencia, bool hay_error,
                                 float distancia_cm, const String& navegacion,
                                 bool auto_bloqueado,
@@ -146,6 +147,10 @@ void Comunicacion::enviarEstado(float bateria, const String& modo,
     doc["protocolo"]           = PROTOCOLO_VERSION;
     doc["tipo"]               = "estado";
     doc["bateria"]            = bateria;
+    if (voltajeBateria > 0.0f) {
+        doc["voltaje_bateria_v"] = voltajeBateria;
+        doc["corriente_bateria_a"] = corrienteBateria;
+    }
     doc["modo"]               = modo;
     doc["detenido"]           = _detenido;
     doc["demo_activa"]        = _demoActiva;

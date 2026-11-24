@@ -72,7 +72,8 @@ public:
 
     // Publica un objeto "estado" con la telemetría del robot. distancia_cm y
     // tiempo_restante_min negativos se envían como null (sin dato).
-    void enviarEstado(float bateria, const String& modo,
+    void enviarEstado(float bateria, float voltajeBateria, float corrienteBateria,
+                      const String& modo,
                       bool hay_advertencia, bool hay_error,
                       float distancia_cm, const String& navegacion,
                       bool auto_bloqueado,

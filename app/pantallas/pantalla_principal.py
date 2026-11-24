@@ -84,6 +84,7 @@ class PantallaPrincipal:
         self._destino_intentado = None
         self._tiempos = []          # instantes de los últimos dibujos (FPS)
         self._latencia_ms = None
+        self._rotulos_acciones = {}
 
         self.canvas = tk.Canvas(parent, width=e.ancho, height=e.alto_panel,
                                 bg=Paleta.FONDO_APP, highlightthickness=0,
@@ -132,11 +133,12 @@ class PantallaPrincipal:
         estado = "normal" if habilitada else "disabled"
         boton = tk.Button(c, text=texto, command=callback, bg=color,
                           relief="flat", state=estado)
-        boton._rotulos = {
+        rotulos = {
             "normal": foto_texto(texto, e.fuente(46), color_texto, master=c),
             "disabled": foto_texto(texto, e.fuente(46), Paleta.GRIS, master=c),
         }
-        boton.configure(image=boton._rotulos[estado])
+        self._rotulos_acciones[boton] = rotulos
+        boton.configure(image=rotulos[estado])
         x1, y1, x2, y2 = e.caja(caja)
         c.create_window(x1, y1, window=boton, anchor="nw",
                         width=x2-x1, height=y2-y1)
@@ -238,9 +240,10 @@ class PantallaPrincipal:
         avanzado = tk.Button(c, text=rotulo_avanzado,
                              command=self._alternar_avanzado,
                              relief="flat", bg=Paleta.FONDO_WIDGET)
-        avanzado._rotulo = foto_texto(rotulo_avanzado, e.fuente(42),
-                                      Paleta.DORADO, master=c)
-        avanzado.configure(image=avanzado._rotulo)
+        rotulo_imagen = foto_texto(rotulo_avanzado, e.fuente(42),
+                       Paleta.DORADO, master=c)
+        setattr(avanzado, "_rotulo", rotulo_imagen)
+        avanzado.configure(image=rotulo_imagen)
         self._items_conexion.append(c.create_window(
             e(107), e(1200), window=avanzado, anchor="nw",
             width=e(750), height=e(90)))
@@ -265,8 +268,9 @@ class PantallaPrincipal:
                             bg=Paleta.FONDO_WIDGET, fg=Paleta.DORADO,
                             activebackground=Paleta.DORADO, activeforeground=Paleta.TINTA,
                             relief="flat", cursor="hand2")
-            ota._imagen_ota = foto_texto("OTA", e.fuente(62), Paleta.DORADO, master=c)
-            ota.configure(image=ota._imagen_ota, activebackground=Paleta.FONDO_CANVAS)
+            imagen_ota = foto_texto("OTA", e.fuente(62), Paleta.DORADO, master=c)
+            setattr(ota, "_imagen_ota", imagen_ota)
+            ota.configure(image=imagen_ota, activebackground=Paleta.FONDO_CANVAS)
             self._items_conexion.append(c.create_window(
                 bx1, e(1940), window=ota, anchor="nw",
                 width=bx2 - bx1, height=e(116)))
@@ -413,6 +417,8 @@ class PantallaPrincipal:
         self._lbl_pct = Texto(c, e(l2x), e(l2y), "", e.fuente(62), Paleta.DORADO,
                               ancla="center", contorno=Paleta.DORADO_BORDE,
                               grosor=max(2, e(6)))
+        self._lbl_medicion_bateria = Texto(c, e(l2x), e(1220), "", e.fuente(30),
+                                         Paleta.TINTA, ancla="center")
 
     def _construir_registro(self):
         e, c = self.e, self.canvas
@@ -546,7 +552,8 @@ class PantallaPrincipal:
         for boton in self._acciones_robot:
             habilitado = compatible and (boton.cget("text") != "Demo" or not estado.demo_activa)
             estado_boton = "normal" if habilitado else "disabled"
-            boton.configure(state=estado_boton, image=boton._rotulos[estado_boton])
+            boton.configure(state=estado_boton,
+                            image=self._rotulos_acciones[boton][estado_boton])
 
         manual = estado.modo == Modo.MANUAL
         if not self._conexion_activa:
@@ -585,6 +592,10 @@ class PantallaPrincipal:
                             contorno=self._oscuro(color_sol, 0.7))
         self._lbl_pct.poner(texto=pct, color=color_sol,
                             contorno=self._oscuro(color_sol, 0.62))
+        voltaje, corriente = estado.voltaje_bateria_v, estado.corriente_bateria_a
+        medicion = (f"{voltaje:.2f} V / {corriente * 1000:.0f} mA"
+                    if self._conexion_activa and voltaje is not None and corriente is not None else "")
+        self._lbl_medicion_bateria.poner(texto=medicion)
 
         self.render_navegacion.dibujar()
         self.render_gamepad.dibujar()

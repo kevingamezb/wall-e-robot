@@ -15,9 +15,11 @@ public:
     // true si el INA219 se inicializó bien (usado por el self-test OTA).
     bool activo() const;
 
-    void actualizarLectura();
+    void actualizarLectura(bool enReposo);
 
     float nivel() const;        // 0.0-1.0, o -1 si no hay lectura válida
+    bool lecturaValida() const { return _lecturaValida; }
+    float voltajeV() const { return _voltajeBateria; }
     float corrienteA() const;
     float consumoWatts() const;
     bool  cargando() const;     // heurística por el sentido de la corriente
@@ -29,11 +31,11 @@ private:
 
     Adafruit_INA219 _sensor;
     bool     _activo;
+    bool     _lecturaValida;
     float    _voltajeBus;      // VIN- (lado carga): para consumoWatts()
     float    _voltajeBateria;  // VIN+ (lado batería): para nivel()/autonomía
     float    _corriente;
     float    _nivel;           // nivel cacheado, se actualiza solo en reposo
-    bool     _nivelInicializado;
     uint32_t _reposoDesdeMs;
 };
 

@@ -115,6 +115,8 @@ class EstadoRobot:
 
     modo:                   Modo  = Modo.MANUAL                                    # Ojos y IconoGamepad (arranque del firmware)
     bateria:                float = -1.0                                           # -1: sin lectura
+    voltaje_bateria_v:      float | None = None
+    corriente_bateria_a:    float | None = None
     cargando:               bool  = False                                          # SolCarga
     tiempo_restante_min:    int   = 0                                              # SolCarga
     consumo_watts:          float = 0.0                                            # BarraConsumo

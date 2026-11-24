@@ -257,6 +257,22 @@ class Comunicacion(Conexion):
         bateria = mensaje.get("bateria")
         if isinstance(bateria, (int, float)):
             estado.bateria = float(bateria)
+        for campo in ("voltaje_bateria_v", "corriente_bateria_a"):
+            valor = mensaje.get(campo)
+            valido = (
+                isinstance(valor, (int, float))
+                and not isinstance(valor, bool)
+                and -1000 < valor < 1000
+            )
+            setattr(
+                estado,
+                campo,
+                float(valor)
+                if isinstance(valor, (int, float))
+                and not isinstance(valor, bool)
+                and -1000 < valor < 1000
+                else None,
+            )
 
         if isinstance(mensaje.get("modo"), str):
             try:
@@ -365,6 +381,7 @@ class ConexionOffline(Conexion):
         estado.nivel_conexion = NivelConexion.NULA
         estado.detenido = None
         estado.demo_activa = False
+        estado.voltaje_bateria_v = estado.corriente_bateria_a = None
 
     def enviar_mensaje(self, comando: dict):
         """Sin robot no hay destino: el comando se descarta."""

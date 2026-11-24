@@ -76,6 +76,8 @@ def test_parseo_estado_completo(proto):
         "protocolo": PROTOCOLO_VERSION,
         "tipo": "estado",
         "bateria": 0.83,
+        "voltaje_bateria_v": 8.01,
+        "corriente_bateria_a": 0.12,
         "modo": "manual",
         "hay_advertencia": True,
         "hay_error": False,
@@ -98,6 +100,8 @@ def test_parseo_estado_completo(proto):
     }, estado)
 
     assert estado.bateria == 0.83
+    assert estado.voltaje_bateria_v == 8.01
+    assert estado.corriente_bateria_a == 0.12
     assert estado.modo == Modo.MANUAL
     assert estado.hay_advertencia is True
     assert estado.hay_error is False

@@ -333,7 +333,8 @@ void loop() {
 
     if (MODULOS.bateria &&
         (ahoraMs - s_ultimaBateriaMs >= LECTURA_BATERIA_MS)) {
-        bateria.actualizarLectura();
+        bateria.actualizarLectura(motores.detenidos() && !comunicacion.demoActiva() &&
+                                  s_emote == Emote::NINGUNO);
         s_ultimaBateriaMs = ahoraMs;
     }
 
@@ -395,6 +396,8 @@ void loop() {
 
         comunicacion.enviarEstado(
             nivelBateria,
+            bateria.lecturaValida() ? bateria.voltajeV() : -1.0f,
+            bateria.corrienteA(),
             comunicacion.modo(),
             advertencia,
             error,

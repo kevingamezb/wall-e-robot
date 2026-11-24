@@ -73,8 +73,7 @@ static const uint32_t LECTURA_BATERIA_MS   = 250;
 // Muestreo más rápido + filtro EMA para quedarnos con la tendencia.
 static const float BATERIA_FILTRO_ALPHA = 0.5f;
 
-// El nivel se actualiza en reposo para evitar el efecto de la caída de tensión bajo carga.
-static const float   BATERIA_CORRIENTE_REPOSO_A = 0.05f;
+// Tiempo con las ruedas quietas antes de estimar el nivel de batería.
 static const uint32_t BATERIA_REPOSO_ESTABLE_MS = 500;
 
 // Antigüedad máxima de la última medición para que Auto pueda moverse. Si el
